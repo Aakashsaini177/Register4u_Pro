@@ -1039,8 +1039,6 @@ const CardDesigner = () => {
                   style={{
                     width: `${imageWidth}px`,
                     height: `${imageHeight}px`,
-                    width: `${imageWidth}px`,
-                    height: `${imageHeight}px`,
                     border: "2px solid #39FF14", // Green as requested
                     marginTop: `${imageTopMargin}px`,
                     marginLeft: `${imageLeftMargin}px`,
