@@ -1,0 +1,144 @@
+####################################
+# Dependencies
+####################################
+node_modules/
+**/node_modules/
+
+####################################
+# Environment Variables (Secrets)
+####################################
+.env
+.env.*
+.env.local
+.env.*.local
+
+####################################
+# Documentation & Text Files
+####################################
+*.txt
+*.md
+!README.md
+!README_HINDI.md
+!**/README.md
+
+####################################
+# Development & Testing Scripts
+####################################
+scripts/
+verify_*.js
+analyze_*.js
+test_*.js
+*.test.js
+*.spec.js
+TestPermissions.jsx
+
+####################################
+# Build Outputs
+####################################
+dist/
+build/
+out/
+.next/
+.cache/
+.tmp/
+temp/
+
+####################################
+# Frontend (React / Vite / CRA)
+####################################
+.vite/
+.eslintcache
+*.tsbuildinfo
+
+####################################
+# Backend Runtime / Process
+####################################
+pids/
+*.pid
+*.pid.lock
+*.seed
+.pm2/
+
+####################################
+# Logs
+####################################
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+####################################
+# Uploads (Keep folder, ignore files)
+####################################
+uploads/*
+!uploads/.gitkeep
+
+####################################
+# Databases / Dumps (IMPORTANT)
+####################################
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+####################################
+# OS Generated Files
+####################################
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+####################################
+# IDE / Editors
+####################################
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+####################################
+# Testing / Coverage
+####################################
+coverage/
+.nyc_output/
+
+####################################
+# Windows Scripts (Optional)
+####################################
+*.bat
+
+####################################
+# Reports / Generated Docs (Optional)
+####################################
+project-structure.txt
+
+####################################
+# Personal / Planning Files
+####################################
+aakashplaning.md
+
+####################################
+# Data Files (Sensitive/Large)
+####################################
+*.xlsx
+*.xls
+*.csv
+
+####################################
+# Temporary / Backup Files
+####################################
+env.temp
+*.bak
+*.tmp
+
+####################################
+# System Files
+####################################
+Desktop.ini

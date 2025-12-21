@@ -1,0 +1,328 @@
+import axios from "axios";
+import toast from "react-hot-toast";
+
+// API Base URL - Using NEW backend (fixed and working!)
+// API Base URL - Using NEW backend (fixed and working!)
+export const API_BASE_URL = "http://localhost:4002/api/v1";
+export const UPLOADS_BASE_URL = "http://localhost:4002/uploads";
+export const SERVER_BASE_URL = "http://localhost:4002";
+// For old backend:
+// export const API_BASE_URL = 'http://localhost:4001/api'
+// For production:
+// export const API_BASE_URL = 'https://uatapi.registration4u.in/api'
+// export const UPLOADS_BASE_URL = 'https://uatapi.registration4u.in/uploads'
+
+// Helper function to get full photo URL
+export const getPhotoUrl = (photoPath) => {
+  // Use the same logic as getImageUrl for consistency
+  return getImageUrl(photoPath);
+};
+
+// Helper function to get image URL (handles both bulk and individual uploads)
+export const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+
+  // Clean the path
+  let cleanPath = imagePath.replace(/\\/g, "/");
+
+  // If it's already a full URL path starting with /uploads/, construct full URL
+  if (cleanPath.startsWith("/uploads/")) {
+    return `${SERVER_BASE_URL}${cleanPath}`;
+  }
+
+  // If it's just a filename, add to uploads (individual uploads)
+  if (!cleanPath.includes("/")) {
+    return `${UPLOADS_BASE_URL}/${cleanPath}`;
+  }
+
+  // For other paths that might include uploads/, construct full URL
+  if (cleanPath.includes("uploads/")) {
+    return `${SERVER_BASE_URL}/${cleanPath}`;
+  }
+
+  // Default: treat as filename in uploads
+  return `${UPLOADS_BASE_URL}/${cleanPath}`;
+};
+
+// Helper function to get photo from file manager by name (specifically for bulk uploads)
+export const getPhotoFromFileManager = async (photoName) => {
+  if (!photoName) return null;
+
+  try {
+    // Get root level folders
+    const response = await api.get("/files/list");
+    const rootFolders = response.data.data || [];
+
+    // Find photo folder at root level
+    const photoFolder = rootFolders.find(
+      (folder) =>
+        folder.type === "folder" && folder.name.toLowerCase() === "photo"
+    );
+
+    if (!photoFolder) return null;
+
+    // Get files from photo folder
+    const photosResponse = await api.get("/files/list", {
+      params: { parentId: photoFolder._id },
+    });
+
+    const photos = photosResponse.data.data || [];
+
+    // Find photo by name (exact match or contains)
+    const photo = photos.find(
+      (p) =>
+        p.type === "file" &&
+        p.mimeType &&
+        p.mimeType.startsWith("image/") &&
+        (p.name === photoName ||
+          p.name.includes(photoName.replace(/\.[^/.]+$/, "")) ||
+          p.name === `${photoName}.jpg` ||
+          p.name === `${photoName}.png` ||
+          p.name === `${photoName}.jpeg`)
+    );
+
+    return photo ? `${SERVER_BASE_URL}${photo.url}` : null;
+  } catch (error) {
+    console.error("Error fetching photo from file manager:", error);
+    return null;
+  }
+};
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "123",
+  },
+});
+
+// Request interceptor for adding auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Don't override Content-Type for FormData
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for handling errors
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response) {
+      // Allow skipping default error handling
+      if (error.config?.skipErrorHandling) {
+        return Promise.reject(error);
+      }
+
+      // Handle specific error codes
+      switch (error.response.status) {
+        case 401:
+          // Unauthorized - clear token and redirect to login
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+          toast.error("Session expired. Please login again.");
+          break;
+        case 403:
+          toast.error("You do not have permission to perform this action.");
+          break;
+        case 404:
+          toast.error("Requested resource not found.");
+          break;
+        case 500:
+          toast.error("Server error. Please try again later.");
+          break;
+        default:
+          toast.error(error.response.data?.message || "Something went wrong.");
+      }
+    } else if (error.request) {
+      toast.error("Network error. Please check your connection.");
+    } else {
+      toast.error("An error occurred. Please try again.");
+    }
+    return Promise.reject(error);
+  }
+);
+
+// API methods
+export const authAPI = {
+  login: (data) => api.post("/login", data),
+  employeeLogin: (data) => api.post("/auth/employee-login", data),
+  changePassword: (data) => api.post("/auth/change-password", data),
+  getProfile: () => api.get("/auth/profile"),
+  logout: () => api.post("/auth/logout"),
+  getMe: () => api.get("/me"),
+  updatePreferences: (data) => api.put("/preferences", data),
+  logScan: (data) => api.post("/recent-scans", data),
+  forgotPassword: (data) => api.post("/forgotpasssword", data),
+  resetPassword: (data) => api.post("/resetpassword", data),
+};
+
+export const dashboardAPI = {
+  getDashboard: () => api.get("/dashboard"),
+};
+
+export const employeeAPI = {
+  getAll: (data = {}) => api.post("/getAllEmployee", data),
+  getById: (id) => api.get(`/employee/${id}`),
+  create: (data) => api.post("/createemployee", data),
+  update: (id, data) => api.post(`/updateemployee/${id}`, data),
+  delete: (id) => api.post(`/deleteemployee/${id}`, {}),
+  // Login management endpoints (Admin only)
+  toggleLogin: (id, data) => api.post(`/employees/${id}/toggle-login`, data),
+  resetPassword: (id, data) =>
+    api.post(`/employees/${id}/reset-password`, data),
+  getLoginHistory: (id) => api.get(`/employees/${id}/login-history`),
+};
+
+export const companyAPI = {
+  getAll: () => api.get("/getallcompany"),
+  getById: (id) => api.get(`/company/${id}`),
+  create: (data) => api.post("/createcompany", data),
+  update: (id, data) => api.post(`/companyupdate/${id}`, data),
+  delete: (id) => api.post(`/deletecompany/${id}`, {}),
+};
+
+export const eventAPI = {
+  getAll: (data = {}) => api.post("/getallevent", data),
+  getById: (id) => api.get(`/event/${id}`),
+  create: (data) => api.post("/createevent", data),
+  update: (id, data) => api.post(`/updateevent/${id}`, data),
+  delete: (id) => api.post(`/deleteevent/${id}`, {}),
+};
+
+export const employeeTaskAPI = {
+  getAll: () => api.get("/getallemptask"),
+  getById: (id) => api.get(`/employeetask/${id}`),
+  create: (data) => api.post("/createemployeetask", data),
+  update: (id, data) => api.post(`/updateemptask/${id}`, data),
+  delete: (id) => api.post(`/deleteemptask/${id}`, {}),
+};
+
+export const visitorAPI = {
+  getAll: (data = {}) => api.post("/getAllVisitors", data),
+  getById: (id) => api.get(`/visitors/${id}`),
+  create: (formData) =>
+    api.post("/createvisitors", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  update: (id, formData) =>
+    api.post(`/updatevisitors/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  delete: (id) => api.post(`/deletevisitors/${id}`, {}),
+  import: (formData) =>
+    api.post("/visitors/import", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  deleteMultiple: (data) => api.post("/deleteVisitors", data),
+  export: (data) =>
+    api.post("/exportVisitors", data, {
+      responseType: "blob",
+    }),
+  bulkUpload: (formData) =>
+    api.post("/addBulkEvent", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  // New methods
+  scan: (visitorId) => api.post("/visitors/scan", { visitorId }),
+  getDashboardStats: () => api.get("/visitors/dashboard/stats"),
+};
+
+export const categoryAPI = {
+  getAll: () => api.get("/getallCategory"),
+  create: (data) => api.post("/createCategory", data),
+};
+
+export const settingsAPI = {
+  getBackgroundImage: () => api.get("/getBackImage"),
+  updateBackgroundImage: (formData) =>
+    api.post("/updateBackImage", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  createBackgroundImage: (formData) =>
+    api.post("/createBackImage", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  getSettings: () => api.get("/getSetting"),
+  updateSettings: (data) => api.post("/updateSetting", data),
+  createSettings: (data) => api.post("/createSetting", data),
+  // New Portal Visibility Settings
+  getPortalSettings: () => api.get("/settings/portal"),
+  updatePortalSettings: (data) => api.put("/settings/portal", data),
+};
+
+export const photosAPI = {
+  upload: (formData) =>
+    api.post("/addPhoto", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+};
+
+export const activityLogAPI = {
+  getAll: (params) => api.get("/activity-logs", { params }),
+  create: (data) => api.post("/activity-logs", data),
+};
+
+export const inviteAPI = {
+  getAll: () => api.get("/invites"),
+  getById: (id) => api.get(`/invites/${id}`),
+  create: (data) => api.post("/invites", data),
+  update: (id, data) => api.put(`/invites/${id}`, data),
+  delete: (id) => api.delete(`/invites/${id}`),
+  validate: (code) =>
+    api.get(`/invites/validate/${code}`, { skipErrorHandling: true }),
+};
+
+export const barcodeAPI = {
+  getBarcode: (id) => api.get(`/barcode-image/${id}`),
+  getVisitorInfo: (id) => api.get(`/visitor-info/${id}`),
+};
+
+export const travelAPI = {
+  getAll: (params) => api.get("/travel", { params }),
+  getById: (id) => api.get(`/travel/${id}`),
+  create: (data) => api.post("/travel", data),
+  update: (id, data) => api.put(`/travel/${id}`, data),
+  delete: (id) => api.delete(`/travel/${id}`),
+  exportReport: (params) =>
+    api.get("/travel/export", { params, responseType: "blob" }),
+};
+
+export const hotelAPI = {
+  getAll: () => api.get("/hotels"),
+  getById: (id) => api.get(`/hotels/${id}`),
+  create: (data) => api.post("/hotels", data),
+  update: (id, data) => api.put(`/hotels/${id}`, data),
+  delete: (id) => api.delete(`/hotels/${id}`),
+};
+
+export const reportAPI = {
+  getRoomCategorySummary: (eventId) =>
+    api.get(`/events/${eventId}/reports/room-category-summary`),
+  getPaxSummary: (eventId) => api.get(`/events/${eventId}/reports/pax-summary`),
+  getHotelWiseSummary: (eventId) =>
+    api.get(`/events/${eventId}/reports/hotel-wise-summary`),
+  getDateWiseSummary: (eventId) =>
+    api.get(`/events/${eventId}/reports/date-wise-summary`),
+  getHotelContactSummary: (eventId) =>
+    api.get(`/events/${eventId}/reports/hotel-contacts`),
+};
+
+export default api;
