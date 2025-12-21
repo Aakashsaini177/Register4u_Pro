@@ -3,9 +3,9 @@ import toast from "react-hot-toast";
 
 // API Base URL - Using NEW backend (fixed and working!)
 // API Base URL - Using NEW backend (fixed and working!)
-export const API_BASE_URL = "http://localhost:4002/api/v1";
-export const UPLOADS_BASE_URL = "http://localhost:4002/uploads";
-export const SERVER_BASE_URL = "http://localhost:4002";
+export const API_BASE_URL = "https://register4u-pro.onrender.com/api/v1";
+export const UPLOADS_BASE_URL = "https://register4u-pro.onrender.com/uploads";
+export const SERVER_BASE_URL = "https://register4u-pro.onrender.com";
 // For old backend:
 // export const API_BASE_URL = 'http://localhost:4001/api'
 // For production:
