@@ -20,6 +20,7 @@ import {
 } from "../../components/ui/Select";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { SERVER_BASE_URL } from "@/lib/api";
 
 const AddTravel = () => {
   const navigate = useNavigate();
@@ -115,7 +116,7 @@ const AddTravel = () => {
         // but typically the form lets you update all details.
       }
 
-      const response = await fetch("http://localhost:4002/api/v1/travel", {
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/travel`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

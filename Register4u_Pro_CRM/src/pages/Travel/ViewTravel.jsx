@@ -23,6 +23,7 @@ import {
 import { Badge } from "../../components/ui/Badge";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { SERVER_BASE_URL } from "@/lib/api";
 
 const ViewTravel = () => {
   const { id } = useParams();
@@ -40,7 +41,7 @@ const ViewTravel = () => {
   const fetchTravelDetails = async () => {
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/travel/${id}`,
+        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -71,7 +72,7 @@ const ViewTravel = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/travel/${id}`,
+        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
         {
           method: "DELETE",
           headers: {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fileManagerAPI } from "@/lib/fileManagerAPI";
+import { SERVER_BASE_URL } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -221,7 +222,7 @@ const FileManager = () => {
     if (node.mimeType?.startsWith("image/")) {
       const imageUrl = node.url.startsWith("http")
         ? node.url
-        : `http://localhost:4002${node.url}`;
+        : `${SERVER_BASE_URL}${node.url}`;
       return (
         <div className="h-8 w-8 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
           <img
@@ -434,7 +435,7 @@ const FileManager = () => {
                         // Open image in new tab for viewing
                         const imageUrl = node.url.startsWith("http")
                           ? node.url
-                          : `http://localhost:4002${node.url}`;
+                          : `${SERVER_BASE_URL}${node.url}`;
                         window.open(imageUrl, "_blank");
                       }
                     }}

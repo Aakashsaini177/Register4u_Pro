@@ -28,6 +28,7 @@ import {
 } from "../../components/ui/Select";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { SERVER_BASE_URL } from "@/lib/api";
 import TravelAllotmentModal from "./TravelAllotmentModal";
 
 const EditTravel = () => {
@@ -64,7 +65,7 @@ const EditTravel = () => {
   const fetchTravelDetails = async () => {
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/travel/${id}`,
+        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -145,7 +146,7 @@ const EditTravel = () => {
       }
 
       const response = await fetch(
-        `http://localhost:4002/api/v1/travel/${id}`,
+        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
         {
           method: "PUT",
           headers: {

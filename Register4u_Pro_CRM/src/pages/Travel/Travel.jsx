@@ -25,6 +25,7 @@ import { Badge } from "../../components/ui/Badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { SERVER_BASE_URL } from "@/lib/api";
 import TravelAllotmentModal from "./TravelAllotmentModal";
 import { travelAPI } from "../../lib/api";
 
@@ -47,7 +48,7 @@ const Travel = () => {
 
   const fetchTravelDetails = async () => {
     try {
-      const response = await fetch("http://localhost:4002/api/v1/travel", {
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/travel`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -74,7 +75,7 @@ const Travel = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/travel/${id}`,
+        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
         {
           method: "DELETE",
           headers: {
