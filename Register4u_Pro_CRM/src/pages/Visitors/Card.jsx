@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   visitorAPI,
   API_BASE_URL,
+  QR_CODE_API,
   getImageUrl,
   getPhotoFromFileManager,
 } from "@/lib/api";
@@ -313,7 +314,7 @@ const VisitorCard = () => {
               }}
             >
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=${cardSettings.qrCodeWidth}x${cardSettings.qrCodeHeight}&data=${visitor.visitorId}`}
+                src={`${QR_CODE_API}/?size=${cardSettings.qrCodeWidth}x${cardSettings.qrCodeHeight}&data=${visitor.visitorId}`}
                 alt="QR Code"
                 style={{
                   width: `${cardSettings.qrCodeWidth}px`,

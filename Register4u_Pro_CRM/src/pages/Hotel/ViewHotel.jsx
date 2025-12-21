@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
+import { SERVER_BASE_URL } from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 
@@ -37,7 +38,7 @@ const ViewHotel = () => {
   const fetchHotelDetails = async () => {
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/hotels/${id}`,
+        `${SERVER_BASE_URL}/api/v1/hotels/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -67,7 +68,7 @@ const ViewHotel = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/hotels/${id}`,
+        `${SERVER_BASE_URL}/api/v1/hotels/${id}`,
         {
           method: "DELETE",
           headers: {
@@ -95,7 +96,7 @@ const ViewHotel = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/hotels/allotments/${allotmentId}/status`,
+        `${SERVER_BASE_URL}/api/v1/hotels/allotments/${allotmentId}/status`,
         {
           method: "PUT",
           headers: {

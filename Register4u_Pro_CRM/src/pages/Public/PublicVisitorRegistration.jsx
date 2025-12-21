@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import VisitorForm from "@/components/visitors/VisitorForm";
-import { inviteAPI } from "@/lib/api";
+import { inviteAPI, API_BASE_URL } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
@@ -132,10 +132,7 @@ const PublicVisitorRegistration = () => {
       }
 
       // Call PUBLIC API endpoint
-      const API_URL =
-        import.meta.env.VITE_API_URL || "http://localhost:4002/api/v1";
-
-      const response = await fetch(`${API_URL}/visitors/create-public`, {
+      const response = await fetch(`${API_BASE_URL}/visitors/create-public`, {
         method: "POST",
         body: formData,
       });

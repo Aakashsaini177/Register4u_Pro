@@ -1,16 +1,18 @@
 import axios from "axios";
 import toast from "react-hot-toast";
 
-// API Base URL - Using NEW backend (fixed and working!)
-// API Base URL - Using NEW backend (fixed and working!)
-export const API_BASE_URL = "http://localhost:4002/api/v1";
-export const UPLOADS_BASE_URL = "http://localhost:4002/uploads";
-export const SERVER_BASE_URL = "http://localhost:4002";
-// For old backend:
-// export const API_BASE_URL = 'http://localhost:4001/api'
-// For production:
-// export const API_BASE_URL = 'https://uatapi.registration4u.in/api'
-// export const UPLOADS_BASE_URL = 'https://uatapi.registration4u.in/uploads'
+// API Configuration from Environment Variables
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
+export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
+export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
+export const PORTAL_API_BASE_URL = import.meta.env.VITE_PORTAL_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1/portal";
+
+// External Services URLs
+export const QR_CODE_API = import.meta.env.VITE_QR_CODE_API || "https://api.qrserver.com/v1/create-qr-code";
+export const GOOGLE_FONTS_API = import.meta.env.VITE_GOOGLE_FONTS_API || "https://fonts.googleapis.com/css2";
+
+// Legacy support - keeping old exports for backward compatibility
+export const API_URL = API_BASE_URL; // For components using API_URL
 
 // Helper function to get full photo URL
 export const getPhotoUrl = (photoPath) => {

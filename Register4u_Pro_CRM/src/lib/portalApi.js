@@ -1,9 +1,9 @@
 import axios from "axios";
 import toast from "react-hot-toast";
-import { API_BASE_URL } from "./api"; // Ensure access to API URL
+import { PORTAL_API_BASE_URL } from "./api"; // Use centralized config
 
 const portalApi = axios.create({
-  baseURL: `${API_BASE_URL}/portal`,
+  baseURL: PORTAL_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "123",

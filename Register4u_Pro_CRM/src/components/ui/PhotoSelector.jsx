@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { fileManagerAPI } from "@/lib/fileManagerAPI";
+import { SERVER_BASE_URL } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -70,7 +71,7 @@ const PhotoSelector = ({
         {selectedPhoto ? (
           <div className="flex items-center gap-4">
             <img
-              src={`http://localhost:4002${selectedPhoto.url}`}
+              src={`${SERVER_BASE_URL}${selectedPhoto.url}`}
               alt={selectedPhoto.name}
               className="w-16 h-16 object-cover rounded-lg border"
             />
@@ -165,7 +166,7 @@ const PhotoSelector = ({
                     onClick={() => handlePhotoSelect(photo)}
                   >
                     <img
-                      src={`http://localhost:4002${photo.url}`}
+                      src={`${SERVER_BASE_URL}${photo.url}`}
                       alt={photo.name}
                       className="w-full h-24 object-cover"
                     />

@@ -28,7 +28,7 @@ import {
 } from "../../components/ui/Select";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
-import { visitorAPI } from "../../lib/api";
+import { visitorAPI, SERVER_BASE_URL } from "../../lib/api";
 
 const RoomAllotment = () => {
   const navigate = useNavigate();
@@ -59,7 +59,7 @@ const RoomAllotment = () => {
   const fetchHotelDetails = async () => {
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/hotels/${hotelId}`,
+        `${SERVER_BASE_URL}/api/v1/hotels/${hotelId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -150,7 +150,7 @@ const RoomAllotment = () => {
       }
 
       const response = await fetch(
-        "http://localhost:4002/api/v1/hotels/allotments",
+        "${SERVER_BASE_URL}/api/v1/hotels/allotments",
         {
           method: "POST",
           headers: {

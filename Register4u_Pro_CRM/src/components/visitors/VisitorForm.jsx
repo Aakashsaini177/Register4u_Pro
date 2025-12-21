@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { categoryAPI, companyAPI } from "@/lib/api";
+import { categoryAPI, companyAPI, SERVER_BASE_URL } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -353,7 +353,7 @@ const VisitorForm = ({
                     typeof watch("photo") === "string" && watch("photo")
                       ? watch("photo").startsWith("http")
                         ? watch("photo")
-                        : `http://localhost:4002/uploads/${watch("photo")}`
+                        : `${SERVER_BASE_URL}/uploads/${watch("photo")}`
                       : null
                   }
                   error={errors.photo?.message}
@@ -394,7 +394,7 @@ const VisitorForm = ({
                     required={false}
                     defaultPreview={
                       existingDocuments.aadharFront
-                        ? `http://localhost:4002/uploads/${existingDocuments.aadharFront}`
+                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.aadharFront}`
                         : null
                     }
                     error={errors.aadharFront?.message}
@@ -417,7 +417,7 @@ const VisitorForm = ({
                     required={false}
                     defaultPreview={
                       existingDocuments.aadharBack
-                        ? `http://localhost:4002/uploads/${existingDocuments.aadharBack}`
+                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.aadharBack}`
                         : null
                     }
                     error={errors.aadharBack?.message}
@@ -440,7 +440,7 @@ const VisitorForm = ({
                     required={false}
                     defaultPreview={
                       existingDocuments.panFront
-                        ? `http://localhost:4002/uploads/${existingDocuments.panFront}`
+                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.panFront}`
                         : null
                     }
                     error={errors.panFront?.message}
@@ -460,7 +460,7 @@ const VisitorForm = ({
                     required={false}
                     defaultPreview={
                       existingDocuments.panBack
-                        ? `http://localhost:4002/uploads/${existingDocuments.panBack}`
+                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.panBack}`
                         : null
                     }
                     error={errors.panBack?.message}

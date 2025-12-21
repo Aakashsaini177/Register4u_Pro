@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { visitorAPI, getImageUrl } from "@/lib/api";
+import { visitorAPI, getImageUrl, API_BASE_URL } from "@/lib/api";
 import VisitorAvatar from "@/components/ui/VisitorAvatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -70,8 +70,6 @@ const ViewVisitor = () => {
   if (loading) {
     return <PageLoading />;
   }
-
-  const API_BASE_URL = "http://localhost:4002/api/v1";
 
   return (
     <div className="space-y-6">

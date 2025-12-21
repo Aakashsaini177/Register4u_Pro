@@ -13,6 +13,7 @@ import { Badge } from "../../components/ui/Badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { SERVER_BASE_URL } from "@/lib/api";
 import { hotelAPI } from "../../lib/api";
 
 const Hotel = () => {
@@ -48,7 +49,7 @@ const Hotel = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/hotels/${id}`,
+        `${SERVER_BASE_URL}/api/v1/hotels/${id}`,
         {
           method: "DELETE",
           headers: {
