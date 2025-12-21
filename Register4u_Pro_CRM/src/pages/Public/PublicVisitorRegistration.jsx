@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import VisitorForm from "@/components/Visitors/VisitorForm";
+import VisitorForm from "@/components/visitors/VisitorForm";
 import { inviteAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

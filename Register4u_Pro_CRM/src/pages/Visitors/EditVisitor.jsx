@@ -4,7 +4,7 @@ import { visitorAPI } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
-import VisitorForm from "@/components/Visitors/VisitorForm";
+import VisitorForm from "@/components/visitors/VisitorForm";
 import { PageLoading } from "@/components/ui/Loading";
 
 const EditVisitor = () => {
