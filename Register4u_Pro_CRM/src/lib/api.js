@@ -363,4 +363,23 @@ export const reportAPI = {
     api.get(`/events/${eventId}/reports/hotel-contacts`),
 };
 
+// Drivers API
+export const driverAPI = {
+  getAll: () => api.get("/drivers"),
+  getById: (id) => api.get(`/drivers/${id}`),
+  create: (formData) =>
+    api.post("/drivers", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  update: (id, formData) =>
+    api.put(`/drivers/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  delete: (id) => api.delete(`/drivers/${id}`),
+  getDailyReport: (date) =>
+    api.get(`/drivers/reports/daily`, { params: { date } }),
+  getWorkReport: (startDate, endDate) =>
+    api.get(`/drivers/reports/work`, { params: { startDate, endDate } }),
+};
+
 export default api;

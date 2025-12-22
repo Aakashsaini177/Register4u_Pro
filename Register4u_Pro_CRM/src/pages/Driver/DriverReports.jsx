@@ -28,6 +28,7 @@ import {
 import { Badge } from "../../components/ui/Badge";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { driverAPI } from "@/lib/api";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
@@ -63,18 +64,8 @@ const DriverReports = () => {
   const fetchDailyReport = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/reports/daily?date=${dailyDate}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
-        setDailyData(data.data);
-      }
+      const { data } = await driverAPI.getDailyReport(dailyDate);
+      setDailyData(data?.data || data || { report: [], summary: {} });
     } catch (error) {
       toast.error("Error fetching daily report");
     } finally {
@@ -85,18 +76,8 @@ const DriverReports = () => {
   const fetchWorkReport = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/reports/work?startDate=${workStartDate}&endDate=${workEndDate}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
-        setWorkData(data.data);
-      }
+      const { data } = await driverAPI.getWorkReport(workStartDate, workEndDate);
+      setWorkData(data?.data || data || []);
     } catch (error) {
       toast.error("Error fetching work report");
     } finally {
