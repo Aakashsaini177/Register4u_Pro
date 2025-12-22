@@ -73,7 +73,7 @@ const PhotoSelector = ({
             <img
               src={`${SERVER_BASE_URL}${selectedPhoto.url}`}
               alt={selectedPhoto.name}
-              className="w-16 h-16 object-cover rounded-lg border"
+              className="w-16 h-16 object-contain rounded-lg border"
             />
             <div className="flex-1">
               <p className="text-sm font-medium">{selectedPhoto.name}</p>
@@ -168,7 +168,7 @@ const PhotoSelector = ({
                     <img
                       src={`${SERVER_BASE_URL}${photo.url}`}
                       alt={photo.name}
-                      className="w-full h-24 object-cover"
+                      className="w-full h-24 object-contain"
                     />
                     <div className="p-2">
                       <p className="text-xs font-medium truncate">
