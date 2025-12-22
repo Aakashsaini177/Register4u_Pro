@@ -11,13 +11,7 @@ import {
   Edit,
 } from "lucide-react";
 import ImageCropper from "../../components/ui/ImageCropper";
-
-// Helper function to construct image URL
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return null;
-  if (imagePath.startsWith("http")) return imagePath;
-  return `http://localhost:4002/${imagePath}`;
-};
+import { getImageUrl, driverAPI } from "@/lib/api";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
@@ -88,19 +82,8 @@ const EditDriver = () => {
 
   const fetchDriverDetails = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const driver = data.data;
+      const { data } = await driverAPI.getById(id);
+      const driver = data?.data || data;
 
         setFormData({
           driverName: driver.driverName,
@@ -132,13 +115,9 @@ const EditDriver = () => {
         if (driver.rcPhoto) {
           setRcPreview(getImageUrl(driver.rcPhoto));
         }
-      } else {
-        toast.error("Failed to fetch driver details");
-        navigate("/driver");
-      }
     } catch (error) {
       console.error("Error fetching driver details:", error);
-      toast.error("Error fetching driver details");
+      toast.error("Failed to fetch driver details");
       navigate("/driver");
     } finally {
       setInitialLoading(false);
@@ -327,24 +306,9 @@ const EditDriver = () => {
         submitData.append("rcPhoto", formData.rcPhoto);
       }
 
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/${id}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: submitData,
-        }
-      );
-
-      if (response.ok) {
-        toast.success("Driver updated successfully");
-        navigate("/driver");
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to update driver");
-      }
+      await driverAPI.update(id, submitData);
+      toast.success("Driver updated successfully");
+      navigate("/driver");
     } catch (error) {
       console.error("Error updating driver:", error);
       toast.error("Error updating driver");

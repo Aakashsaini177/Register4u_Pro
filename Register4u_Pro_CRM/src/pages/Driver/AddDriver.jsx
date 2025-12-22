@@ -31,6 +31,7 @@ import {
 import { Checkbox } from "../../components/ui/Checkbox";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { driverAPI } from "@/lib/api";
 
 const AddDriver = () => {
   const navigate = useNavigate();
@@ -251,21 +252,9 @@ const AddDriver = () => {
         submitData.append("rcPhoto", formData.rcPhoto);
       }
 
-      const response = await fetch("http://localhost:4002/api/v1/drivers", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: submitData,
-      });
-
-      if (response.ok) {
-        toast.success("Driver created successfully");
-        navigate("/driver");
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to create driver");
-      }
+      await driverAPI.create(submitData);
+      toast.success("Driver created successfully");
+      navigate("/driver");
     } catch (error) {
       console.error("Error creating driver:", error);
       toast.error("Error creating driver");

@@ -23,6 +23,7 @@ import { Badge } from "../../components/ui/Badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { driverAPI } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -48,19 +49,8 @@ const Driver = () => {
 
   const fetchDrivers = async () => {
     try {
-      const response = await fetch("http://localhost:4002/api/v1/drivers", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDrivers(data.data || []);
-      } else {
-        toast.error("Failed to fetch drivers");
-      }
+      const { data } = await driverAPI.getAll();
+      setDrivers(data?.data || data?.drivers || []);
     } catch (error) {
       console.error("Error fetching drivers:", error);
       toast.error("Error fetching drivers");
@@ -78,26 +68,12 @@ const Driver = () => {
     if (!driverToDelete) return;
 
     try {
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/${driverToDelete}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        toast.success("Driver deleted successfully");
-        fetchDrivers();
-      } else {
-        toast.error("Failed to delete driver");
-      }
+      await driverAPI.delete(driverToDelete);
+      toast.success("Driver deleted successfully");
+      fetchDrivers();
     } catch (error) {
       console.error("Error deleting driver:", error);
-      toast.error("Error deleting driver");
+      toast.error("Failed to delete driver");
     } finally {
       setDeleteConfirmOpen(false);
       setDriverToDelete(null);

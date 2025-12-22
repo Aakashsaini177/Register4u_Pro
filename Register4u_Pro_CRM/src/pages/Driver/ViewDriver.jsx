@@ -12,7 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 
-import { getImageUrl } from "../../lib/api";
+import { getImageUrl, driverAPI } from "../../lib/api";
 import SafeImage from "../../components/ui/SafeImage";
 import { Button } from "../../components/ui/Button";
 import {
@@ -48,26 +48,11 @@ const ViewDriver = () => {
 
   const fetchDriverDetails = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setDriver(data.data);
-      } else {
-        toast.error("Failed to fetch driver details");
-        navigate("/driver");
-      }
+      const { data } = await driverAPI.getById(id);
+      setDriver(data?.data || data);
     } catch (error) {
       console.error("Error fetching driver details:", error);
-      toast.error("Error fetching driver details");
+      toast.error("Failed to fetch driver details");
       navigate("/driver");
     } finally {
       setLoading(false);
@@ -80,26 +65,12 @@ const ViewDriver = () => {
 
   const confirmDelete = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:4002/api/v1/drivers/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        toast.success("Driver deleted successfully");
-        navigate("/driver");
-      } else {
-        toast.error("Failed to delete driver");
-      }
+      await driverAPI.delete(id);
+      toast.success("Driver deleted successfully");
+      navigate("/driver");
     } catch (error) {
       console.error("Error deleting driver:", error);
-      toast.error("Error deleting driver");
+      toast.error("Failed to delete driver");
     } finally {
       setDeleteConfirmOpen(false);
     }
