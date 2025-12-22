@@ -37,7 +37,7 @@ exports.seedDefaults = asyncHandler(async (req, res) => {
   // Create default folders directly at root level (parentId: null)
   const defaults = [
     "Backgrounds",
-    "Badge", 
+    "Badge",
     "gst_certificate",
     "idproof",
     "photo",
@@ -58,18 +58,21 @@ exports.seedDefaults = asyncHandler(async (req, res) => {
     }
   }
 
-  res.json({ success: true, message: "Initialized default folders at root level" });
+  res.json({
+    success: true,
+    message: "Initialized default folders at root level",
+  });
 });
 
 // Reset and recreate default folders (for clean setup)
 exports.resetDefaults = asyncHandler(async (req, res) => {
   // Delete all existing file manager nodes
   await FileNode.deleteMany({});
-  
+
   // Create default folders at root level
   const defaults = [
     "Backgrounds",
-    "Badge", 
+    "Badge",
     "gst_certificate",
     "idproof",
     "photo",
@@ -84,7 +87,10 @@ exports.resetDefaults = asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({ success: true, message: "Reset and created default folders at root level" });
+  res.json({
+    success: true,
+    message: "Reset and created default folders at root level",
+  });
 });
 
 exports.uploadFile = asyncHandler(async (req, res) => {
@@ -92,7 +98,7 @@ exports.uploadFile = asyncHandler(async (req, res) => {
   console.log("📁 Request body:", req.body);
   console.log("📁 Request file:", req.file);
   console.log("📁 Request files:", req.files);
-  console.log("📁 Content-Type:", req.headers['content-type']);
+  console.log("📁 Content-Type:", req.headers["content-type"]);
 
   if (!req.file) {
     console.log("❌ No file found in request");
@@ -103,8 +109,10 @@ exports.uploadFile = asyncHandler(async (req, res) => {
 
   const { parentId } = req.body;
 
-  // Construct local URL for static file serving
-  const fileUrl = `/uploads/${req.file.filename}`;
+  // Construct URL (Cloudinary vs Local)
+  const fileUrl = req.file.path
+    ? req.file.path
+    : `/uploads/${req.file.filename}`;
 
   const node = await FileNode.create({
     name: req.file.originalname,
@@ -126,7 +134,9 @@ exports.renameNode = asyncHandler(async (req, res) => {
   const { name } = req.body;
 
   if (!name || name.trim() === "") {
-    return res.status(400).json({ success: false, message: "Name is required" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Name is required" });
   }
 
   const node = await FileNode.findByIdAndUpdate(
@@ -147,7 +157,9 @@ exports.bulkDelete = asyncHandler(async (req, res) => {
   const { ids } = req.body;
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ success: false, message: "IDs array is required" });
+    return res
+      .status(400)
+      .json({ success: false, message: "IDs array is required" });
   }
 
   let deletedCount = 0;
@@ -166,7 +178,7 @@ exports.bulkDelete = asyncHandler(async (req, res) => {
     success: true,
     message: `Deleted ${deletedCount} items`,
     deletedCount,
-    errors: errors.length > 0 ? errors : undefined
+    errors: errors.length > 0 ? errors : undefined,
   });
 });
 
@@ -189,17 +201,22 @@ async function deleteRecursive(nodeId) {
       await deleteRecursive(child._id);
     }
   } else if (node.type === "file" && node.url) {
-    // Delete actual file from disk
-    try {
-      const path = require("path");
-      const filename = node.url.replace("/uploads/", "");
-      const filePath = path.join(__dirname, "../../uploads", filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`🗑️ Deleted file: ${filename}`);
+    // Delete actual file from disk (ONLY if local)
+    if (!node.url.startsWith("http")) {
+      try {
+        const path = require("path");
+        const filename = node.url.replace("/uploads/", "");
+        const filePath = path.join(__dirname, "../../uploads", filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          console.log(`🗑️ Deleted file: ${filename}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to delete file: ${error.message}`);
       }
-    } catch (error) {
-      console.error(`❌ Failed to delete file: ${error.message}`);
+    } else {
+      // TODO: Implement Cloudinary deletion if needed
+      console.log(`☁️ Skipping local delete for Cloudinary file: ${node.name}`);
     }
   }
 

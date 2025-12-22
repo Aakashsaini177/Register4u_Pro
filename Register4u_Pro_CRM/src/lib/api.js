@@ -1,16 +1,29 @@
 import axios from "axios";
 import toast from "react-hot-toast";
-
+import { useAuthStore } from "@/store/authStore";
 
 // API Configuration from Environment Variables
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
-export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
-export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
-export const PORTAL_API_BASE_URL = import.meta.env.VITE_PORTAL_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1/portal";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
+export const UPLOADS_BASE_URL =
+  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
+export const SERVER_BASE_URL =
+  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
+export const PORTAL_API_BASE_URL =
+  import.meta.env.VITE_PORTAL_API_BASE_URL ||
+  "http://localhost:4002/api/v1/portal";
+
+// export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
+// export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
+// export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
+// export const PORTAL_API_BASE_URL = import.meta.env.VITE_PORTAL_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1/portal";
 
 // External Services URLs
-export const QR_CODE_API = import.meta.env.VITE_QR_CODE_API || "https://api.qrserver.com/v1/create-qr-code";
-export const GOOGLE_FONTS_API = import.meta.env.VITE_GOOGLE_FONTS_API || "https://fonts.googleapis.com/css2";
+export const QR_CODE_API =
+  import.meta.env.VITE_QR_CODE_API ||
+  "https://api.qrserver.com/v1/create-qr-code";
+export const GOOGLE_FONTS_API =
+  import.meta.env.VITE_GOOGLE_FONTS_API || "https://fonts.googleapis.com/css2";
 
 // Legacy support - keeping old exports for backward compatibility
 export const API_URL = API_BASE_URL; // For components using API_URL
@@ -21,7 +34,6 @@ export const API_URL = API_BASE_URL; // For components using API_URL
 // export const API_BASE_URL = 'https://uatapi.registration4u.in/api'
 // export const UPLOADS_BASE_URL = 'https://uatapi.registration4u.in/uploads'
 
-
 // Helper function to get full photo URL
 export const getPhotoUrl = (photoPath) => {
   // Use the same logic as getImageUrl for consistency
@@ -31,7 +43,9 @@ export const getPhotoUrl = (photoPath) => {
 // Helper function to get image URL (handles both bulk and individual uploads)
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  if (imagePath.startsWith("http")) return imagePath;
+  // Cloudinary or other absolute URLs
+  if (imagePath.startsWith("http") || imagePath.startsWith("https"))
+    return imagePath;
 
   // Clean the path
   let cleanPath = imagePath.replace(/\\/g, "/");
@@ -92,7 +106,11 @@ export const getPhotoFromFileManager = async (photoName) => {
           p.name === `${photoName}.jpeg`)
     );
 
-    return photo ? `${SERVER_BASE_URL}${photo.url}` : null;
+    return photo
+      ? photo.url.startsWith("http")
+        ? photo.url
+        : `${SERVER_BASE_URL}${photo.url}`
+      : null;
   } catch (error) {
     console.error("Error fetching photo from file manager:", error);
     return null;
@@ -111,7 +129,14 @@ const api = axios.create({
 // Request interceptor for adding auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    // 1. Try getting token from Store (Memory - Most Reliable)
+    let token = useAuthStore.getState().token;
+
+    // 2. Fallback to LocalStorage (Persisted)
+    if (!token) {
+      token = localStorage.getItem("token");
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -147,7 +172,10 @@ api.interceptors.response.use(
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           window.location.href = "/login";
-          toast.error("Session expired. Please login again.");
+          toast.error(
+            error.response.data?.message ||
+              "Session expired. Please login again."
+          );
           break;
         case 403:
           toast.error("You do not have permission to perform this action.");

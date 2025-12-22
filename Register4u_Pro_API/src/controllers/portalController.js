@@ -101,7 +101,7 @@ const login = asyncHandler(async (req, res) => {
           type: "employee",
         },
         process.env.JWT_SECRET || "register4u-secret-key",
-        { expiresIn: "24h" }
+        { expiresIn: "7d" }
       );
 
       // Update last login

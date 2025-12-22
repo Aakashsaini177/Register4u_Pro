@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { fileManagerAPI } from "@/lib/fileManagerAPI";
-import { SERVER_BASE_URL } from "@/lib/api";
+import { SERVER_BASE_URL, getImageUrl } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -94,39 +94,45 @@ const FileManager = () => {
     }
 
     const toastId = toast.loading(`Uploading ${files.length} file(s)...`);
-    let successCount = 0;
-    let errorCount = 0;
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        console.log(`Uploading file ${i + 1}: ${files[i].name}`);
+      // 1. Create array of upload promises
+      const uploadPromises = Array.from(files).map(async (file, index) => {
         try {
-          const result = await fileManagerAPI.upload(files[i], currentFolder);
-          console.log("Upload success:", result);
-          successCount++;
+          // Log detailed progress could be added here if needed
+          const result = await fileManagerAPI.upload(file, currentFolder);
+          console.log(`✅ Uploaded ${file.name}`);
+          return { success: true, name: file.name, result };
         } catch (error) {
-          console.error(`Failed to upload ${files[i].name}:`, error);
-          errorCount++;
+          console.error(`❌ Failed to upload ${file.name}:`, error);
+          return { success: false, name: file.name, error };
         }
-      }
+      });
+
+      // 2. Wait for all to finish (parallel execution)
+      const results = await Promise.all(uploadPromises);
+
+      // 3. Tally results
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.filter((r) => !r.success).length;
 
       if (successCount > 0) {
         toast.success(
           `Uploaded ${successCount} file(s)${
-            errorCount > 0 ? `, ${errorCount} failed` : ""
+            failCount > 0 ? `, ${failCount} failed` : ""
           }`,
           { id: toastId }
         );
+        // Refresh immediately
         fetchNodes();
       } else {
         toast.error("All uploads failed", { id: toastId });
       }
     } catch (error) {
-      console.error("Upload error:", error);
-      toast.error(
-        "Upload failed: " + (error.response?.data?.message || error.message),
-        { id: toastId }
-      );
+      console.error("Upload process error:", error);
+      toast.error("Upload failed: " + (error.message || "Unknown error"), {
+        id: toastId,
+      });
     }
 
     // Reset the input value to allow same file to be selected again
@@ -220,9 +226,9 @@ const FileManager = () => {
     }
 
     if (node.mimeType?.startsWith("image/")) {
-      const imageUrl = node.url.startsWith("http")
-        ? node.url
-        : `${SERVER_BASE_URL}${node.url}`;
+      // Use helper to resolve URL (handles Cloudinary, local paths, and filenames)
+      const imageUrl = getImageUrl(node.url);
+
       return (
         <div className="h-8 w-8 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
           <img
@@ -433,9 +439,7 @@ const FileManager = () => {
                         handleFolderClick(node);
                       } else if (node.mimeType?.startsWith("image/")) {
                         // Open image in new tab for viewing
-                        const imageUrl = node.url.startsWith("http")
-                          ? node.url
-                          : `${SERVER_BASE_URL}${node.url}`;
+                        const imageUrl = getImageUrl(node.url);
                         window.open(imageUrl, "_blank");
                       }
                     }}

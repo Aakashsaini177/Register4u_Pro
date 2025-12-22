@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import CameraCapture from "@/components/ui/CameraCapture";
 import ImageCropper from "@/components/ui/ImageCropper";
+import { getImageUrl } from "@/lib/api";
 
 const ImageInput = ({
   label,
@@ -20,7 +21,7 @@ const ImageInput = ({
   aspectRatio = 3 / 4, // Default portrait for ID/Photo
 }) => {
   const [activeTab, setActiveTab] = useState("camera"); // 'camera' or 'upload'
-  const [preview, setPreview] = useState(defaultPreview);
+  const [preview, setPreview] = useState(getImageUrl(defaultPreview));
   const [showCamera, setShowCamera] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [tempImage, setTempImage] = useState(null);

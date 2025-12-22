@@ -1,4 +1,4 @@
-const { Visitor, Category } = require("../models");
+const { Visitor, Category, FileNode } = require("../models");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const { asyncHandler } = require("../middleware/errorHandler");
@@ -43,6 +43,13 @@ exports.importVisitors = asyncHandler(async (req, res) => {
 
     results.total = jsonData.length;
 
+    // Cache the "photo" folder ID for efficient lookups
+    const photoFolder = await FileNode.findOne({
+      name: "photo",
+      parentId: null,
+      type: "folder",
+    });
+
     for (const row of jsonData) {
       try {
         // 1. Mandatory Fields Check
@@ -60,10 +67,6 @@ exports.importVisitors = asyncHandler(async (req, res) => {
 
         // 2. Resolve Category & Prefix
         const categoryName = row["Category"] || "General";
-        // Find existing category ID or create
-        // Logic: Try to find by name. Only create if truly needed.
-        // Actually, schema stores `category` as String (ID usually).
-        // But user might put "VIP" in excel. We should map it to ID.
         const categoryId = await getCategoryId(categoryName);
 
         // 3. ID Generation (If missing)
@@ -83,7 +86,6 @@ exports.importVisitors = asyncHandler(async (req, res) => {
           visitorId = `${catPrefix}${nextNumber}`;
 
           // Check collision just in case (loop until free? or just +1)
-          // Simple check:
           while (await Visitor.findOne({ visitorId })) {
             nextNumber++;
             visitorId = `${catPrefix}${nextNumber}`;
@@ -97,7 +99,25 @@ exports.importVisitors = asyncHandler(async (req, res) => {
           }
         }
 
-        // 4. Create Visitor
+        // 4. Resolve Photo from File Manager
+        let photoUrl = row["Photo"] || row["photo"] || ""; // Use provided URL if any
+        if (!photoUrl && photoFolder) {
+          // Look for exact ID match .jpg/png/jpeg
+          // We can use regex to match name starting with ID
+          const photoNode = await FileNode.findOne({
+            parentId: photoFolder._id,
+            name: {
+              $regex: new RegExp(`^${visitorId}\\.(jpg|jpeg|png)$`, "i"),
+            },
+          });
+
+          if (photoNode) {
+            photoUrl = photoNode.url; // This should be the Cloudinary URL
+            // console.log(`📸 Found photo for ${visitorId}: ${photoUrl}`);
+          }
+        }
+
+        // 5. Create Visitor
         await Visitor.create({
           visitorId: String(visitorId),
           name: name,
@@ -114,7 +134,7 @@ exports.importVisitors = asyncHandler(async (req, res) => {
           profession: row["Profession"],
           ticket: row["Ticket No"] || row["Ticket"],
 
-          photo: row["Photo"] || row["photo"],
+          photo: photoUrl,
           status: "registered", // Default import status
           registrationSource: "BULK_IMPORT",
         });

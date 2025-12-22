@@ -86,6 +86,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
         <div className="flex justify-between items-center p-4 border-b">
           <h3 className="text-lg font-semibold">Take Photo</h3>
           <button
+            type="button"
             onClick={() => {
               stopCamera();
               onClose();
@@ -113,6 +114,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
         <div className="p-4 flex justify-center gap-4 bg-gray-50 dark:bg-gray-900">
           <Button
             variant="outline"
+            type="button"
             onClick={() => {
               stopCamera();
               onClose();
@@ -120,7 +122,11 @@ const CameraCapture = ({ onCapture, onClose }) => {
           >
             Cancel
           </Button>
-          <Button onClick={capturePhoto} className="flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={capturePhoto}
+            className="flex items-center gap-2"
+          >
             <CameraIcon className="h-5 w-5" />
             Capture
           </Button>

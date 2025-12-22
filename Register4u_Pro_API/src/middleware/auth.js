@@ -7,7 +7,7 @@ const authenticate = (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required",
+        message: "Authentication header missing",
       });
     }
 
@@ -17,9 +17,13 @@ const authenticate = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
+    console.error("Auth Error:", error.message);
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message:
+        error.message === "jwt expired"
+          ? "Token expired"
+          : "Invalid token: " + error.message,
     });
   }
 };
@@ -74,7 +78,7 @@ const adminOnly = (req, res, next) => {
   }
 
   // Check if user is admin (not employee)
-  if (req.user.type === 'employee') {
+  if (req.user.type === "employee") {
     return res.status(403).json({
       success: false,
       message: "Admin access required",
@@ -94,7 +98,7 @@ const employeeOnly = (req, res, next) => {
   }
 
   // Check if user is employee
-  if (req.user.type !== 'employee') {
+  if (req.user.type !== "employee") {
     return res.status(403).json({
       success: false,
       message: "Employee access required",
@@ -117,7 +121,7 @@ const requireRole = (allowedRoles) => {
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Access denied. Required roles: ${allowedRoles.join(', ')}`,
+        message: `Access denied. Required roles: ${allowedRoles.join(", ")}`,
       });
     }
 

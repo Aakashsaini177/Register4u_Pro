@@ -1,29 +1,17 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "../../uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Create unique filename: fieldname-timestamp-random.ext
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
+// Configure Cloudinary Storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "register4u_pro", // Cloudinary folder name
+    allowed_formats: ["jpg", "png", "jpeg", "pdf"],
+    // transformation: [{ width: 500, height: 500, crop: 'limit' }] // Optional: Resize on upload
   },
 });
 
-// File filter check
 const fileFilter = (req, file, cb) => {
   // Accept images and pdfs
   if (
