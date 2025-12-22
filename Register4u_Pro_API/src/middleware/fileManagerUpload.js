@@ -1,42 +1,46 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("../config/cloudinary");
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "../../uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-console.log("📁 Upload directory:", uploadDir);
-
-// Configure storage for file manager uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    console.log("📁 Multer destination called for:", file.originalname);
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    console.log("📁 Multer filename called for:", file.originalname);
-    // Create unique filename: file-timestamp-random.ext
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const filename = "file-" + uniqueSuffix + path.extname(file.originalname);
-    console.log("📁 Generated filename:", filename);
-    cb(null, filename);
+// Configure Cloudinary Storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "register4u_pro/files", // Dedicated folder for file manager
+    allowed_formats: ["jpg", "png", "jpeg", "pdf", "docx", "xlsx"],
+    resource_type: "auto", // Handle raw files like docs/excel
   },
 });
 
-// Simplified file filter - allow all files for now
 const fileFilter = (req, file, cb) => {
-  console.log("📁 File filter called for:", file.originalname, file.mimetype);
-  cb(null, true); // Allow all files for debugging
+  // Accept images and docs
+  // Expanded list for File Manager utility
+  const allowedMimes = [
+    "image/jpeg",
+    "image/png",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/msword",
+    "application/vnd.ms-excel",
+    "text/csv",
+  ];
+
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    // Making it permissive for file manager - log warning but maybe allow?
+    // Sticking to strict for now to avoid issues
+    console.warn(`Attempted upload of unsupported type: ${file.mimetype}`);
+    // Actually, for file manager, let's allow everything that Cloudinary supports as raw/image
+    cb(null, true);
+  }
 };
 
 const fileManagerUpload = multer({
   storage: storage,
-  fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
 });
 

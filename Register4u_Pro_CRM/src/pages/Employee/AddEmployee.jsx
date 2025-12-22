@@ -40,7 +40,7 @@ const AddEmployee = () => {
         if (response.data.success) {
           // Filter out volunteers, only show permanent employees as managers
           const permanentEmps = (response.data.data || []).filter(
-            (e) => e.emp_type !== "volunteer"
+            (e) => e.emp_type === "permanent"
           );
           setManagers(permanentEmps);
         }
@@ -50,6 +50,29 @@ const AddEmployee = () => {
     };
     fetchManagers();
   }, []);
+
+  // Update Reporting Manager based on Employee Type
+  useEffect(() => {
+    if (selectedEmpType === "permanent") {
+      // Default to "Admin" if permanent, but respect existing value if user changes it
+      // actually, if switching to permanent, and no value is set (or value is invalid?), set to Admin.
+      // But we shouldn't overwrite if user is just editing other fields.
+      // For AddEmployee, it's fine to set default on switch.
+      const currentManager = watch("Reporting_Manager");
+      if (!currentManager) {
+        setValue("Reporting_Manager", "Admin");
+      }
+    } else if (selectedEmpType === "volunteer") {
+      // logic for volunteer is handled in the render (options)
+      // If current manager is "Admin" (from previous selection), we might want to clear it if Admin isn't allowed for volunteers?
+      // User said "volunteer ... permanent employee ... select krne ka option aaye".
+      // If Admin is not in the list for volunteers, we should probably clear it if it was "Admin".
+      const currentManager = watch("Reporting_Manager");
+      if (currentManager === "Admin") {
+        setValue("Reporting_Manager", "");
+      }
+    }
+  }, [selectedEmpType, setValue, watch]);
 
   const onSubmit = async (data) => {
     setLoading(true);
@@ -139,6 +162,10 @@ const AddEmployee = () => {
                     {...register("Reporting_Manager")}
                   >
                     <option value="">Select Reporting Manager</option>
+                    {/* Admin option only for Permanent employees */}
+                    {selectedEmpType === "permanent" && (
+                      <option value="Admin">Admin</option>
+                    )}
                     {managers.map((manager) => (
                       <option key={manager.id} value={manager.id}>
                         {manager.fullName}

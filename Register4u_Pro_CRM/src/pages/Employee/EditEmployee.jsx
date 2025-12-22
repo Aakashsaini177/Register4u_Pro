@@ -1,70 +1,151 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, Link, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { employeeAPI } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Label } from '@/components/ui/Label'
-import { Select } from '@/components/ui/Select'
-import { Textarea } from '@/components/ui/Textarea'
-import { Loading, PageLoading } from '@/components/ui/Loading'
-import toast from 'react-hot-toast'
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { employeeAPI } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Select } from "@/components/ui/Select"; // Kept import, but used native select in AddEmployee structure
+import { Loading, PageLoading } from "@/components/ui/Loading";
+import toast from "react-hot-toast";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 const EditEmployee = () => {
-  const [loading, setLoading] = useState(false)
-  const [pageLoading, setPageLoading] = useState(true)
-  const navigate = useNavigate()
-  const { id } = useParams()
-  
+  const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [managers, setManagers] = useState([]);
+  const navigate = useNavigate();
+  const { id } = useParams();
+
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    watch,
+    setValue,
     reset,
-  } = useForm()
-  
+    formState: { errors },
+  } = useForm();
+
+  const selectedEmpType = watch("emp_type");
+
+  // Fetch managers
   useEffect(() => {
-    fetchEmployee()
-  }, [id])
-  
-  const fetchEmployee = async () => {
-    try {
-      const response = await employeeAPI.getById(id)
-      if (response.data.success) {
-        reset(response.data.data)
+    const fetchManagers = async () => {
+      try {
+        const response = await employeeAPI.getAll();
+        if (response.data.success) {
+          const permanentEmps = (response.data.data || []).filter(
+            (e) => e.emp_type === "permanent"
+          );
+          setManagers(permanentEmps);
+        }
+      } catch (error) {
+        console.error("Failed to fetch managers:", error);
       }
-    } catch (error) {
-      toast.error('Failed to fetch employee details')
-      navigate('/employee')
-    } finally {
-      setPageLoading(false)
+    };
+    fetchManagers();
+  }, []);
+
+  // Fetch employee details
+  useEffect(() => {
+    const fetchEmployee = async () => {
+      try {
+        const response = await employeeAPI.getById(id);
+        if (response.data.success) {
+          const emp = response.data.data;
+
+          // Map backend fields to form fields
+          reset({
+            ...emp,
+            Reporting_Manager:
+              emp.reporting_manager ||
+              (emp.emp_type === "permanent" ? "Admin" : ""),
+            StartTime: emp.joining_date ? emp.joining_date.split("T")[0] : "",
+            EndTime: emp.ending_date ? emp.ending_date.split("T")[0] : "",
+            dob: emp.dob ? emp.dob.split("T")[0] : "",
+            contact: emp.contact || emp.phone, // Handle potential field name diffs
+            // ID fields for select mapping
+            emp_type: emp.emp_type,
+            status: emp.status || "active",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch employee:", error);
+        toast.error("Failed to fetch employee details");
+        navigate("/employee");
+      } finally {
+        setPageLoading(false);
+      }
+    };
+    if (id) {
+      fetchEmployee();
     }
-  }
-  
+  }, [id, reset, navigate]);
+
+  // Update Reporting Manager logic
+  // Note: For Edit, we only default if explicitly changing type or if empty?
+  // User workflow: If they change Emp Type from Permanent to Volunteer, we need to adjust logic.
+  // But if it loads as Permanent, it should keep current manager (which might be Admin).
+  useEffect(() => {
+    if (!pageLoading) {
+      // Only run logic after initial load
+      if (selectedEmpType === "permanent") {
+        const currentManager = watch("Reporting_Manager");
+        // If no manager set, default to Admin
+        if (!currentManager) {
+          setValue("Reporting_Manager", "Admin");
+        }
+      } else if (selectedEmpType === "volunteer") {
+        const currentManager = watch("Reporting_Manager");
+        if (currentManager === "Admin") {
+          setValue("Reporting_Manager", "");
+        }
+      }
+    }
+  }, [selectedEmpType, setValue, watch, pageLoading]);
+
   const onSubmit = async (data) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await employeeAPI.update(id, data)
-      
+      // payload preparation
+      const payload = {
+        ...data,
+        joining_date: data.StartTime,
+        ending_date: data.EndTime,
+        reporting_manager: data.Reporting_Manager || undefined,
+        phone: data.contact, // Ensure phone is updated if contact changed
+      };
+
+      // Remove frontend-only fields
+      delete payload.StartTime;
+      delete payload.EndTime;
+      delete payload.Reporting_Manager;
+
+      // Ensure we don't send empty password if not changed
+      if (!data.password) {
+        delete payload.password;
+      }
+
+      const response = await employeeAPI.update(id, payload);
+
       if (response.data.success) {
-        toast.success('Employee updated successfully!')
-        navigate('/employee')
+        toast.success("Employee updated successfully!");
+        navigate("/employee");
       } else {
-        toast.error(response.data.message || 'Failed to update employee')
+        toast.error(response.data.message || "Failed to update employee");
       }
     } catch (error) {
-      toast.error('Failed to update employee')
+      toast.error("Failed to update employee");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-  
+  };
+
   if (pageLoading) {
-    return <PageLoading />
+    return <PageLoading />;
   }
-  
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -79,7 +160,7 @@ const EditEmployee = () => {
           <p className="text-gray-600 mt-1">Update employee information</p>
         </div>
       </div>
-      
+
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Card>
@@ -87,111 +168,356 @@ const EditEmployee = () => {
             <CardTitle>Employee Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="name" required>Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Enter full name"
-                  className="mt-1"
-                  error={errors.name}
-                  {...register('name', { required: 'Name is required' })}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="email" required>Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter email"
-                  className="mt-1"
-                  error={errors.email}
-                  {...register('email', {
-                    required: 'Email is required',
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Invalid email address',
-                    },
-                  })}
-                />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="phone" required>Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="Enter phone number"
-                  className="mt-1"
-                  error={errors.phone}
-                  {...register('phone', {
-                    required: 'Phone is required',
-                    pattern: {
-                      value: /^[0-9]{10}$/,
-                      message: 'Phone must be 10 digits',
-                    },
-                  })}
-                />
-                {errors.phone && (
-                  <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="designation">Designation</Label>
-                <Input
-                  id="designation"
-                  type="text"
-                  placeholder="Enter designation"
-                  className="mt-1"
-                  {...register('designation')}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="department">Department</Label>
-                <Input
-                  id="department"
-                  type="text"
-                  placeholder="Enter department"
-                  className="mt-1"
-                  {...register('department')}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  id="status"
-                  className="mt-1"
-                  {...register('status')}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </Select>
-              </div>
-            </div>
-            
-            {/* Address */}
+            {/* Employee Type & Manager Selection */}
             <div>
-              <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                placeholder="Enter address"
-                className="mt-1"
-                {...register('address')}
-              />
+              <h3 className="text-lg font-semibold mb-4">Employee Type</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="emp_type" required>
+                    Employee Type
+                  </Label>
+                  <select
+                    id="emp_type"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    {...register("emp_type", {
+                      required: "Employee Type is required",
+                    })}
+                  >
+                    <option value="">Select Employee Type</option>
+                    <option value="permanent">Permanent</option>
+                    <option value="volunteer">Volunteer</option>
+                  </select>
+                  {errors.emp_type && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.emp_type.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="Reporting_Manager">Reporting Manager</Label>
+                  <select
+                    id="Reporting_Manager"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    {...register("Reporting_Manager")}
+                  >
+                    <option value="">Select Reporting Manager</option>
+                    {/* Admin option only for Permanent employees */}
+                    {selectedEmpType === "permanent" && (
+                      <option value="Admin">Admin</option>
+                    )}
+                    {managers.map((manager) => (
+                      <option key={manager.id} value={manager.id}>
+                        {manager.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
-            
+
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="fullName" required>
+                    Full Name
+                  </Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="Enter full name"
+                    className="mt-1"
+                    {...register("fullName", {
+                      required: "Full Name is required",
+                    })}
+                  />
+                  {errors.fullName && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.fullName.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="email" required>
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter email"
+                    className="mt-1"
+                    {...register("email", {
+                      required: "Email is required",
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: "Invalid email address",
+                      },
+                    })}
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.email.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="text"
+                    placeholder="Leave blank to keep current password"
+                    className="mt-1"
+                    {...register("password")}
+                  />
+                  {/* Removed required for edit */}
+                </div>
+
+                <div>
+                  <Label htmlFor="contact" required>
+                    Mobile Number
+                  </Label>
+                  <Input
+                    id="contact"
+                    type="tel"
+                    placeholder="10-digit mobile number"
+                    className="mt-1"
+                    maxLength="10"
+                    {...register("contact", {
+                      required: "Contact is required",
+                      pattern: {
+                        value: /^[6-9][0-9]{9}$/,
+                        message: "Valid 10-digit mobile number required",
+                      },
+                    })}
+                  />
+                  {errors.contact && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.contact.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="dob" required>
+                    Date of Birth
+                  </Label>
+                  <Input
+                    id="dob"
+                    type="date"
+                    className="mt-1"
+                    {...register("dob", { required: "DOB is required" })}
+                  />
+                  {errors.dob && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.dob.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="gender">Gender</Label>
+                  <select
+                    id="gender"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    {...register("gender")}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Document Details (Only for Permanent Employees) */}
+            {selectedEmpType === "permanent" && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Document Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="pan_card">PAN Card</Label>
+                    <Input
+                      id="pan_card"
+                      type="text"
+                      placeholder="ABCDE1234F"
+                      className="mt-1 uppercase"
+                      maxLength="10"
+                      {...register("pan_card", {
+                        pattern: {
+                          value: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+                          message: "Invalid PAN format (e.g., ABCDE1234F)",
+                        },
+                      })}
+                      onInput={(e) =>
+                        (e.target.value = e.target.value.toUpperCase())
+                      }
+                    />
+                    {errors.pan_card && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.pan_card.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="adhar_card">Aadhar Card</Label>
+                    <Input
+                      id="adhar_card"
+                      type="text"
+                      placeholder="12-digit Aadhar number"
+                      className="mt-1"
+                      maxLength="12"
+                      {...register("adhar_card", {
+                        pattern: {
+                          value: /^[0-9]{12}$/,
+                          message: "Aadhar must be 12 digits",
+                        },
+                      })}
+                      onInput={(e) =>
+                        (e.target.value = e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 12))
+                      }
+                    />
+                    {errors.adhar_card && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {errors.adhar_card.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Location Details */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Location Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="city" required>
+                    City
+                  </Label>
+                  <Input
+                    id="city"
+                    type="text"
+                    placeholder="Enter city"
+                    className="mt-1"
+                    {...register("city", { required: "City is required" })}
+                  />
+                  {errors.city && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.city.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    type="text"
+                    placeholder="Enter state"
+                    className="mt-1"
+                    {...register("state")}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pincode" required>
+                    Pincode
+                  </Label>
+                  <Input
+                    id="pincode"
+                    type="text"
+                    placeholder="6-digit pincode"
+                    className="mt-1"
+                    maxLength="6"
+                    {...register("pincode", {
+                      required: "Pincode is required",
+                      pattern: {
+                        value: /^[0-9]{6}$/,
+                        message: "Pincode must be 6 digits",
+                      },
+                    })}
+                    onInput={(e) =>
+                      (e.target.value = e.target.value
+                        .replace(/\D/g, "")
+                        .slice(0, 6))
+                    }
+                  />
+                  {errors.pincode && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.pincode.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="location">Location/Address</Label>
+                  <Input
+                    id="location"
+                    type="text"
+                    placeholder="Enter work location"
+                    className="mt-1"
+                    {...register("location")}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Employment Details */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Employment Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="StartTime" required>
+                    Joining Date
+                  </Label>
+                  <Input
+                    id="StartTime"
+                    type="date"
+                    className="mt-1"
+                    {...register("StartTime", {
+                      required: "Joining date is required",
+                    })}
+                  />
+                  {errors.StartTime && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.StartTime.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="EndTime">End Date (if applicable)</Label>
+                  <Input
+                    id="EndTime"
+                    type="date"
+                    className="mt-1"
+                    {...register("EndTime")}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <select
+                    id="status"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    {...register("status")}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* Form actions */}
             <div className="flex items-center justify-end gap-4 pt-4 border-t">
               <Link to="/employee">
@@ -202,11 +528,14 @@ const EditEmployee = () => {
               <Button type="submit" disabled={loading}>
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <Loading size="sm" className="border-white border-t-transparent" />
+                    <Loading
+                      size="sm"
+                      className="border-white border-t-transparent"
+                    />
                     <span>Updating...</span>
                   </div>
                 ) : (
-                  'Update Employee'
+                  "Update Employee"
                 )}
               </Button>
             </div>
@@ -214,8 +543,7 @@ const EditEmployee = () => {
         </Card>
       </form>
     </div>
-  )
-}
+  );
+};
 
-export default EditEmployee
-
+export default EditEmployee;

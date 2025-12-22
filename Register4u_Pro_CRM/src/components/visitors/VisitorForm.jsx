@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { categoryAPI, companyAPI, SERVER_BASE_URL } from "@/lib/api";
+import {
+  categoryAPI,
+  companyAPI,
+  SERVER_BASE_URL,
+  getImageUrl,
+} from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -11,6 +16,15 @@ import QuickAddModal from "@/components/ui/QuickAddModal";
 import toast from "react-hot-toast";
 import { ArrowLeftIcon, PlusIcon } from "@heroicons/react/24/outline";
 import ImageInput from "@/components/ui/ImageInput";
+import Combobox from "@/components/ui/Combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
+import CompanyForm from "@/components/company/CompanyForm";
+import CategoryForm from "@/components/category/CategoryForm";
 
 const VisitorForm = ({
   onSubmit,
@@ -27,6 +41,7 @@ const VisitorForm = ({
   // Quick Add Modal States
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showOrgModal, setShowOrgModal] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
   const {
     register,
@@ -70,19 +85,37 @@ const VisitorForm = ({
   };
 
   // Quick Add Handlers
-  const handleAddCategory = async (name) => {
-    const response = await categoryAPI.create({ name });
-    if (response.data.success) {
-      toast.success("Category added!");
-      await fetchCategories();
+  const handleAddCategory = async (data) => {
+    setModalLoading(true);
+    try {
+      const response = await categoryAPI.create(data);
+      if (response.data.success) {
+        toast.success("Category added!");
+        await fetchCategories();
+        setShowCategoryModal(false);
+        setValue("category", response.data.data._id || response.data.data.id);
+      }
+    } catch (error) {
+      toast.error("Failed to add category");
+    } finally {
+      setModalLoading(false);
     }
   };
 
-  const handleAddOrganization = async (name) => {
-    const response = await companyAPI.create({ name });
-    if (response.data.success) {
-      toast.success("Organization added!");
-      await fetchOrganizations();
+  const handleAddOrganization = async (data) => {
+    setModalLoading(true);
+    try {
+      const response = await companyAPI.create(data);
+      if (response.data.success) {
+        toast.success("Organization added!");
+        await fetchOrganizations();
+        setShowOrgModal(false);
+        setValue("companyName", data.name);
+      }
+    } catch (error) {
+      toast.error(response?.data?.message || "Failed to add organization");
+    } finally {
+      setModalLoading(false);
     }
   };
 
@@ -249,18 +282,18 @@ const VisitorForm = ({
                       Loading companies...
                     </div>
                   ) : (
-                    <select
-                      id="companyName"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      {...register("companyName")}
-                    >
-                      <option value="">Select Company</option>
-                      {organizations.map((org) => (
-                        <option key={org.id} value={org.name}>
-                          {org.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Combobox
+                      options={organizations.map((org) => ({
+                        label: org.name,
+                        value: org.name, // We use name as value because backend expects string name
+                      }))}
+                      value={watch("companyName")}
+                      onChange={(val) =>
+                        setValue("companyName", val, { shouldValidate: true })
+                      }
+                      placeholder="Select or type company..."
+                      freeSolo={true}
+                    />
                   )}
                 </div>
 
@@ -351,9 +384,7 @@ const VisitorForm = ({
                   required={true}
                   defaultPreview={
                     typeof watch("photo") === "string" && watch("photo")
-                      ? watch("photo").startsWith("http")
-                        ? watch("photo")
-                        : `${SERVER_BASE_URL}/uploads/${watch("photo")}`
+                      ? getImageUrl(watch("photo"))
                       : null
                   }
                   error={errors.photo?.message}
@@ -392,11 +423,7 @@ const VisitorForm = ({
                   <ImageInput
                     label="Aadhar Card (Front)"
                     required={false}
-                    defaultPreview={
-                      existingDocuments.aadharFront
-                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.aadharFront}`
-                        : null
-                    }
+                    defaultPreview={getImageUrl(existingDocuments.aadharFront)}
                     error={errors.aadharFront?.message}
                     aspectRatio={1.6} // ID Card aspect ratio
                     onChange={(file) => {
@@ -415,11 +442,7 @@ const VisitorForm = ({
                   <ImageInput
                     label="Aadhar Card (Back)"
                     required={false}
-                    defaultPreview={
-                      existingDocuments.aadharBack
-                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.aadharBack}`
-                        : null
-                    }
+                    defaultPreview={getImageUrl(existingDocuments.aadharBack)}
                     error={errors.aadharBack?.message}
                     aspectRatio={1.6}
                     onChange={(file) => {
@@ -438,11 +461,7 @@ const VisitorForm = ({
                   <ImageInput
                     label="PAN Card (Front)"
                     required={false}
-                    defaultPreview={
-                      existingDocuments.panFront
-                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.panFront}`
-                        : null
-                    }
+                    defaultPreview={getImageUrl(existingDocuments.panFront)}
                     error={errors.panFront?.message}
                     aspectRatio={1.6}
                     onChange={(file) => {
@@ -458,11 +477,7 @@ const VisitorForm = ({
                   <ImageInput
                     label="PAN Card (Back)"
                     required={false}
-                    defaultPreview={
-                      existingDocuments.panBack
-                        ? `${SERVER_BASE_URL}/uploads/${existingDocuments.panBack}`
-                        : null
-                    }
+                    defaultPreview={getImageUrl(existingDocuments.panBack)}
                     error={errors.panBack?.message}
                     aspectRatio={1.6}
                     onChange={(file) => {
@@ -507,26 +522,39 @@ const VisitorForm = ({
         </Card>
       </form>
 
-      {/* Quick Add Modals (Only for internal usage) */}
+      {/* Full Forms in Modals */}
       {!isPublic && (
         <>
-          <QuickAddModal
+          <Dialog
             isOpen={showCategoryModal}
             onClose={() => setShowCategoryModal(false)}
-            title="Add New Category"
-            label="Category Name"
-            placeholder="e.g. VIP, Delegate"
-            onSave={handleAddCategory}
-          />
+          >
+            <DialogHeader onClose={() => setShowCategoryModal(false)}>
+              <DialogTitle>Add New Category</DialogTitle>
+            </DialogHeader>
+            <DialogContent>
+              <CategoryForm
+                onSubmit={handleAddCategory}
+                loading={modalLoading}
+                onCancel={() => setShowCategoryModal(false)}
+              />
+            </DialogContent>
+          </Dialog>
 
-          <QuickAddModal
-            isOpen={showOrgModal}
-            onClose={() => setShowOrgModal(false)}
-            title="Add New Company"
-            label="Company Name"
-            placeholder="e.g. Google, Microsoft"
-            onSave={handleAddOrganization}
-          />
+          <Dialog isOpen={showOrgModal} onClose={() => setShowOrgModal(false)}>
+            <DialogHeader onClose={() => setShowOrgModal(false)}>
+              <DialogTitle>Add New Company</DialogTitle>
+            </DialogHeader>
+            <DialogContent className="sm:max-w-2xl bg-white dark:bg-gray-800">
+              <div className="max-h-[80vh] overflow-y-auto px-1">
+                <CompanyForm
+                  onSubmit={handleAddOrganization}
+                  loading={modalLoading}
+                  onCancel={() => setShowOrgModal(false)}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>

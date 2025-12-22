@@ -117,16 +117,16 @@ const createDriver = async (req, res) => {
 
     if (req.files) {
       if (req.files.driverPhoto) {
-        driverPhoto = `uploads/${req.files.driverPhoto[0].filename}`;
+        driverPhoto = req.files.driverPhoto[0].path;
       }
       if (req.files.aadharCard) {
-        aadharCard = `uploads/${req.files.aadharCard[0].filename}`;
+        aadharCard = req.files.aadharCard[0].path;
       }
       if (req.files.licensePhoto) {
-        licensePhoto = `uploads/${req.files.licensePhoto[0].filename}`;
+        licensePhoto = req.files.licensePhoto[0].path;
       }
       if (req.files.rcPhoto) {
-        rcPhoto = `uploads/${req.files.rcPhoto[0].filename}`;
+        rcPhoto = req.files.rcPhoto[0].path;
       }
     }
 
@@ -198,16 +198,16 @@ const updateDriver = async (req, res) => {
     // Handle file uploads
     if (req.files) {
       if (req.files.driverPhoto) {
-        updateData.driverPhoto = `uploads/${req.files.driverPhoto[0].filename}`;
+        updateData.driverPhoto = req.files.driverPhoto[0].path;
       }
       if (req.files.aadharCard) {
-        updateData.aadharCard = `uploads/${req.files.aadharCard[0].filename}`;
+        updateData.aadharCard = req.files.aadharCard[0].path;
       }
       if (req.files.licensePhoto) {
-        updateData.licensePhoto = `uploads/${req.files.licensePhoto[0].filename}`;
+        updateData.licensePhoto = req.files.licensePhoto[0].path;
       }
       if (req.files.rcPhoto) {
-        updateData.rcPhoto = `uploads/${req.files.rcPhoto[0].filename}`;
+        updateData.rcPhoto = req.files.rcPhoto[0].path;
       }
     }
 

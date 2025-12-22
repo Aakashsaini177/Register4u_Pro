@@ -269,36 +269,15 @@ exports.createVisitor = async (req, res) => {
 
       if (req.files.photo) {
         const photoFile = req.files.photo[0];
-        const oldPath = photoFile.path;
-        const extension = path.extname(photoFile.originalname);
-        const newFilename = `${newVisitorId}${extension}`;
-        const newPath = path.join(path.dirname(oldPath), newFilename);
-
-        try {
-          fs.renameSync(oldPath, newPath);
-          console.log(
-            `📸 Renamed photo from ${photoFile.filename} to ${newFilename}`
-          );
-          visitorData.photo = newFilename;
-
-          // SYNC TO FILE MANAGER
-          await syncToFM(newFilename, "photo");
-          console.log(`📸 Photo synced to file manager: ${newFilename}`);
-        } catch (err) {
-          console.error("❌ Failed to rename photo:", err);
-          visitorData.photo = photoFile.filename; // Fallback to original
-          await syncToFM(photoFile.filename, "photo");
-          console.log(
-            `📸 Photo synced to file manager (fallback): ${photoFile.filename}`
-          );
-        }
+        console.log(`📸 Photo Uploaded: ${photoFile.path}`);
+        visitorData.photo = photoFile.path;
       }
       // Handle documents
       visitorData.documents = {};
       const handleDoc = async (field, docName) => {
         if (req.files[field]) {
-          visitorData.documents[docName] = req.files[field][0].filename;
-          await syncToFM(req.files[field][0].filename, "idproof");
+          visitorData.documents[docName] = req.files[field][0].path;
+          // syncToFM deprecated or needs to handle URL. Skipping for now to avoid errors.
         }
       };
 
@@ -408,103 +387,30 @@ exports.createPublicVisitor = async (req, res) => {
 
     // Handle Files
     if (req.files) {
-      const { FileNode } = require("../models");
-
-      const syncToFM = async (filename, folderName) => {
-        try {
-          if (!filename) return;
-          const root = await FileNode.findOne({
-            name: "uploads",
-            parentId: null,
-          });
-          if (root) {
-            const folder = await FileNode.findOne({
-              name: folderName,
-              parentId: root._id,
-            });
-            if (folder) {
-              const existingNode = await FileNode.findOne({
-                name: filename,
-                parentId: folder._id,
-              });
-              if (!existingNode) {
-                await FileNode.create({
-                  name: filename,
-                  type: "file",
-                  parentId: folder._id,
-                  url: `/uploads/${filename}`,
-                  size: 0,
-                  mimeType: "image/jpeg",
-                });
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Sync FM Error", e);
-        }
-      };
-
-      const handleFile = async (fieldKey, newNamePrefix) => {
-        if (req.files[fieldKey]) {
-          const file = req.files[fieldKey][0];
-          const extension = path.extname(file.originalname);
-          const newFilename = `${newNamePrefix}_${newVisitorId}${extension}`;
-          const newPath = path.join(path.dirname(file.path), newFilename);
-          try {
-            fs.renameSync(file.path, newPath);
-            return newFilename;
-          } catch (e) {
-            console.error(`Failed to rename ${fieldKey}:`, e);
-            return file.filename;
-          }
-        }
-        return null;
-      };
-
       if (req.files.photo) {
-        const photoFile = req.files.photo[0];
-        const extension = path.extname(photoFile.originalname);
-        const newFilename = `${newVisitorId}${extension}`;
-        const newPath = path.join(path.dirname(photoFile.path), newFilename);
-        try {
-          fs.renameSync(photoFile.path, newPath);
-          visitorData.photo = newFilename;
-          await syncToFM(newFilename, "photo");
-        } catch (e) {
-          visitorData.photo = photoFile.filename;
-          await syncToFM(photoFile.filename, "photo");
-        }
+        visitorData.photo = req.files.photo[0].path;
       }
 
       visitorData.documents = {};
 
-      // We must await these if we want sync to complete, but for speed we might not block?
-      // Actually handleFile is async now but I can't await it easily inside property assignment.
-      // Let's refactor slightly.
+      const handleDoc = (field) => {
+        if (req.files[field]) {
+          return req.files[field][0].path;
+        }
+        return null;
+      };
 
-      const af = await handleFile("aadharFront", "aadharfront");
-      if (af) {
-        visitorData.documents.aadharFront = af;
-        await syncToFM(af, "idproof");
-      }
+      const af = handleDoc("aadharFront");
+      if (af) visitorData.documents.aadharFront = af;
 
-      const ab = await handleFile("aadharBack", "aadharback");
-      if (ab) {
-        visitorData.documents.aadharBack = ab;
-        await syncToFM(ab, "idproof");
-      }
+      const ab = handleDoc("aadharBack");
+      if (ab) visitorData.documents.aadharBack = ab;
 
-      const pf = await handleFile("panFront", "panfront");
-      if (pf) {
-        visitorData.documents.panFront = pf;
-        await syncToFM(pf, "idproof");
-      }
+      const pf = handleDoc("panFront");
+      if (pf) visitorData.documents.panFront = pf;
 
-      const pb = await handleFile("panBack", "panback");
-      if (pb) {
-        visitorData.documents.panBack = pb;
-        await syncToFM(pb, "idproof");
-      }
+      const pb = handleDoc("panBack");
+      if (pb) visitorData.documents.panBack = pb;
     }
 
     // Handle Invite Logic BEFORE Creation
@@ -625,49 +531,38 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
     };
 
     // Handle file uploads
+    // Handle file uploads
     if (req.files) {
       console.log("📁 Files uploaded:", Object.keys(req.files));
 
       if (req.files.photo) {
-        console.log("📸 NEW PHOTO UPLOADED:", req.files.photo[0].filename);
-        updateData.photo = req.files.photo[0].filename;
+        console.log("📸 NEW PHOTO UPLOADED:", req.files.photo[0].path);
+        updateData.photo = req.files.photo[0].path;
       }
-    } else if (req.body.photo) {
-      // Handle photo URL from file manager
+    }
+
+    // Handle photo URL from file manager (only if no new photo file was uploaded)
+    if (!req.files?.photo && req.body.photo) {
       console.log("📸 Photo URL from file manager:", req.body.photo);
       updateData.photo = req.body.photo;
-
-      // Handle documents updates
-      if (!updateData.documents) updateData.documents = {};
-      // Note: Mongoose might not merge nested objects automatically with spread,
-      // but typically standard update doesn't merge well.
-      // Ideally we should perform a more granular update if preserving old docs is needed.
-      // However, for simplicity here we assume simple overwrite or we fetch existing first (which we do).
-      // Actually `updateData = { ...req.body }`. documents might be missing from body if only files are sent.
-
-      // Let's ensure we preserve existing "documents" structure if not provided in body,
-      // or we just update the specific fields.
-      // Since 'visitor' is already fetched:
-      const existingDocs = visitor.documents || {};
-
-      const newDocs = {
-        aadharFront: req.files.aadharFront
-          ? req.files.aadharFront[0].filename
-          : existingDocs.aadharFront,
-        aadharBack: req.files.aadharBack
-          ? req.files.aadharBack[0].filename
-          : existingDocs.aadharBack,
-        panFront: req.files.panFront
-          ? req.files.panFront[0].filename
-          : existingDocs.panFront,
-        panBack: req.files.panBack
-          ? req.files.panBack[0].filename
-          : existingDocs.panBack,
-      };
-      updateData.documents = newDocs;
-    } else {
-      console.log("⚠️ No new files uploaded.");
     }
+
+    // Handle documents updates
+    // We want to merge new files, specific body deletions (if intended), and existing docs
+    const existingDocs = visitor.documents || {};
+    const newDocs = { ...existingDocs }; // Start with existing
+
+    // Check for new files
+    if (req.files) {
+      if (req.files.aadharFront)
+        newDocs.aadharFront = req.files.aadharFront[0].path;
+      if (req.files.aadharBack)
+        newDocs.aadharBack = req.files.aadharBack[0].path;
+      if (req.files.panFront) newDocs.panFront = req.files.panFront[0].path;
+      if (req.files.panBack) newDocs.panBack = req.files.panBack[0].path;
+    }
+
+    updateData.documents = newDocs;
 
     console.log("📝 Applying updates...");
 
@@ -838,7 +733,17 @@ exports.markCheckIn = asyncHandler(async (req, res) => {
 exports.scanVisitor = asyncHandler(async (req, res) => {
   try {
     const { visitorId } = req.body;
-    console.log(`📷 Scan request by ${req.user.name} for: ${visitorId}`);
+    
+    // SAFEGUARDS
+    const userName = req.user ? req.user.name : "Unknown User";
+    console.log(`📷 Scan request by ${userName} for: ${visitorId}`);
+
+    if (!visitorId) {
+      return res.status(400).json({
+        success: false,
+        message: "Visitor ID is required",
+      });
+    }
 
     // Search query similar to getVisitorById
     let query = { visitorId: visitorId };
@@ -856,17 +761,24 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
     }
 
     // Log Scan Activity
-    await ActivityLog.create({
-      user: req.user.id,
-      action: "SCAN_VISITOR",
-      module: "SCANNER",
-      details: `Scanned visitor ${visitor.name} (${visitor.visitorId})`,
-      ipAddress: req.ip,
-      metadata: {
-        visitorId: visitor.visitorId,
-        scannedBy: req.user.name,
-      },
-    });
+    if (req.user) {
+        try {
+            await ActivityLog.create({
+              user: req.user.id,
+              action: "SCAN_VISITOR",
+              module: "SCANNER",
+              details: `Scanned visitor ${visitor.name} (${visitor.visitorId})`,
+              ipAddress: req.ip,
+              metadata: {
+                visitorId: visitor.visitorId,
+                scannedBy: userName,
+              },
+            });
+        } catch (logLimitError) {
+            console.error("Failed to log scan activity:", logLimitError.message);
+            // Non-blocking error
+        }
+    }
 
     res.status(200).json({
       success: true,

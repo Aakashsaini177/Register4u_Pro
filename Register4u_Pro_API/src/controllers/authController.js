@@ -31,7 +31,7 @@ class AuthController {
             type: "admin",
           },
           process.env.JWT_SECRET || "register4u-secret-key",
-          { expiresIn: "24h" }
+          { expiresIn: "7d" }
         );
 
         return res.json({

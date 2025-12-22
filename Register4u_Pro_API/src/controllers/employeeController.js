@@ -93,6 +93,12 @@ exports.createEmployee = async (req, res) => {
 
     let employeeData = { ...req.body };
 
+    // Handle Photo Upload (Cloudinary)
+    if (req.file) {
+      console.log(`📸 Photo Uploaded: ${req.file.path}`);
+      employeeData.photo = req.file.path;
+    }
+
     // Hash password if provided
     if (employeeData.password) {
       const passwordData = await passwordManager.preparePasswordData(
@@ -133,7 +139,15 @@ exports.createEmployee = async (req, res) => {
 exports.updateEmployee = async (req, res) => {
   try {
     const id = req.params.id;
-    const employee = await Employee.findByIdAndUpdate(id, req.body, {
+    let updateData = { ...req.body };
+
+    // Handle Photo Upload (Cloudinary)
+    if (req.file) {
+      console.log(`📸 Photo Updated: ${req.file.path}`);
+      updateData.photo = req.file.path;
+    }
+
+    const employee = await Employee.findByIdAndUpdate(id, updateData, {
       new: true,
     });
 
