@@ -124,7 +124,7 @@ const ImageInput = ({
               <img
                 src={preview}
                 alt="Upload preview"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
                 onError={() => setPreview(null)}
               />
               {/* Overlay Actions */}

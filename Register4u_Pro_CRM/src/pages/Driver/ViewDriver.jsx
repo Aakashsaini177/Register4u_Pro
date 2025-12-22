@@ -311,7 +311,7 @@ const ViewDriver = () => {
                     <SafeImage
                       src={getImageUrl(driver.driverPhoto)}
                       alt="Driver Photo"
-                      className="w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80"
+                      className="w-32 h-32 object-contain rounded-lg border cursor-pointer hover:opacity-80"
                       onClick={() =>
                         window.open(getImageUrl(driver.driverPhoto), "_blank")
                       }
@@ -328,7 +328,7 @@ const ViewDriver = () => {
                     <SafeImage
                       src={getImageUrl(driver.aadharCard)}
                       alt="Aadhar Card"
-                      className="w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80"
+                      className="w-32 h-32 object-contain rounded-lg border cursor-pointer hover:opacity-80"
                       onClick={() =>
                         window.open(getImageUrl(driver.aadharCard), "_blank")
                       }
@@ -345,7 +345,7 @@ const ViewDriver = () => {
                     <SafeImage
                       src={getImageUrl(driver.licensePhoto)}
                       alt="Driving License"
-                      className="w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80"
+                      className="w-32 h-32 object-contain rounded-lg border cursor-pointer hover:opacity-80"
                       onClick={() =>
                         window.open(getImageUrl(driver.licensePhoto), "_blank")
                       }
@@ -362,7 +362,7 @@ const ViewDriver = () => {
                     <SafeImage
                       src={getImageUrl(driver.rcPhoto)}
                       alt="RC Document"
-                      className="w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80"
+                      className="w-32 h-32 object-contain rounded-lg border cursor-pointer hover:opacity-80"
                       onClick={() =>
                         window.open(getImageUrl(driver.rcPhoto), "_blank")
                       }

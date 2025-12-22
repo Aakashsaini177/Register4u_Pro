@@ -234,7 +234,7 @@ const FileManager = () => {
           <img
             src={imageUrl}
             alt={node.name}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             onError={(e) => {
               e.target.style.display = "none";
               e.target.parentElement.innerHTML =

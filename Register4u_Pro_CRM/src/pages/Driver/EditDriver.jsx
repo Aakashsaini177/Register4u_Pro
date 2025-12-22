@@ -596,7 +596,7 @@ const EditDriver = () => {
                         <img
                           src={photoPreview}
                           alt="Driver photo preview"
-                          className="w-full h-full object-cover rounded-lg"
+                          className="w-full h-full object-contain rounded-lg"
                         />
                         {rawImages.driverPhoto && (
                           <button
@@ -646,7 +646,7 @@ const EditDriver = () => {
                         <img
                           src={aadharPreview}
                           alt="Aadhar card preview"
-                          className="w-full h-full object-cover rounded-lg"
+                          className="w-full h-full object-contain rounded-lg"
                         />
                         {rawImages.aadharCard && (
                           <button
@@ -696,7 +696,7 @@ const EditDriver = () => {
                         <img
                           src={licensePreview}
                           alt="License preview"
-                          className="w-full h-full object-cover rounded-lg"
+                          className="w-full h-full object-contain rounded-lg"
                         />
                         {rawImages.licensePhoto && (
                           <button
@@ -746,7 +746,7 @@ const EditDriver = () => {
                         <img
                           src={rcPreview}
                           alt="RC preview"
-                          className="w-full h-full object-cover rounded-lg"
+                          className="w-full h-full object-contain rounded-lg"
                         />
                         {rawImages.rcPhoto && (
                           <button

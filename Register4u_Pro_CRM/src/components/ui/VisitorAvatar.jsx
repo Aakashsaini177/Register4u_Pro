@@ -105,7 +105,7 @@ const VisitorAvatar = ({ photo, name, visitorId, className = "", alt = "Visitor"
     <img
       src={imgSrc}
       alt={name || alt}
-      className={`${className} object-cover`}
+      className={`${className} object-contain`}
       onError={handleError}
     />
   );
