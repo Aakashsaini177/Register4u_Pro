@@ -13,6 +13,7 @@ const queryClient = new QueryClient({
       retry: 1,
     },
   },
+  
 });
 
 ReactDOM.createRoot(document.getElementById("root")).render(
