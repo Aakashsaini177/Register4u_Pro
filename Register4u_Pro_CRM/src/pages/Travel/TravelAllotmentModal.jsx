@@ -21,6 +21,7 @@ import {
 } from "../../components/ui/Card";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { API_BASE_URL } from "../../lib/api";
 
 const TravelAllotmentModal = ({ isOpen, onClose, travelDetail }) => {
   const { token } = useAuthStore();
@@ -184,7 +185,7 @@ const TravelAllotmentModal = ({ isOpen, onClose, travelDetail }) => {
 
   const fetchHotels = async () => {
     try {
-      const response = await fetch("http://localhost:4002/api/v1/hotels", {
+      const response = await fetch(`${API_BASE_URL}/hotels`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -202,7 +203,7 @@ const TravelAllotmentModal = ({ isOpen, onClose, travelDetail }) => {
 
   const fetchDrivers = async () => {
     try {
-      const response = await fetch("http://localhost:4002/api/v1/drivers", {
+      const response = await fetch(`${API_BASE_URL}/drivers`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -221,7 +222,7 @@ const TravelAllotmentModal = ({ isOpen, onClose, travelDetail }) => {
   const fetchHotelRooms = async (hotelId) => {
     try {
       const response = await fetch(
-        `http://localhost:4002/api/v1/hotels/${hotelId}/rooms/available`,
+        `${API_BASE_URL}/hotels/${hotelId}/rooms/available`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -265,8 +266,8 @@ const TravelAllotmentModal = ({ isOpen, onClose, travelDetail }) => {
         }
 
         const url = isEditing
-          ? `http://localhost:4002/api/v1/hotels/allotments/${currentAllotmentId}`
-          : "http://localhost:4002/api/v1/hotels/allotments";
+          ? `${API_BASE_URL}/hotels/allotments/${currentAllotmentId}`
+          : `${API_BASE_URL}/hotels/allotments`;
 
         const method = isEditing ? "PUT" : "POST";
 
@@ -314,8 +315,8 @@ const TravelAllotmentModal = ({ isOpen, onClose, travelDetail }) => {
         }
 
         const url = isEditing
-          ? `http://localhost:4002/api/v1/drivers/allotments/${currentAllotmentId}`
-          : "http://localhost:4002/api/v1/drivers/allotments";
+          ? `${API_BASE_URL}/drivers/allotments/${currentAllotmentId}`
+          : `${API_BASE_URL}/drivers/allotments`;
 
         const method = isEditing ? "PUT" : "POST";
 

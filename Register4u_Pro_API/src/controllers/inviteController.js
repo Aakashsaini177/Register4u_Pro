@@ -13,6 +13,9 @@ const generateCode = () => {
 
 // Create a new invite
 exports.createInvite = asyncHandler(async (req, res) => {
+  console.log("📝 Creating invite:", req.body);
+  console.log("👤 Creator:", req.user);
+
   const {
     name,
     contact,
@@ -24,6 +27,12 @@ exports.createInvite = asyncHandler(async (req, res) => {
     hostName,
     purpose,
   } = req.body;
+
+  // Handle Legacy Admin ID (if user hasn't re-logged in)
+  let creatorId = req.user.id;
+  if (creatorId === 1 || creatorId === "1") {
+    creatorId = "000000000000000000000001";
+  }
 
   // Generate unique code
   let code = generateCode();
@@ -37,13 +46,13 @@ exports.createInvite = asyncHandler(async (req, res) => {
     code,
     name,
     contact,
-    creator: req.user.id,
+    creator: creatorId,
     type: maxUses && maxUses > 1 ? "MULTI" : type || "SINGLE",
     maxUses: maxUses || 1,
     validUntil: validUntil || new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24h
     prefillData: {
-      category: category || undefined,
-      company: company || undefined,
+      category: category ? category : undefined,
+      company: company ? company : undefined,
       hostName,
       purpose,
     },

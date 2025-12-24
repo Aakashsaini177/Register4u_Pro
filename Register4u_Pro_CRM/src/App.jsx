@@ -29,10 +29,7 @@ import Event from "./pages/Event/Event";
 import AddEvent from "./pages/Event/AddEvent";
 import EditEvent from "./pages/Event/EditEvent";
 import ViewEvent from "./pages/Event/ViewEvent";
-import EmployeeTask from "./pages/EmployeeTask/EmployeeTask";
-import AddEmployeeTask from "./pages/EmployeeTask/AddEmployeeTask";
-import EditEmployeeTask from "./pages/EmployeeTask/EditEmployeeTask";
-import ViewEmployeeTask from "./pages/EmployeeTask/ViewEmployeeTask";
+
 import Visitors from "./pages/Visitors/Visitors";
 import AddVisitor from "./pages/Visitors/AddVisitor";
 import EditVisitor from "./pages/Visitors/EditVisitor";
@@ -59,6 +56,9 @@ import EditHotel from "./pages/Hotel/EditHotel";
 import ViewHotel from "./pages/Hotel/ViewHotel";
 import SelectEventForReport from "./pages/Hotel/SelectEventForReport";
 import RoomAllotment from "./pages/Hotel/RoomAllotment";
+import Requirements from "./pages/Hotel/Requirements";
+import EditRoomAllotment from "./pages/Hotel/EditRoomAllotment";
+import AllotHotel from "./pages/Hotel/AllotHotel";
 import Travel from "./pages/Travel/Travel";
 import AddTravel from "./pages/Travel/AddTravel";
 import EditTravel from "./pages/Travel/EditTravel";
@@ -302,39 +302,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Employee Task Routes */}
-        <Route
-          path="/employee-task"
-          element={
-            <ProtectedRoute>
-              <EmployeeTask />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee-task/add"
-          element={
-            <ProtectedRoute>
-              <AddEmployeeTask />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee-task/edit/:id"
-          element={
-            <ProtectedRoute>
-              <EditEmployeeTask />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee-task/view/:id"
-          element={
-            <ProtectedRoute>
-              <ViewEmployeeTask />
-            </ProtectedRoute>
-          }
-        />
+
         {/* Visitors Routes */}
         <Route
           path="/visitors"
@@ -479,6 +447,30 @@ function App() {
           element={
             <ProtectedRoute>
               <Hotel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hotel/requirements"
+          element={
+            <ProtectedRoute>
+              <Requirements />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hotel/allot-dashboard"
+          element={
+            <ProtectedRoute>
+              <AllotHotel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hotel/allotment/edit/:id"
+          element={
+            <ProtectedRoute>
+              <EditRoomAllotment />
             </ProtectedRoute>
           }
         />

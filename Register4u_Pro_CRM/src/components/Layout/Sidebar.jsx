@@ -38,12 +38,7 @@ const navigation = [
     roles: ["admin"],
   },
   { name: "Events", href: "/event", icon: CalendarIcon, roles: ["admin"] },
-  {
-    name: "Employee Tasks",
-    href: "/employee-task",
-    icon: ClipboardDocumentListIcon,
-    roles: ["admin", "permanent_employee"],
-  },
+
   {
     name: "Visitors",
     href: "/visitors",
@@ -155,7 +150,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-0",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:z-0 flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -167,7 +162,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4">
+        <nav className="flex-1 overflow-y-auto p-4 scrollbar-hide">
           <ul className="space-y-1">
             {filteredNavigation.map((item) => {
               const isActive = location.pathname.startsWith(item.href);

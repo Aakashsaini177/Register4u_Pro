@@ -28,7 +28,15 @@ const employeeSchema = new mongoose.Schema(
     },
     emp_type: {
       type: String,
-      enum: ["permanent", "volunteer"],
+      enum: [
+        "permanent", // Legacy
+        "employee", // New replacement for permanent
+        "volunteer",
+        "hospitality_desk",
+        "travel_desk",
+        "cab_assistance_desk",
+        "help_desk",
+      ],
       default: "permanent",
     },
     department: {

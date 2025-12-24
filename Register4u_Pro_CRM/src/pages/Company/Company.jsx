@@ -147,7 +147,17 @@ const Company = () => {
                 <TableBody>
                   {companies.map((comp) => (
                     <TableRow key={comp.id}>
-                      <TableCell className="font-medium">#{comp.id}</TableCell>
+                      <TableCell className="font-medium">
+                        {comp.companyId ? (
+                          <Badge variant="outline" className="font-mono">
+                            {comp.companyId}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-gray-400">
+                            #{comp.id}
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <p className="font-medium">{comp.name || "N/A"}</p>
                         <p className="text-sm text-gray-500">

@@ -28,7 +28,7 @@ const AddEmployee = () => {
     formState: { errors },
   } = useForm();
 
-  useFormPersistence("add_employee_form", watch, setValue);
+  // useFormPersistence("add_employee_form", watch, setValue); // Disabled to ensure fresh form on every add
 
   const selectedEmpType = watch("emp_type");
 
@@ -38,11 +38,8 @@ const AddEmployee = () => {
       try {
         const response = await employeeAPI.getAll();
         if (response.data.success) {
-          // Filter out volunteers, only show permanent employees as managers
-          const permanentEmps = (response.data.data || []).filter(
-            (e) => e.emp_type === "permanent"
-          );
-          setManagers(permanentEmps);
+          // Show all employees as potential managers
+          setManagers(response.data.data || []);
         }
       } catch (error) {
         console.error("Failed to fetch managers:", error);
@@ -62,11 +59,13 @@ const AddEmployee = () => {
       if (!currentManager) {
         setValue("Reporting_Manager", "Admin");
       }
-    } else if (selectedEmpType === "volunteer") {
-      // logic for volunteer is handled in the render (options)
-      // If current manager is "Admin" (from previous selection), we might want to clear it if Admin isn't allowed for volunteers?
-      // User said "volunteer ... permanent employee ... select krne ka option aaye".
-      // If Admin is not in the list for volunteers, we should probably clear it if it was "Admin".
+    } else if (
+      selectedEmpType === "volunteer" ||
+      selectedEmpType === "hospitality_desk" ||
+      selectedEmpType === "travel_desk" ||
+      selectedEmpType === "cab_assistance_desk" ||
+      selectedEmpType === "help_desk"
+    ) {
       const currentManager = watch("Reporting_Manager");
       if (currentManager === "Admin") {
         setValue("Reporting_Manager", "");
@@ -144,8 +143,14 @@ const AddEmployee = () => {
                     })}
                   >
                     <option value="">Select Employee Type</option>
-                    <option value="permanent">Permanent</option>
+                    <option value="employee">Employee</option>
                     <option value="volunteer">Volunteer</option>
+                    <option value="hospitality_desk">Hospitality Desk</option>
+                    <option value="travel_desk">Travel Desk</option>
+                    <option value="cab_assistance_desk">
+                      Cab Assistance Desk
+                    </option>
+                    <option value="help_desk">Help Desk</option>
                   </select>
                   {errors.emp_type && (
                     <p className="mt-1 text-sm text-red-600">
@@ -162,8 +167,8 @@ const AddEmployee = () => {
                     {...register("Reporting_Manager")}
                   >
                     <option value="">Select Reporting Manager</option>
-                    {/* Admin option only for Permanent employees */}
-                    {selectedEmpType === "permanent" && (
+                    {/* Admin option only for Employee type */}
+                    {selectedEmpType === "employee" && (
                       <option value="Admin">Admin</option>
                     )}
                     {managers.map((manager) => (
@@ -302,7 +307,7 @@ const AddEmployee = () => {
               </div>
             </div>
 
-            {/* Document Details (Only for Permanent Employees) */}
+            {/* Document Details (Only for Standard Employees) */}
             {selectedEmpType === "employee" && (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Document Details</h3>

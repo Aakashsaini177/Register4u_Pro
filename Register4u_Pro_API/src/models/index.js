@@ -31,6 +31,7 @@ const RoomCategory = require("./RoomCategory");
 const EventHotel = require("./EventHotel");
 const HotelRoomInventory = require("./HotelRoomInventory");
 const RoomBooking = require("./RoomBooking");
+const AccommodationRequirement = require("./AccommodationRequirement");
 
 // Export models
 module.exports = {
@@ -65,4 +66,5 @@ module.exports = {
   EventHotel,
   HotelRoomInventory,
   RoomBooking,
+  AccommodationRequirement,
 };

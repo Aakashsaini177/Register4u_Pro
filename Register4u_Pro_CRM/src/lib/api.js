@@ -245,14 +245,6 @@ export const eventAPI = {
   delete: (id) => api.post(`/deleteevent/${id}`, {}),
 };
 
-export const employeeTaskAPI = {
-  getAll: () => api.get("/getallemptask"),
-  getById: (id) => api.get(`/employeetask/${id}`),
-  create: (data) => api.post("/createemployeetask", data),
-  update: (id, data) => api.post(`/updateemptask/${id}`, data),
-  delete: (id) => api.post(`/deleteemptask/${id}`, {}),
-};
-
 export const visitorAPI = {
   getAll: (data = {}) => api.post("/getAllVisitors", data),
   getById: (id) => api.get(`/visitors/${id}`),
@@ -349,6 +341,8 @@ export const hotelAPI = {
   create: (data) => api.post("/hotels", data),
   update: (id, data) => api.put(`/hotels/${id}`, data),
   delete: (id) => api.delete(`/hotels/${id}`),
+  getInventoryStatus: (date) =>
+    api.get("/hotels/inventory-status", { params: { date } }),
 };
 
 export const reportAPI = {
@@ -380,6 +374,13 @@ export const driverAPI = {
     api.get(`/drivers/reports/daily`, { params: { date } }),
   getWorkReport: (startDate, endDate) =>
     api.get(`/drivers/reports/work`, { params: { startDate, endDate } }),
+};
+
+export const requirementAPI = {
+  getAll: (params) => api.get("/requirements", { params }),
+  create: (data) => api.post("/requirements", data),
+  updateStatus: (id, data) => api.patch(`/requirements/${id}/status`, data),
+  delete: (id) => api.delete(`/requirements/${id}`),
 };
 
 export default api;

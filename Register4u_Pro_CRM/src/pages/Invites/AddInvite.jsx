@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { inviteAPI, categoryAPI } from "@/lib/api";
+import { inviteAPI, categoryAPI, companyAPI } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -12,13 +12,23 @@ import {
   SelectValue,
 } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Save, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
+import { Save, X, Plus } from "lucide-react";
 import toast from "react-hot-toast";
+import CompanyForm from "@/components/company/CompanyForm";
 
 const AddInvite = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [companyLoading, setCompanyLoading] = useState(false);
 
   // Form State matching the image fields
   const [formData, setFormData] = useState({
@@ -28,10 +38,12 @@ const AddInvite = () => {
     uses: 0, // Uses (Read only usually for new)
     validUntil: "", // Valid till
     category: "", // Category
+    company: "", // Company ID
   });
 
   useEffect(() => {
     fetchCategories();
+    fetchCompanies();
   }, []);
 
   const fetchCategories = async () => {
@@ -42,6 +54,43 @@ const AddInvite = () => {
       }
     } catch (error) {
       console.error("Failed to load categories", error);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await companyAPI.getAll();
+      if (response.data.success) {
+        setCompanies(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to load companies", error);
+    }
+  };
+
+  const handleCreateCompany = async (data) => {
+    setCompanyLoading(true);
+    try {
+      const response = await companyAPI.create(data);
+      if (response.data.success) {
+        toast.success("Company added successfully!");
+        setShowCompanyModal(false);
+        // Refresh companies list
+        fetchCompanies();
+        // Select the new company
+        setFormData({
+          ...formData,
+          name: data.name,
+          company: response.data.data._id || response.data.data.id, // Store ID
+        });
+      } else {
+        toast.error(response.data.message || "Failed to add company");
+      }
+    } catch (error) {
+      console.error("Error adding company:", error);
+      toast.error("Failed to add company");
+    } finally {
+      setCompanyLoading(false);
     }
   };
 
@@ -58,6 +107,7 @@ const AddInvite = () => {
         // Uses is not sent for create usually, handled by backend
         validUntil: formData.validUntil,
         category: formData.category,
+        company: formData.company, // Send Company ID
         // Defaulting Type logic from previous modal
         type: parseInt(formData.maxUses) > 1 ? "MULTI" : "SINGLE",
       };
@@ -93,14 +143,66 @@ const AddInvite = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid gap-2">
               <Label className="text-gray-700 font-medium">Name(FOR)</Label>
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="border-purple-200 focus:border-purple-500 focus:ring-purple-500"
-              />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    list="company-suggestions"
+                    value={formData.name}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      const matchedCompany = companies.find(
+                        (c) => c.name.toLowerCase() === newName.toLowerCase()
+                      );
+
+                      const updates = { name: newName };
+                      if (matchedCompany) {
+                        updates.contact =
+                          matchedCompany.contact || matchedCompany.phone || "";
+                      }
+
+                      setFormData((prev) => ({ ...prev, ...updates }));
+                    }}
+                    placeholder="Select company or type name"
+                    className="border-purple-200 focus:border-purple-500 focus:ring-purple-500"
+                  />
+                  <datalist id="company-suggestions">
+                    {companies.map((company) => (
+                      <option
+                        key={company._id || company.id}
+                        value={company.name}
+                      />
+                    ))}
+                  </datalist>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setShowCompanyModal(true)}
+                  className="whitespace-nowrap bg-primary-600 hover:bg-primary-700 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Company
+                </Button>
+              </div>
             </div>
+
+            {/* Add Company Modal */}
+            <Dialog
+              open={showCompanyModal}
+              onOpenChange={setShowCompanyModal}
+              isOpen={showCompanyModal}
+              onClose={() => setShowCompanyModal(false)}
+            >
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader onClose={() => setShowCompanyModal(false)}>
+                  <DialogTitle>Add New Company</DialogTitle>
+                </DialogHeader>
+                <CompanyForm
+                  onSubmit={handleCreateCompany}
+                  loading={companyLoading}
+                  onCancel={() => setShowCompanyModal(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
             <div className="grid gap-2">
               <Label className="text-gray-700 font-medium">Contact</Label>
