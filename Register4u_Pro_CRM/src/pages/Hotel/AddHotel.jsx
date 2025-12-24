@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/Card";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { API_BASE_URL } from "../../lib/api";
 
 const AddHotel = () => {
   const navigate = useNavigate();
@@ -101,7 +102,9 @@ const AddHotel = () => {
     const maxRooms = category.numberOfRooms || 0;
 
     if (currentRoomCount >= maxRooms) {
-      toast.error(`Cannot add more rooms. Maximum ${maxRooms} rooms allowed for this category. Please increase "Number of Rooms" first.`);
+      toast.error(
+        `Cannot add more rooms. Maximum ${maxRooms} rooms allowed for this category. Please increase "Number of Rooms" first.`
+      );
       return;
     }
 
@@ -117,8 +120,6 @@ const AddHotel = () => {
       setCategories(updatedCategories);
     }
   };
-
-
 
   const clearAllRoomNumbers = (categoryIndex) => {
     setClearCategoryIndex(categoryIndex);
@@ -138,52 +139,58 @@ const AddHotel = () => {
 
   const validateForm = () => {
     const errors = {};
-    
+
     // Validate basic hotel info
     if (!formData.hotelName) errors.hotelName = "Hotel name is required";
-    if (!formData.contactPerson) errors.contactPerson = "Contact person is required";
-    if (!formData.contactNumber) errors.contactNumber = "Contact number is required";
-    if (!formData.hotelAddress) errors.hotelAddress = "Hotel address is required";
+    if (!formData.contactPerson)
+      errors.contactPerson = "Contact person is required";
+    if (!formData.contactNumber)
+      errors.contactNumber = "Contact number is required";
+    if (!formData.hotelAddress)
+      errors.hotelAddress = "Hotel address is required";
 
     // Validate categories
     const categoryErrors = [];
     for (let i = 0; i < categories.length; i++) {
       const category = categories[i];
       const catError = {};
-      
-      if (!category.categoryName) catError.categoryName = "Category name is required";
+
+      if (!category.categoryName)
+        catError.categoryName = "Category name is required";
       if (!category.occupancy) catError.occupancy = "Occupancy is required";
-      if (!category.numberOfRooms) catError.numberOfRooms = "Number of rooms is required";
-      
-      const validRoomNumbers = category.roomNumbers.filter(room => room.trim() !== "");
+      if (!category.numberOfRooms)
+        catError.numberOfRooms = "Number of rooms is required";
+
+      const validRoomNumbers = category.roomNumbers.filter(
+        (room) => room.trim() !== ""
+      );
       if (validRoomNumbers.length === 0) {
         catError.roomNumbers = "At least one room number is required";
       } else if (validRoomNumbers.length !== category.numberOfRooms) {
         catError.roomNumbers = `Room numbers (${validRoomNumbers.length}) should match "Number of Rooms" (${category.numberOfRooms})`;
       }
-      
+
       if (Object.keys(catError).length > 0) {
         categoryErrors[i] = catError;
       }
     }
-    
+
     if (categoryErrors.length > 0) errors.categories = categoryErrors;
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
 
     try {
-
       // Prepare data for submission
       const submitData = {
         ...formData,
@@ -195,7 +202,7 @@ const AddHotel = () => {
         })),
       };
 
-      const response = await fetch("http://localhost:4002/api/v1/hotels", {
+      const response = await fetch(`${API_BASE_URL}/hotels`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -260,7 +267,11 @@ const AddHotel = () => {
                   value={formData.hotelName}
                   onChange={handleInputChange}
                   placeholder="Enter hotel name"
-                  className={formErrors.hotelName ? 'border-red-500 focus:border-red-500' : ''}
+                  className={
+                    formErrors.hotelName
+                      ? "border-red-500 focus:border-red-500"
+                      : ""
+                  }
                   required
                 />
                 {formErrors.hotelName && (
@@ -278,7 +289,11 @@ const AddHotel = () => {
                   value={formData.contactPerson}
                   onChange={handleInputChange}
                   placeholder="Enter contact person name"
-                  className={formErrors.contactPerson ? 'border-red-500 focus:border-red-500' : ''}
+                  className={
+                    formErrors.contactPerson
+                      ? "border-red-500 focus:border-red-500"
+                      : ""
+                  }
                   required
                 />
                 {formErrors.contactPerson && (
@@ -296,7 +311,11 @@ const AddHotel = () => {
                   value={formData.contactNumber}
                   onChange={handleInputChange}
                   placeholder="Enter contact number"
-                  className={formErrors.contactNumber ? 'border-red-500 focus:border-red-500' : ''}
+                  className={
+                    formErrors.contactNumber
+                      ? "border-red-500 focus:border-red-500"
+                      : ""
+                  }
                   required
                 />
                 {formErrors.contactNumber && (
@@ -316,7 +335,11 @@ const AddHotel = () => {
                 onChange={handleInputChange}
                 placeholder="Enter hotel address"
                 rows={3}
-                className={formErrors.hotelAddress ? 'border-red-500 focus:border-red-500' : ''}
+                className={
+                  formErrors.hotelAddress
+                    ? "border-red-500 focus:border-red-500"
+                    : ""
+                }
                 required
               />
               {formErrors.hotelAddress && (
@@ -394,7 +417,11 @@ const AddHotel = () => {
                           )
                         }
                         placeholder="e.g., Single, Double, Suite"
-                        className={formErrors.categories?.[categoryIndex]?.categoryName ? 'border-red-500 focus:border-red-500' : ''}
+                        className={
+                          formErrors.categories?.[categoryIndex]?.categoryName
+                            ? "border-red-500 focus:border-red-500"
+                            : ""
+                        }
                         required
                       />
                       {formErrors.categories?.[categoryIndex]?.categoryName && (
@@ -439,18 +466,44 @@ const AddHotel = () => {
                       />
                       <div className="mt-1">
                         <div className="flex justify-between text-xs text-gray-500 mb-1">
-                          <span>Added: {category.roomNumbers.filter(room => room.trim() !== '').length} / {category.numberOfRooms || 0}</span>
-                          <span>{Math.round(((category.roomNumbers.filter(room => room.trim() !== '').length) / (category.numberOfRooms || 1)) * 100)}%</span>
+                          <span>
+                            Added:{" "}
+                            {
+                              category.roomNumbers.filter(
+                                (room) => room.trim() !== ""
+                              ).length
+                            }{" "}
+                            / {category.numberOfRooms || 0}
+                          </span>
+                          <span>
+                            {Math.round(
+                              (category.roomNumbers.filter(
+                                (room) => room.trim() !== ""
+                              ).length /
+                                (category.numberOfRooms || 1)) *
+                                100
+                            )}
+                            %
+                          </span>
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div 
+                          <div
                             className={`h-2 rounded-full transition-all duration-300 ${
-                              category.roomNumbers.filter(room => room.trim() !== '').length === category.numberOfRooms 
-                                ? 'bg-green-500' 
-                                : 'bg-blue-500'
+                              category.roomNumbers.filter(
+                                (room) => room.trim() !== ""
+                              ).length === category.numberOfRooms
+                                ? "bg-green-500"
+                                : "bg-blue-500"
                             }`}
-                            style={{ 
-                              width: `${Math.min(((category.roomNumbers.filter(room => room.trim() !== '').length) / (category.numberOfRooms || 1)) * 100, 100)}%` 
+                            style={{
+                              width: `${Math.min(
+                                (category.roomNumbers.filter(
+                                  (room) => room.trim() !== ""
+                                ).length /
+                                  (category.numberOfRooms || 1)) *
+                                  100,
+                                100
+                              )}%`,
                             }}
                           ></div>
                         </div>
@@ -482,21 +535,28 @@ const AddHotel = () => {
                           onClick={() => addRoomNumber(categoryIndex)}
                           variant="outline"
                           size="sm"
-                          disabled={category.roomNumbers.length >= (category.numberOfRooms || 0)}
+                          disabled={
+                            category.roomNumbers.length >=
+                            (category.numberOfRooms || 0)
+                          }
                           className={`${
-                            category.roomNumbers.length >= (category.numberOfRooms || 0)
-                              ? 'opacity-50 cursor-not-allowed'
-                              : ''
+                            category.roomNumbers.length >=
+                            (category.numberOfRooms || 0)
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
                           }`}
                         >
                           <Plus className="h-4 w-4 mr-1" />
-                          Add Room ({category.roomNumbers.length}/{category.numberOfRooms || 0})
+                          Add Room ({category.roomNumbers.length}/
+                          {category.numberOfRooms || 0})
                         </Button>
                       </div>
                     </div>
-                    {category.roomNumbers.length >= (category.numberOfRooms || 0) && (
+                    {category.roomNumbers.length >=
+                      (category.numberOfRooms || 0) && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                        ⚠️ Maximum rooms reached. Increase "Number of Rooms" to add more.
+                        ⚠️ Maximum rooms reached. Increase "Number of Rooms" to
+                        add more.
                       </p>
                     )}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -574,12 +634,13 @@ const AddHotel = () => {
                 </p>
               </div>
             </div>
-            
+
             <p className="text-gray-700 dark:text-gray-300 mb-6">
-              Are you sure you want to clear all room numbers for this category? 
-              You'll need to regenerate them by changing the "Number of Rooms" field.
+              Are you sure you want to clear all room numbers for this category?
+              You'll need to regenerate them by changing the "Number of Rooms"
+              field.
             </p>
-            
+
             <div className="flex gap-3 justify-end">
               <Button
                 type="button"

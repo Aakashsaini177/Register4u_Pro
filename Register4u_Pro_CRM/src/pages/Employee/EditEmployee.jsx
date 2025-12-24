@@ -35,10 +35,8 @@ const EditEmployee = () => {
       try {
         const response = await employeeAPI.getAll();
         if (response.data.success) {
-          const permanentEmps = (response.data.data || []).filter(
-            (e) => e.emp_type === "permanent"
-          );
-          setManagers(permanentEmps);
+          // Show all employees as potential managers
+          setManagers(response.data.data || []);
         }
       } catch (error) {
         console.error("Failed to fetch managers:", error);
@@ -60,7 +58,7 @@ const EditEmployee = () => {
             ...emp,
             Reporting_Manager:
               emp.reporting_manager ||
-              (emp.emp_type === "permanent" ? "Admin" : ""),
+              (emp.emp_type === "employee" ? "Admin" : ""),
             StartTime: emp.joining_date ? emp.joining_date.split("T")[0] : "",
             EndTime: emp.ending_date ? emp.ending_date.split("T")[0] : "",
             dob: emp.dob ? emp.dob.split("T")[0] : "",
@@ -90,13 +88,19 @@ const EditEmployee = () => {
   useEffect(() => {
     if (!pageLoading) {
       // Only run logic after initial load
-      if (selectedEmpType === "permanent") {
+      if (selectedEmpType === "employee") {
         const currentManager = watch("Reporting_Manager");
         // If no manager set, default to Admin
         if (!currentManager) {
           setValue("Reporting_Manager", "Admin");
         }
-      } else if (selectedEmpType === "volunteer") {
+      } else if (
+        selectedEmpType === "volunteer" ||
+        selectedEmpType === "hospitality_desk" ||
+        selectedEmpType === "travel_desk" ||
+        selectedEmpType === "cab_assistance_desk" ||
+        selectedEmpType === "help_desk"
+      ) {
         const currentManager = watch("Reporting_Manager");
         if (currentManager === "Admin") {
           setValue("Reporting_Manager", "");
@@ -184,8 +188,14 @@ const EditEmployee = () => {
                     })}
                   >
                     <option value="">Select Employee Type</option>
-                    <option value="permanent">Permanent</option>
+                    <option value="employee">Employee</option>
                     <option value="volunteer">Volunteer</option>
+                    <option value="hospitality_desk">Hospitality Desk</option>
+                    <option value="travel_desk">Travel Desk</option>
+                    <option value="cab_assistance_desk">
+                      Cab Assistance Desk
+                    </option>
+                    <option value="help_desk">Help Desk</option>
                   </select>
                   {errors.emp_type && (
                     <p className="mt-1 text-sm text-red-600">
@@ -202,8 +212,8 @@ const EditEmployee = () => {
                     {...register("Reporting_Manager")}
                   >
                     <option value="">Select Reporting Manager</option>
-                    {/* Admin option only for Permanent employees */}
-                    {selectedEmpType === "permanent" && (
+                    {/* Admin option only for Employee type */}
+                    {selectedEmpType === "employee" && (
                       <option value="Admin">Admin</option>
                     )}
                     {managers.map((manager) => (
@@ -334,8 +344,8 @@ const EditEmployee = () => {
               </div>
             </div>
 
-            {/* Document Details (Only for Permanent Employees) */}
-            {selectedEmpType === "permanent" && (
+            {/* Document Details (Only for Standard Employees) */}
+            {selectedEmpType === "employee" && (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Document Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

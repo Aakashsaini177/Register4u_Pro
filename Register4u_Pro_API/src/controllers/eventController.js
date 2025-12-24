@@ -38,6 +38,7 @@ exports.getAllEvents = async (req, res) => {
 
         return {
           id: evt._id,
+          eventId: evt.eventId, // Add eventId
           name: evt.eventName,
           eventName: evt.eventName,
           date: evt.StartTime,
@@ -106,6 +107,7 @@ exports.getEventById = async (req, res) => {
     // Map database fields to frontend-friendly fields
     const transformedEvent = {
       id: event._id,
+      eventId: event.eventId, // Add eventId
       name: event.eventName,
       eventName: event.eventName,
       date: event.StartTime,
@@ -132,14 +134,29 @@ exports.getEventById = async (req, res) => {
   }
 };
 
+// Helper to generate Event ID
+const generateEventId = () => {
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
+  return `EVNT${randomNum}`;
+};
+
 // Create event
 exports.createEvent = async (req, res) => {
   try {
     console.log("📝 Creating event:", req.body);
 
+    // Generate unique Event ID
+    let eventId = generateEventId();
+    let exists = await Event.findOne({ eventId });
+    while (exists) {
+      eventId = generateEventId();
+      exists = await Event.findOne({ eventId });
+    }
+
     // Map frontend fields to database fields
     const eventData = {
       eventName: req.body.name || req.body.eventName,
+      eventId, // Add generated ID
       StartTime: req.body.date || req.body.StartTime || new Date(),
       EndTime: req.body.EndTime || req.body.date || new Date(),
       location: req.body.location || null,

@@ -7,7 +7,15 @@ const authController = require("../controllers/authController");
 const employeeController = require("../controllers/employeeController");
 const companyController = require("../controllers/companyController");
 const eventController = require("../controllers/eventController");
-const employeeTaskController = require("../controllers/employeeTaskController");
+// ==================== EVENT ROUTES ====================
+router.get("/event/:id", eventController.getEventById);
+router.post("/createevent", eventController.createEvent);
+router.post("/updateevent/:id", eventController.updateEvent);
+router.post("/deleteevent/:id", eventController.deleteEvent);
+router.post("/getallevent", eventController.getAllEvents);
+
+// ==================== VISITOR ROUTES ====================
+// Import Route (Must be before other visitor routes to avoid conflicts)
 const visitorController = require("../controllers/visitorController");
 const categoryController = require("../controllers/categoryController");
 const dashboardController = require("../controllers/dashboardController");
@@ -29,6 +37,7 @@ const inviteRoutes = require("./inviteRoutes");
 const fileManagerRoutes = require("./fileManagerRoutes");
 const authRoutes = require("./auth"); // Employee authentication routes
 const employeeRoutes = require("./employeeRoutes"); // Employee management routes
+const requirementRoutes = require("./requirementRoutes");
 
 // ==================== AUTH ROUTES ====================
 // Get current user
@@ -69,13 +78,6 @@ router.post("/createevent", eventController.createEvent);
 router.post("/updateevent/:id", eventController.updateEvent);
 router.post("/deleteevent/:id", eventController.deleteEvent);
 router.post("/getallevent", eventController.getAllEvents);
-
-// ==================== EMPLOYEE TASK ROUTES ====================
-router.get("/employeetask/:id", employeeTaskController.getTaskById);
-router.post("/createemployeetask", employeeTaskController.createTask);
-router.post("/updateemptask/:id", employeeTaskController.updateTask);
-router.post("/deleteemptask/:id", employeeTaskController.deleteTask);
-router.get("/getallemptask", employeeTaskController.getAllTasks);
 
 // ==================== VISITOR ROUTES ====================
 // Import Route (Must be before other visitor routes to avoid conflicts)
@@ -177,6 +179,7 @@ router.use("/portal", portalRoutes);
 router.use("/settings", sysSettingsRoutes);
 router.use("/activity-logs", activityLogRoutes);
 router.use("/invites", inviteRoutes);
+router.use("/requirements", requirementRoutes);
 const reportRoutes = require("./reportRoutes");
 router.use("/events", reportRoutes);
 
@@ -227,13 +230,7 @@ router.get("/docs", (req, res) => {
         "POST /api/v1/visitors/:id/check-in": "Check-in visitor",
         "POST /api/v1/visitors/:id/check-out": "Check-out visitor",
       },
-      employeeTasks: {
-        "GET /api/v1/employee-tasks": "Get all tasks",
-        "GET /api/v1/employee-tasks/:id": "Get task by ID",
-        "POST /api/v1/employee-tasks": "Create task",
-        "PUT /api/v1/employee-tasks/:id": "Update task",
-        "DELETE /api/v1/employee-tasks/:id": "Delete task",
-      },
+
       categories: {
         "GET /api/v1/categories": "Get all categories",
         "GET /api/v1/categories/:id": "Get category by ID",

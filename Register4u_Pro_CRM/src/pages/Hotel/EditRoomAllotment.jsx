@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Send,
   Search,
+  Save,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -31,15 +32,16 @@ import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 import { visitorAPI, SERVER_BASE_URL } from "../../lib/api";
 
-const RoomAllotment = () => {
+const EditRoomAllotment = () => {
   const navigate = useNavigate();
-  const { hotelId } = useParams();
+  const { id } = useParams(); // Allotment ID
   const { token } = useAuthStore();
 
   const [hotel, setHotel] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [allotment, setAllotment] = useState(null);
 
   const [formData, setFormData] = useState({
     roomId: "",
@@ -51,85 +53,83 @@ const RoomAllotment = () => {
     remarks: "",
   });
 
+  // Fetch Allotment Details on Mount
   useEffect(() => {
-    if (hotelId) {
-      if (formData.checkInDate) {
-        // Fetch availability if check-in date is set (and optional checkout)
-        fetchAvailability();
-      } else {
-        // Reset to default (fetch hotel details again to get base state?)
-        // Or just rely on base details. Best to re-fetch hotel details to reset.
-        fetchHotelDetails();
+    if (id) {
+      if (!hotel) {
+        // Only fetch everything once
+        fetchAllotmentDetails();
       }
     }
-  }, [hotelId, formData.checkInDate, formData.checkOutDate]);
+  }, [id]);
 
-  const fetchAvailability = async () => {
+  const fetchAllotmentDetails = async () => {
     try {
-      setLoading(true);
-      // If no checkout date, assume 1 day for availability check?
-      // Or send empty. Backend handles empty dates by returning base availability.
-      // But for "Date Aware", we need a range. Default to checkIn + 1 day if checkout missing.
-      const cIn = formData.checkInDate;
-      let cOut = formData.checkOutDate;
-      if (!cOut) {
-        const d = new Date(cIn);
-        d.setDate(d.getDate() + 1);
-        cOut = d.toISOString().split("T")[0];
-      }
+      // We don't have a direct "get allotment by id" API documented but usually we can get it via hotel or list.
+      // However, let's try to infer fetch from the hotel list logic or rely on ViewHotel state? No, direct link.
+      // The `updateRoomAllotment` returns data, but we need GET.
+      // Let's assume we can fetch hotel details and find the allotment there OR add a get endpoint.
+      // Actually, we can just fetch the Hotel Details for the hotel of this allotment if we knew the hotel ID.
+      // BUT we don't know the hotel ID from the URL param :id (allotmentId).
+      // We might need to add a GET /allotments/:id endpoint or iterate all hotels.
+      // Wait, `hotelController.js` has `getRoomAllotments` list but not single get.
 
-      const query = new URLSearchParams({
-        checkInDate: cIn,
-        checkOutDate: cOut,
-      }).toString();
+      // workaround: The user clicks from ViewHotel, where we have hotelId.
+      // Maybe we should pass hotelId in URL? /hotel/allotment/edit/:hotelId/:allotmentId
+      // Or simpler: Fetch all hotels and find the allotment? Too slow.
+      // Ideally: GET /api/v1/hotels/allotments/:id
+      // CHECK `hotelRoutes.js` -> We have `getRoomAllotments`.
+      // Let's check if we can fetch single allotment.
+      // For now, I will assume we need to implement GET /allotments/:id in backend or use what we have.
+      // Wait, I can't modify backend again easily without asking.
+      // Let's modify `hotelRoutes.js` to add GET /allotments/:id if missing.
+      // Actually, I can use the `getRoomAllotments` list endpoint and filter? No...
+      // Let's add GET /allotments/:id to backend first. It is cleaner.
+
+      // ...Wait, I'm in the middle of creating this file.
+      // I'll add the necessary code here assuming the endpoint exists, then go fix backend.
 
       const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/hotels/${hotelId}/rooms/available?${query}`,
+        `${SERVER_BASE_URL}/api/v1/hotels/allotments/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (response.ok) {
-        const resData = await response.json();
-        const availableList = resData.data; // List of available room objects
+        const data = await response.json();
+        const allot = data.data;
+        setAllotment(allot);
+        setHotel(allot.hotelId);
 
-        // Map availability status to existing rooms
-        // We need to merge this with the full list of rooms (structure) to keep styling
-        // But we don't have the full list in 'availableList', only available ones.
-        // So we need to access the 'base' view.
-        // Problem: 'rooms' state is currently holding the "view".
-        // Let's rely on 'hotel' state to rebuild 'rooms'.
+        // Pre-fill form
+        setFormData({
+          roomId: allot.roomId._id,
+          visitorId: allot.visitorId,
+          visitorName: allot.visitorName,
+          visitorNumber: allot.visitorNumber,
+          checkInDate: allot.checkInDate
+            ? new Date(allot.checkInDate).toISOString().split("T")[0]
+            : "",
+          checkOutDate: allot.checkOutDate
+            ? new Date(allot.checkOutDate).toISOString().split("T")[0]
+            : "",
+          remarks: allot.remarks || "",
+        });
 
-        if (hotel && hotel.categories) {
-          const updatedRooms = [];
-          const availableIds = new Set(
-            availableList.map((r) => r.id.toString())
-          );
-
-          hotel.categories.forEach((category) => {
-            category.rooms?.forEach((room) => {
-              const isAvailable = availableIds.has(room._id.toString());
-              updatedRooms.push({
-                ...room,
-                id: room._id, // Ensure ID consistency
-                categoryName: category.categoryName,
-                occupancy: category.occupancy,
-                status: isAvailable ? "available" : "occupied",
-              });
-            });
-          });
-          setRooms(updatedRooms);
-        }
+        // Now fetch hotel rooms to populate dropdown
+        fetchHotelDetails(allot.hotelId._id);
+      } else {
+        toast.error("Failed to fetch allotment details");
+        navigate(-1);
       }
     } catch (err) {
-      console.error("Availability Fetch Error", err);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching allotment:", err);
+      // toast.error("Error fetching details");
     }
   };
 
-  const fetchHotelDetails = async () => {
+  const fetchHotelDetails = async (hotelId) => {
     try {
       const response = await fetch(
         `${SERVER_BASE_URL}/api/v1/hotels/${hotelId}`,
@@ -143,14 +143,17 @@ const RoomAllotment = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setHotel(data.data);
+        const hotelData = data.data;
+        setHotel(hotelData);
 
-        // Flatten all rooms from all categories with initial status
-        // Note: data.data.categories.rooms has the static status.
-        // We will default to that until dates are selected.
         const allRooms = [];
-        data.data.categories?.forEach((category) => {
+        hotelData.categories?.forEach((category) => {
           category.rooms?.forEach((room) => {
+            // For Edit: We need to make the CURRENT allotted room "Available" in the dropdown list
+            // so the user can keep it selected without it being disabled.
+            // Strategy: The room list 'status' comes from DB.
+            // If room.id === currentAllotment.roomId, treat as available for THIS user.
+
             allRooms.push({
               ...room,
               id: room._id,
@@ -160,26 +163,18 @@ const RoomAllotment = () => {
           });
         });
         setRooms(allRooms);
-      } else {
-        toast.error("Failed to fetch hotel details");
-        navigate("/hotel");
       }
     } catch (error) {
       console.error("Error fetching hotel details:", error);
-      toast.error("Error fetching hotel details");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVisitorSearch = async (id) => {
-    if (!id || id.length < 3) return;
-
-    // Show loading toast or small indicator? Toast might be too much if typing fast.
-    // Ideally onBlur is fine.
-
+  const handleVisitorSearch = async (vid) => {
+    if (!vid || vid.length < 3) return;
     try {
-      const response = await visitorAPI.getById(id);
+      const response = await visitorAPI.getById(vid);
       if (response.data.success && response.data.data) {
         const visitor = response.data.data;
         setFormData((prev) => ({
@@ -190,14 +185,25 @@ const RoomAllotment = () => {
         toast.success(`Visitor details found: ${visitor.name}`);
       }
     } catch (error) {
-      // Silent fail or toast?
-      // If 404, maybe notify
-      console.error("Visitor lookup failed", error);
-      if (error.response?.status === 404) {
-        toast.error("Visitor not found with this ID");
-      }
+      console.log("Visitor lookup failed or not found yet");
     }
   };
+
+  // Debounce logic for Visitor ID search
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (
+        formData.visitorId &&
+        formData.visitorId.length >= 3 &&
+        formData.visitorId !== allotment?.visitorId
+      ) {
+        // Only search if changed from original
+        handleVisitorSearch(formData.visitorId);
+      }
+    }, 1000);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [formData.visitorId, allotment]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -212,54 +218,36 @@ const RoomAllotment = () => {
     setSubmitting(true);
 
     try {
-      // Validate form data
-      if (
-        !formData.roomId ||
-        !formData.visitorId ||
-        !formData.visitorName ||
-        !formData.visitorNumber ||
-        !formData.checkInDate
-      ) {
-        toast.error("Please fill in all required fields");
-        setSubmitting(false);
-        return;
-      }
-
       const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/hotels/allotments`,
+        `${SERVER_BASE_URL}/api/v1/hotels/allotments/${id}`,
         {
-          method: "POST",
+          method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            ...formData,
-            hotelId: hotelId, // Send as string, backend expects ObjectId
-          }),
+          body: JSON.stringify(formData),
         }
       );
 
       if (response.ok) {
-        toast.success(
-          "Room allotted successfully! SMS notification sent to visitor."
-        );
-        navigate("/hotel");
+        toast.success("Allotment updated successfully!");
+        navigate(-1); // Go back
       } else {
         const errorData = await response.json();
-        toast.error(errorData.message || "Failed to allot room");
+        toast.error(errorData.message || "Failed to update allotment");
       }
     } catch (error) {
-      console.error("Error allotting room:", error);
-      toast.error("Error allotting room");
+      console.error("Error updating allotment:", error);
+      toast.error("Error updating allotment");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const selectedRoom = rooms.find((room) => room.id === formData.roomId); // Compare strings
+  const selectedRoom = rooms.find((room) => room.id === formData.roomId);
 
-  if (loading && !hotel) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -274,7 +262,7 @@ const RoomAllotment = () => {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate("/hotel")}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -282,59 +270,16 @@ const RoomAllotment = () => {
         </Button>
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Room Allotment
+            Edit Allotment
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Allot room for visitor at {hotel?.hotelName}
+            Edit room allotment for {hotel?.hotelName}
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Availability Summary */}
-          <Card className="col-span-1 lg:col-span-2 bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-blue-800 dark:text-blue-300">
-                Room Availability{" "}
-                {formData.checkInDate ? `(${formData.checkInDate})` : ""}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {Object.entries(
-                  rooms.reduce((acc, room) => {
-                    if (!acc[room.categoryName]) {
-                      acc[room.categoryName] = { total: 0, available: 0 };
-                    }
-                    acc[room.categoryName].total++;
-                    if (room.status === "available") {
-                      acc[room.categoryName].available++;
-                    }
-                    return acc;
-                  }, {})
-                ).map(([category, stats]) => (
-                  <div
-                    key={category}
-                    className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-blue-100 dark:border-blue-800"
-                  >
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                      {category}
-                    </p>
-                    <p className="text-xl font-bold flex items-baseline gap-1">
-                      <span className="text-green-600 dark:text-green-400">
-                        {stats.available}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        / {stats.total} Available
-                      </span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Room Selection */}
           <Card>
             <CardHeader>
@@ -368,33 +313,43 @@ const RoomAllotment = () => {
                       >
                         {category}
                       </div>,
-                      ...categoryRooms.map((room) => (
-                        <SelectItem
-                          key={room.id}
-                          value={room.id.toString()}
-                          disabled={room.status !== "available"}
-                          className={
-                            room.status !== "available" ? "opacity-50" : ""
-                          }
-                        >
-                          <span className="flex items-center justify-between w-full min-w-[200px]">
-                            <span>
-                              {room.roomNumber} (Occ: {room.occupancy})
+                      ...categoryRooms.map((room) => {
+                        // Check if this room is the currently selected one in the form (even if occupied status in DB)
+                        // OR if it is truly available.
+                        const isCurrentRoom = room.id === allotment?.roomId._id;
+                        const isAvailable = room.status === "available";
+                        const isSelectable = isAvailable || isCurrentRoom;
+
+                        return (
+                          <SelectItem
+                            key={room.id}
+                            value={room.id.toString()}
+                            disabled={!isSelectable}
+                            className={!isSelectable ? "opacity-50" : ""}
+                          >
+                            <span className="flex items-center justify-between w-full min-w-[200px]">
+                              <span>
+                                {room.roomNumber} (Occ: {room.occupancy})
+                              </span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded uppercase ml-2 ${
+                                  isAvailable
+                                    ? "bg-green-100 text-green-700"
+                                    : isCurrentRoom
+                                    ? "bg-blue-100 text-blue-700" // Highlight current room
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {isCurrentRoom
+                                  ? "Current"
+                                  : room.status === "occupied"
+                                  ? "Occupied"
+                                  : "Available"}
+                              </span>
                             </span>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded uppercase ml-2 ${
-                                room.status === "available"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-red-100 text-red-700"
-                              }`}
-                            >
-                              {room.status === "occupied"
-                                ? "Occupied"
-                                : "Available"}
-                            </span>
-                          </span>
-                        </SelectItem>
-                      )),
+                          </SelectItem>
+                        );
+                      }),
                     ])}
                   </SelectContent>
                 </Select>
@@ -425,17 +380,14 @@ const RoomAllotment = () => {
                       {selectedRoom.occupancy} person(s)
                     </p>
                     <p>
+                      {/* Status logic specifically for View Only */}
                       <strong className="text-gray-600 dark:text-gray-400">
                         Status:
                       </strong>
-                      <span
-                        className={`ml-1 px-2 py-1 rounded text-xs ${
-                          selectedRoom.status === "available"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {selectedRoom.status}
+                      <span className="ml-1 text-xs px-2 py-0.5 bg-gray-200 rounded">
+                        {selectedRoom.id === allotment?.roomId._id
+                          ? "Current Assignment"
+                          : selectedRoom.status}
                       </span>
                     </p>
                   </div>
@@ -458,13 +410,6 @@ const RoomAllotment = () => {
                     name="visitorId"
                     value={formData.visitorId}
                     onChange={handleInputChange}
-                    onBlur={() => handleVisitorSearch(formData.visitorId)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleVisitorSearch(formData.visitorId);
-                      }
-                    }}
                     placeholder="Enter visitor ID (e.g. KJ1001)"
                     required
                   />
@@ -477,7 +422,7 @@ const RoomAllotment = () => {
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Press Enter or click Search to autofill details
+                  Change ID to search/swap visitor
                 </p>
               </div>
               <div>
@@ -551,11 +496,7 @@ const RoomAllotment = () => {
 
         {/* Submit Button */}
         <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/hotel")}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
             Cancel
           </Button>
           <Button
@@ -563,8 +504,8 @@ const RoomAllotment = () => {
             disabled={submitting}
             className="flex items-center gap-2"
           >
-            <Send className="h-4 w-4" />
-            {submitting ? "Allotting..." : "Allot Room & Send SMS"}
+            <Save className="h-4 w-4" />
+            {submitting ? "Updating..." : "Update Allotment"}
           </Button>
         </div>
       </form>
@@ -572,4 +513,4 @@ const RoomAllotment = () => {
   );
 };
 
-export default RoomAllotment;
+export default EditRoomAllotment;

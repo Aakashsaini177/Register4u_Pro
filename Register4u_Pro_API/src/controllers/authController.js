@@ -23,9 +23,10 @@ class AuthController {
 
       // Check Admin Login
       if (username === "admin" && password === "admin123") {
+        const adminId = "000000000000000000000001"; // Valid ObjectId length
         const token = jwt.sign(
           {
-            id: 1,
+            id: adminId,
             username: "admin",
             role: "admin",
             type: "admin",
@@ -40,7 +41,7 @@ class AuthController {
           data: {
             token,
             user: {
-              id: 1,
+              id: adminId,
               username: "admin",
               role: "admin",
               type: "admin",

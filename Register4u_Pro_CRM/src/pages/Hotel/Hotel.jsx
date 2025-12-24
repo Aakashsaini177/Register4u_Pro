@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Eye, Edit, Trash2, Bed, Users } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Eye,
+  Edit,
+  Trash2,
+  Bed,
+  Users,
+  BedDouble,
+} from "lucide-react";
 import { ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -48,16 +57,13 @@ const Hotel = () => {
     if (!window.confirm("Are you sure you want to delete this hotel?")) return;
 
     try {
-      const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/hotels/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/hotels/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         toast.success("Hotel deleted successfully");
@@ -103,11 +109,19 @@ const Hotel = () => {
         <div className="flex gap-2">
           <Button
             onClick={() => navigate("/hotel/reports")}
-            variant="outline"
-            className="flex items-center gap-2"
+            variant="default"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700"
           >
             <ClipboardDocumentListIcon className="h-4 w-4" />
             Hotel Summary
+          </Button>
+          <Button
+            onClick={() => navigate("/hotel/allot-dashboard")}
+            variant="default"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+          >
+            <BedDouble className="h-4 w-4" />
+            Allot Hotel
           </Button>
           <Button
             onClick={() => navigate("/hotel/add")}
@@ -158,7 +172,14 @@ const Hotel = () => {
                 <div>
                   <CardTitle className="text-xl">{hotel.hotelName}</CardTitle>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    ID: {hotel.hotelId || `H${hotel.id}`}
+                    ID:{" "}
+                    {hotel.hotelId ? (
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {hotel.hotelId}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs">#{hotel.id}</span>
+                    )}
                   </p>
                 </div>
                 <Badge

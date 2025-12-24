@@ -48,13 +48,28 @@ exports.getCompanyById = async (req, res) => {
   }
 };
 
+// Helper to generate CMP ID
+const generateCompanyId = () => {
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
+  return `CMP${randomNum}`;
+};
+
 // Create company
 exports.createCompany = async (req, res) => {
   try {
     console.log("📝 Creating company:", req.body);
 
+    // Generate unique Company ID
+    let companyId = generateCompanyId();
+    let exists = await Company.findOne({ companyId });
+    while (exists) {
+      companyId = generateCompanyId();
+      exists = await Company.findOne({ companyId });
+    }
+
     const companyData = {
       name: req.body.name,
+      companyId, // Add generated ID
       address: req.body.address || "N/A",
       state: req.body.state || "N/A",
       city: req.body.city || "N/A",

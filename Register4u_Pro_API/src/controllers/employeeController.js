@@ -93,6 +93,20 @@ exports.createEmployee = async (req, res) => {
 
     let employeeData = { ...req.body };
 
+    // Sanitize Reporting Manager
+    if (
+      employeeData.reporting_manager === "Admin" ||
+      employeeData.reporting_manager === "" ||
+      employeeData.reporting_manager === "null"
+    ) {
+      delete employeeData.reporting_manager;
+    }
+
+    // Sanitize Dates
+    if (employeeData.joining_date === "") delete employeeData.joining_date;
+    if (employeeData.ending_date === "") delete employeeData.ending_date;
+    if (employeeData.dob === "") delete employeeData.dob;
+
     // Handle Photo Upload (Cloudinary)
     if (req.file) {
       console.log(`📸 Photo Uploaded: ${req.file.path}`);
@@ -140,6 +154,30 @@ exports.updateEmployee = async (req, res) => {
   try {
     const id = req.params.id;
     let updateData = { ...req.body };
+
+    // Sanitize Reporting Manager
+    if (
+      updateData.reporting_manager === "Admin" ||
+      updateData.reporting_manager === "" ||
+      updateData.reporting_manager === "null"
+    ) {
+      if (updateData.reporting_manager === "Admin") {
+        updateData.reporting_manager = null; // Unset it
+        // Or if you want to remove the field from updateData so it doesn't change:
+        // delete updateData.reporting_manager;
+        // But if they selected "Admin" (which means no manager/self-managed), we might want to unset the link.
+        // Mongoose findByIdAndUpdate with { $unset: { reporting_manager: 1 } } is checking specifics.
+        // Since we are passing the whole object, setting it to null usually works if schema allows (ObjectId).
+        updateData.reporting_manager = null;
+      } else {
+        delete updateData.reporting_manager;
+      }
+    }
+
+    // Sanitize Dates
+    if (updateData.joining_date === "") updateData.joining_date = null;
+    if (updateData.ending_date === "") updateData.ending_date = null;
+    if (updateData.dob === "") updateData.dob = null;
 
     // Handle Photo Upload (Cloudinary)
     if (req.file) {

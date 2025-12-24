@@ -37,15 +37,12 @@ const ViewHotel = () => {
 
   const fetchHotelDetails = async () => {
     try {
-      const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/hotels/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/hotels/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -67,16 +64,13 @@ const ViewHotel = () => {
     if (!window.confirm("Are you sure you want to delete this hotel?")) return;
 
     try {
-      const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/hotels/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/hotels/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         toast.success("Hotel deleted successfully");
@@ -157,7 +151,12 @@ const ViewHotel = () => {
             {hotel.hotelName}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Hotel Details • ID: {hotel.hotelId || `H${hotel.id}`}
+            Hotel Details • ID:{" "}
+            {hotel.hotelId ? (
+              <span className="font-mono font-medium">{hotel.hotelId}</span>
+            ) : (
+              <span className="text-sm">#{hotel.id}</span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -353,6 +352,19 @@ const ViewHotel = () => {
                     )}
                   </div>
                   <div className="flex gap-2 mt-4 justify-end border-t pt-4">
+                    {allotment.status !== "cancelled" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-600 hover:text-blue-700"
+                        onClick={() =>
+                          navigate(`/hotel/allotment/edit/${allotment.id}`)
+                        }
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
                     {allotment.status === "booked" && (
                       <>
                         <Button
