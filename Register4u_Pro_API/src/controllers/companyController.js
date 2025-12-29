@@ -74,11 +74,13 @@ exports.createCompany = async (req, res) => {
       state: req.body.state || "N/A",
       city: req.body.city || "N/A",
       pincode: req.body.pincode || 0,
-      GSIJN: req.body.GSIJN || req.body.gstin || "N/A",
-      CIN: req.body.CIN || req.body.cin || "N/A",
-      company_type: req.body.company_type || req.body.type || "General",
+      GSIJN: req.body.GSIJN || req.body.gstin || req.body.gsijn || "N/A",
+      // CIN removed
+      category: req.body.category || "General",
+      gst_certificate: req.file ? req.file.path : null, // Handle uploaded file
       contact: req.body.contact,
       email: req.body.email,
+      website: req.body.website, // Add website
       logo: req.body.logo,
     };
 
@@ -95,7 +97,7 @@ exports.createCompany = async (req, res) => {
     console.error("❌ Create Company Error:", error);
     console.error("Error details:", error.message);
     res.status(500).json({
-      message: "Internal Server Error",
+      message: error.message, // Expose error for debugging
       success: false,
       error: error.message,
     });
@@ -105,7 +107,25 @@ exports.createCompany = async (req, res) => {
 // Update company
 exports.updateCompany = async (req, res) => {
   try {
-    const company = await Company.findByIdAndUpdate(req.params.id, req.body, {
+    // Prepare update data
+    const updateData = { ...req.body };
+    if (req.file) {
+      updateData.gst_certificate = req.file.path;
+    }
+    // Handle GSTIN with multiple casing options
+    if (req.body.GSIJN || req.body.gstin || req.body.gsijn) {
+      updateData.GSIJN = req.body.GSIJN || req.body.gstin || req.body.gsijn;
+    }
+
+    // Handle category
+    if (req.body.category) updateData.category = req.body.category;
+
+    // Handle website
+    if (req.body.website) updateData.website = req.body.website;
+
+    console.log("📝 Update Payload:", updateData); // Debug log
+
+    const company = await Company.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
     });
 

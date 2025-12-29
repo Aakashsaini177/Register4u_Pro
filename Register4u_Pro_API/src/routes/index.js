@@ -25,6 +25,7 @@ const importController = require("../controllers/importController");
 const { authenticate } = require("../middleware/auth");
 const upload = require("../middleware/upload");
 const importUpload = require("../middleware/importUpload");
+const validate = require("../middleware/validation");
 
 // Import new module routes
 const hotelRoutes = require("./hotelRoutes");
@@ -66,11 +67,20 @@ router.post("/deleteemployee/:id", employeeController.deleteEmployee);
 router.post("/getAllEmployee", employeeController.getAllEmployees);
 
 // ==================== COMPANY ROUTES ====================
-router.get("/company/:id", companyController.getCompanyById);
-router.post("/createcompany", companyController.createCompany);
-router.post("/companyupdate/:id", companyController.updateCompany);
-router.post("/deletecompany/:id", companyController.deleteCompany);
-router.get("/getallcompany", companyController.getAllCompanies);
+router.get("/company/:id", authenticate, companyController.getCompanyById);
+router.post("/createcompany", [
+  authenticate,
+  upload.single("gst_certificate"),
+  body("name").notEmpty().withMessage("Name is required"),
+  body("email").optional().isEmail().withMessage("Valid email is required"),
+  validate
+], companyController.createCompany);
+router.post("/companyupdate/:id", [
+  authenticate,
+  upload.single("gst_certificate")
+], companyController.updateCompany);
+router.post("/deletecompany/:id", authenticate, companyController.deleteCompany);
+router.get("/getallcompany", authenticate, companyController.getAllCompanies);
 
 // ==================== EVENT ROUTES ====================
 router.get("/event/:id", eventController.getEventById);

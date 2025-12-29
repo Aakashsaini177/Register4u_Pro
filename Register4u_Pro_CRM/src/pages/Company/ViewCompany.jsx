@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { companyAPI } from "@/lib/api";
+import { companyAPI, getImageUrl } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -120,6 +120,21 @@ const ViewCompany = () => {
                 </p>
               </div>
               <div>
+                <p className="text-sm text-gray-500">Website</p>
+                {company?.website ? (
+                  <a
+                    href={company.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {company.website}
+                  </a>
+                ) : (
+                  <p className="text-base font-medium">N/A</p>
+                )}
+              </div>
+              <div>
                 <p className="text-sm text-gray-500">Company Type</p>
                 <Badge variant="secondary">
                   {company?.company_type || "General"}
@@ -194,6 +209,23 @@ const ViewCompany = () => {
                 <p className="text-base font-medium font-mono">
                   {company?.CIN || "N/A"}
                 </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">GST Certificate</p>
+                {company?.gst_certificate ? (
+                  <a
+                    href={getImageUrl(company.gst_certificate)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                  >
+                    View Certificate
+                    <ArrowLeftIcon className="w-3 h-3 rotate-180" />
+                  </a>
+                ) : (
+                  <span className="text-gray-400">Not Uploaded</span>
+                )}
               </div>
             </div>
           </CardContent>

@@ -166,25 +166,12 @@ const CardDesigner = () => {
     }
   }, []);
 
-  // Text Alignment Handler (only changes text alignment, not box position)
+  // Text Alignment Handler (simplified for better UX)
   const handleTextAlignment = (type, alignment) => {
-    // Parse alignment value (e.g., "top-left" -> vertical: "top", horizontal: "left")
-    const [vertical, horizontal] = alignment.split('-');
-    
-    // Convert to CSS text-align values
-    let textAlign = "left";
-    if (horizontal === "center") {
-      textAlign = "center";
-    } else if (horizontal === "right") {
-      textAlign = "right";
-    }
-    
-    // For now, we'll just handle horizontal alignment
-    // Vertical alignment within the box can be handled with CSS later if needed
     if (type === "visitor") {
-      setVisitorNameAlign(textAlign);
+      setVisitorNameAlign(alignment);
     } else if (type === "company") {
-      setCompanyNameAlign(textAlign);
+      setCompanyNameAlign(alignment);
     }
   };
 
@@ -638,23 +625,55 @@ const CardDesigner = () => {
                       <Label className="mb-2 block">
                         Text Alignment
                       </Label>
+                      
+                      {/* Quick Alignment Buttons */}
+                      <div className="flex gap-1 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTextAlignment("visitor", "left")}
+                          className={`px-3 py-1 text-xs border rounded ${
+                            visitorNameAlign === "left" 
+                              ? "bg-blue-500 text-white border-blue-500" 
+                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          ← Left
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTextAlignment("visitor", "center")}
+                          className={`px-3 py-1 text-xs border rounded ${
+                            visitorNameAlign === "center" 
+                              ? "bg-blue-500 text-white border-blue-500" 
+                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          ↔ Center
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTextAlignment("visitor", "right")}
+                          className={`px-3 py-1 text-xs border rounded ${
+                            visitorNameAlign === "right" 
+                              ? "bg-blue-500 text-white border-blue-500" 
+                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          Right →
+                        </button>
+                      </div>
+                      
                       <select
                         value={visitorNameAlign}
                         onChange={(e) => handleTextAlignment("visitor", e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="top-left">Top Left</option>
-                        <option value="top-center">Top Center</option>
-                        <option value="top-right">Top Right</option>
-                        <option value="middle-left">Middle Left</option>
-                        <option value="middle-center">Middle Center</option>
-                        <option value="middle-right">Middle Right</option>
-                        <option value="bottom-left">Bottom Left</option>
-                        <option value="bottom-center">Bottom Center</option>
-                        <option value="bottom-right">Bottom Right</option>
+                        <option value="left">Left Align</option>
+                        <option value="center">Center Align</option>
+                        <option value="right">Right Align</option>
                       </select>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        💡 Drag the yellow box above to position it, then use this to align text inside the box
+                        💡 Drag the yellow box to position it, then use this to align text inside the box
                       </p>
                     </div>
                     <div>
@@ -806,23 +825,55 @@ const CardDesigner = () => {
                       <Label className="mb-2 block">
                         Text Alignment
                       </Label>
+                      
+                      {/* Quick Alignment Buttons */}
+                      <div className="flex gap-1 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => handleTextAlignment("company", "left")}
+                          className={`px-3 py-1 text-xs border rounded ${
+                            companyNameAlign === "left" 
+                              ? "bg-orange-500 text-white border-orange-500" 
+                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          ← Left
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTextAlignment("company", "center")}
+                          className={`px-3 py-1 text-xs border rounded ${
+                            companyNameAlign === "center" 
+                              ? "bg-orange-500 text-white border-orange-500" 
+                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          ↔ Center
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTextAlignment("company", "right")}
+                          className={`px-3 py-1 text-xs border rounded ${
+                            companyNameAlign === "right" 
+                              ? "bg-orange-500 text-white border-orange-500" 
+                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                          }`}
+                        >
+                          Right →
+                        </button>
+                      </div>
+                      
                       <select
                         value={companyNameAlign}
                         onChange={(e) => handleTextAlignment("company", e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="top-left">Top Left</option>
-                        <option value="top-center">Top Center</option>
-                        <option value="top-right">Top Right</option>
-                        <option value="middle-left">Middle Left</option>
-                        <option value="middle-center">Middle Center</option>
-                        <option value="middle-right">Middle Right</option>
-                        <option value="bottom-left">Bottom Left</option>
-                        <option value="bottom-center">Bottom Center</option>
-                        <option value="bottom-right">Bottom Right</option>
+                        <option value="left">Left Align</option>
+                        <option value="center">Center Align</option>
+                        <option value="right">Right Align</option>
                       </select>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        💡 Drag the orange box above to position it, then use this to align text inside the box
+                        💡 Drag the orange box to position it, then use this to align text inside the box
                       </p>
                     </div>
                     <div>
@@ -1106,8 +1157,8 @@ const CardDesigner = () => {
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     display: "flex",
-                    alignItems: "center", // Vertical center by default
-                    justifyContent: visitorNameAlign === "center" ? "center" : visitorNameAlign === "right" ? "flex-end" : "flex-start",
+                    alignItems: "center", // Vertical center
+                    // Remove justifyContent to let textAlign work properly
                   }}
                   title="Drag to move visitor name"
                 >
@@ -1156,8 +1207,8 @@ const CardDesigner = () => {
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     display: "flex",
-                    alignItems: "center", // Vertical center by default
-                    justifyContent: companyNameAlign === "center" ? "center" : companyNameAlign === "right" ? "flex-end" : "flex-start",
+                    alignItems: "center", // Vertical center
+                    // Remove justifyContent to let textAlign work properly
                   }}
                   title="Drag to move company name"
                 >

@@ -25,12 +25,12 @@ const companySchema = new mongoose.Schema(
     GSIJN: {
       type: String,
     },
-    CIN: {
-      type: String,
-    },
-    company_type: {
+    category: {
       type: String,
       default: "General",
+    },
+    gst_certificate: {
+      type: String, // Path to uploaded file
     },
     contact: {
       type: String,
@@ -40,6 +40,9 @@ const companySchema = new mongoose.Schema(
     },
     logo: {
       type: String,
+    },
+    website: {
+      type: String, // Optional website field
     },
   },
   {

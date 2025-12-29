@@ -139,9 +139,11 @@ const Company = () => {
                     <TableHead>ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>GST</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Created Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Created Date
+                    </TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -159,16 +161,27 @@ const Company = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <p className="font-medium">{comp.name || "N/A"}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="font-medium whitespace-nowrap">
+                          {comp.name || "N/A"}
+                        </p>
+                        <p
+                          className="text-sm text-gray-500 truncate max-w-[200px]"
+                          title={comp.city || ""}
+                        >
                           {comp.city || ""}
                         </p>
                       </TableCell>
-                      <TableCell>{comp.GSIJN || "N/A"}</TableCell>
-                      <TableCell>{comp.company_type || "N/A"}</TableCell>
-                      <TableCell>{formatDate(comp.createdAt)}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {comp.GSIJN || "N/A"}
+                      </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
+                        {comp.category || comp.company_type || "N/A"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {formatDate(comp.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <Link to={`/company/view/${comp.id}`}>
                             <Button variant="ghost" size="icon">
                               <EyeIcon className="h-4 w-4" />

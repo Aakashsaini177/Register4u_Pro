@@ -37,6 +37,7 @@ const Scanner = () => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [lastScannedCode, setLastScannedCode] = useState("");
   const [codeReader, setCodeReader] = useState(null);
+  const [fileManagerPhotos, setFileManagerPhotos] = useState({}); // Add file manager photos
   const videoRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -70,6 +71,9 @@ const Scanner = () => {
 
     reader.hints = hints;
     setCodeReader(reader);
+
+    // Fetch file manager photos on component mount
+    fetchFileManagerPhotos();
 
     return () => {
       if (reader) {
@@ -148,6 +152,44 @@ const Scanner = () => {
   const handleClear = () => {
     setVisitorId("");
     setVisitor(null);
+  };
+
+  const fetchFileManagerPhotos = async () => {
+    try {
+      console.log("📸 [Scanner] Fetching file manager photos...");
+
+      // Use the fileManagerAPI to get photos from photo folder
+      const { fileManagerAPI } = await import("@/lib/fileManagerAPI");
+      const photosResponse = await fileManagerAPI.getPhotosFromPhotoFolder();
+
+      console.log("📸 [Scanner] Photos response:", photosResponse);
+
+      if (photosResponse.data.success) {
+        const photos = photosResponse.data.data;
+        const photoMap = {};
+
+        photos.forEach((photo) => {
+          // Map by filename without extension and with extension
+          const nameWithoutExt = photo.name.replace(/\.[^/.]+$/, "");
+          photoMap[photo.name] = photo.url;
+          photoMap[nameWithoutExt] = photo.url;
+
+          console.log(`📸 [Scanner] Mapped photo: ${photo.name} -> ${photo.url}`);
+        });
+
+        setFileManagerPhotos(photoMap);
+        console.log(
+          `📸 [Scanner] Total photos mapped: ${Object.keys(photoMap).length / 2}`,
+          photoMap
+        );
+      } else {
+        console.log("📸 [Scanner] No photos found in file manager photo folder");
+      }
+    } catch (error) {
+      console.error("❌ [Scanner] Failed to fetch file manager photos:", error);
+      // Set empty object to prevent repeated failed attempts
+      setFileManagerPhotos({});
+    }
   };
 
   const handleQrScan = (data) => {
@@ -441,6 +483,15 @@ const Scanner = () => {
                       photo={visitor.photo}
                       name={visitor.name}
                       visitorId={visitor.visitorId}
+                      fallbackSrc={
+                        fileManagerPhotos[visitor.photo] ||
+                        fileManagerPhotos[
+                          visitor.photo?.replace(/\.[^/.]+$/, "")
+                        ] ||
+                        fileManagerPhotos[
+                          visitor.visitorId || visitor.id
+                        ]
+                      }
                       className="w-full h-full"
                     />
                   </div>

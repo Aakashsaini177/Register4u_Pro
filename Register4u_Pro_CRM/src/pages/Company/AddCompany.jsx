@@ -14,7 +14,24 @@ const AddCompany = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      const response = await companyAPI.create(data);
+      // Check if we need FormData (for file upload)
+      // Always use FormData to ensure backend Multer middleware handles it correctly
+      const formData = new FormData();
+      Object.keys(data).forEach((key) => {
+        // Handle file
+        if (key === "gst_certificate") {
+          if (data.gst_certificate && data.gst_certificate[0]) {
+            formData.append("gst_certificate", data.gst_certificate[0]);
+          }
+        }
+        // Handle other fields (skip null/undefined)
+        else if (data[key] !== null && data[key] !== undefined) {
+          formData.append(key, data[key]);
+        }
+      });
+      const payload = formData;
+
+      const response = await companyAPI.create(payload);
       if (response.data.success) {
         toast.success("Company added successfully!");
         navigate("/company");
@@ -22,6 +39,7 @@ const AddCompany = () => {
         toast.error(response.data.message || "Failed to add company");
       }
     } catch (error) {
+      console.error(error);
       toast.error("Failed to add company");
     } finally {
       setLoading(false);
