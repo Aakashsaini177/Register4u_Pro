@@ -335,8 +335,8 @@ const VisitorCard = () => {
           {visitor.visitorId && cardSettings.showBarcode !== false && (
             <div
               style={{
-                marginTop: `${cardSettings.barcodeImageMarginTop}px`,
-                marginLeft: `${cardSettings.barcodeImageMarginLeft}px`,
+                top: `${cardSettings.barcodeImageMarginTop}px`,
+                left: `${cardSettings.barcodeImageMarginLeft}px`,
                 position: "absolute",
               }}
             >
