@@ -24,11 +24,13 @@ const VisitorCard = () => {
   const [loading, setLoading] = useState(true);
   const [cardSettings, setCardSettings] = useState(null);
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState(null);
+  const [fileManagerPhotos, setFileManagerPhotos] = useState({}); // Add file manager photos
   const cardRef = useRef(null);
 
   useEffect(() => {
     fetchVisitor();
     loadCardSettings();
+    fetchFileManagerPhotos(); // Fetch file manager photos
   }, [id]);
 
   useEffect(() => {
@@ -77,12 +79,16 @@ const VisitorCard = () => {
         visitorNameFontSize: 18,
         visitorNameMarginTop: 140,
         visitorNameMarginLeft: 20,
+        visitorNameWidth: 200,
+        visitorNameHeight: 30,
         visitorNameColor: "#FFFFFF",
         visitorNameAlign: "left",
         visitorNameFontFamily: "Arial",
         companyNameFontSize: 14,
         companyNameMarginTop: 170,
         companyNameMarginLeft: 20,
+        companyNameWidth: 200,
+        companyNameHeight: 25,
         companyNameColor: "#FFFFFF",
         companyNameAlign: "left",
         companyNameFontFamily: "Arial",
@@ -98,6 +104,44 @@ const VisitorCard = () => {
         showQRCode: false,
         backgroundUrl: "",
       });
+    }
+  };
+
+  const fetchFileManagerPhotos = async () => {
+    try {
+      console.log("📸 [Card] Fetching file manager photos...");
+
+      // Use the fileManagerAPI to get photos from photo folder
+      const { fileManagerAPI } = await import("@/lib/fileManagerAPI");
+      const photosResponse = await fileManagerAPI.getPhotosFromPhotoFolder();
+
+      console.log("📸 [Card] Photos response:", photosResponse);
+
+      if (photosResponse.data.success) {
+        const photos = photosResponse.data.data;
+        const photoMap = {};
+
+        photos.forEach((photo) => {
+          // Map by filename without extension and with extension
+          const nameWithoutExt = photo.name.replace(/\.[^/.]+$/, "");
+          photoMap[photo.name] = photo.url;
+          photoMap[nameWithoutExt] = photo.url;
+
+          console.log(`📸 [Card] Mapped photo: ${photo.name} -> ${photo.url}`);
+        });
+
+        setFileManagerPhotos(photoMap);
+        console.log(
+          `📸 [Card] Total photos mapped: ${Object.keys(photoMap).length / 2}`,
+          photoMap
+        );
+      } else {
+        console.log("📸 [Card] No photos found in file manager photo folder");
+      }
+    } catch (error) {
+      console.error("❌ [Card] Failed to fetch file manager photos:", error);
+      // Set empty object to prevent repeated failed attempts
+      setFileManagerPhotos({});
     }
   };
 
@@ -118,17 +162,17 @@ const VisitorCard = () => {
   };
 
   const handlePrint = async () => {
-    // 1. Open print dialog
+    // Simple print approach - just use window.print() with proper CSS
     window.print();
 
-    // 2. Mark as printed in background (only if not already printed)
+    // Mark as printed in background
     if (!visitor.isCardPrinted) {
       try {
         await visitorAPI.update(visitor._id || visitor.id, {
           isCardPrinted: true,
         });
-        // Update local state to show "Re-Print" next time
         setVisitor((prev) => ({ ...prev, isCardPrinted: true }));
+        toast.success('Card printed successfully!');
       } catch (error) {
         console.error("Failed to update print status:", error);
       }
@@ -182,6 +226,8 @@ const VisitorCard = () => {
             {visitor.isCardPrinted ? "Re-Print Card" : "Print Card"}
           </Button>
         </div>
+        
+        {/* Print Instructions - Removed as requested */}
       </div>
 
       {/* ID Card - Uses Card Designer Settings */}
@@ -223,6 +269,15 @@ const VisitorCard = () => {
               photo={visitor.photo}
               name={visitor.name}
               visitorId={visitor.visitorId || visitor.id}
+              fallbackSrc={
+                fileManagerPhotos[visitor.photo] ||
+                fileManagerPhotos[
+                  visitor.photo?.replace(/\.[^/.]+$/, "")
+                ] ||
+                fileManagerPhotos[
+                  visitor.visitorId || visitor.id
+                ]
+              }
               className="w-full h-full"
             />
           </div>
@@ -232,23 +287,21 @@ const VisitorCard = () => {
             style={{
               fontSize: `${cardSettings.visitorNameFontSize}px`,
               top: `${cardSettings.visitorNameMarginTop}px`,
-              left: 0,
-              width: "100%",
+              left: `${cardSettings.visitorNameMarginLeft}px`,
+              width: `${cardSettings.visitorNameWidth || 200}px`,
+              height: `${cardSettings.visitorNameHeight || 30}px`,
               textAlign: cardSettings.visitorNameAlign,
-              paddingLeft:
-                cardSettings.visitorNameAlign === "left"
-                  ? `${cardSettings.visitorNameMarginLeft}px`
-                  : 0,
-              paddingRight:
-                cardSettings.visitorNameAlign === "right"
-                  ? `${cardSettings.visitorNameMarginLeft}px`
-                  : 0,
               fontWeight: "bold",
               fontFamily: cardSettings.visitorNameFontFamily || "Arial",
               color: cardSettings.visitorNameColor || "white",
               textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
               position: "absolute",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "flex",
+              alignItems: "center",
+              // Remove justifyContent to let textAlign work properly - matches CardDesigner preview
             }}
           >
             {visitor.name}
@@ -259,22 +312,20 @@ const VisitorCard = () => {
             style={{
               fontSize: `${cardSettings.companyNameFontSize}px`,
               top: `${cardSettings.companyNameMarginTop}px`,
-              left: 0,
-              width: "100%",
+              left: `${cardSettings.companyNameMarginLeft}px`,
+              width: `${cardSettings.companyNameWidth || 200}px`,
+              height: `${cardSettings.companyNameHeight || 25}px`,
               textAlign: cardSettings.companyNameAlign,
-              paddingLeft:
-                cardSettings.companyNameAlign === "left"
-                  ? `${cardSettings.companyNameMarginLeft}px`
-                  : 0,
-              paddingRight:
-                cardSettings.companyNameAlign === "right"
-                  ? `${cardSettings.companyNameMarginLeft}px`
-                  : 0,
               fontFamily: cardSettings.companyNameFontFamily || "Arial",
               color: cardSettings.companyNameColor || "white",
               textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
               position: "absolute",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "flex",
+              alignItems: "center",
+              // Remove justifyContent to let textAlign work properly - matches CardDesigner preview
             }}
           >
             {visitor.companyName || "No Company"}
@@ -329,84 +380,58 @@ const VisitorCard = () => {
         </div>
       </div>
 
-      {/* Additional Info - Hidden on print */}
-      <div className="max-w-sm mx-auto print:hidden">
-        <Card>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-500">Visitor ID:</p>
-                <p className="font-semibold">
-                  {visitor.visitorId || visitor.id}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500">Category:</p>
-                <p className="font-semibold">{visitor.category || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Contact:</p>
-                <p className="font-semibold">{visitor.contact || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Email:</p>
-                <p className="font-semibold">{visitor.email || "N/A"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Print Styles */}
+      {/* Print Styles - Only ID Card */}
       <style>{`
         @media print {
           @page {
             margin: 0;
-            size: auto;
+            size: 89mm 127mm;
+            orientation: portrait;
           }
           
+          /* Hide everything first */
           body * {
             visibility: hidden;
           }
           
-          #visitor-card, 
+          /* Show only the visitor card and its contents */
+          #visitor-card,
           #visitor-card * {
-            visibility: visible;
+            visibility: visible !important;
           }
           
+          /* Position and size the card for print */
           #visitor-card {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            page-break-after: always;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 89mm !important;
+            height: 127mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
             box-shadow: none !important;
-            border: 1px solid #ddd !important;
+            border: none !important;
+            transform: none !important;
           }
           
-          /* Ensure background images print */
+          /* Scale the inner card content to fit 89mm x 127mm */
+          #visitor-card > div {
+            width: 309px !important;
+            height: 475px !important;
+            transform: scale(0.288) !important;
+            transform-origin: top left !important;
+          }
+          
+          /* Ensure colors and images print */
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-                    /* Hide print button and other UI elements */
+          
+          /* Hide specific UI elements */
           .print\\:hidden {
             display: none !important;
-          }
-
-          /* Hide background image on print */
-          /* Hide background image on print */
-          .id-card-bg {
-            background-image: none !important;
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-          }
-
-          /* Force images to be visible */
-          #visitor-card img {
-            visibility: visible !important;
-            display: block !important;
-            opacity: 1 !important;
+            visibility: hidden !important;
           }
         }
       `}</style>

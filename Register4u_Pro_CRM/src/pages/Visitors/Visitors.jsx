@@ -37,6 +37,7 @@ import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   BanknotesIcon,
+  PrinterIcon, // Added for print ID card
 } from "@heroicons/react/24/outline";
 import { formatDate } from "@/lib/utils";
 
@@ -87,6 +88,10 @@ const Visitors = () => {
   // Zoom State
   const [zoomLevel, setZoomLevel] = useState(1);
   const zoomTimeoutRef = useRef(null);
+
+  // Photo Popup State
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   // Load User Preferences on Mount
   useEffect(() => {
@@ -315,7 +320,8 @@ const Visitors = () => {
 
         setFileManagerPhotos(photoMap);
         console.log(
-          `📸 Total photos mapped: ${Object.keys(photoMap).length / 2}`
+          `📸 Total photos mapped: ${Object.keys(photoMap).length / 2}`,
+          photoMap
         );
       } else {
         console.log("📸 No photos found in file manager photo folder");
@@ -358,6 +364,30 @@ const Visitors = () => {
       }
     } catch (error) {
       toast.error("Failed to delete visitor");
+    }
+  };
+
+  const handlePrintCard = (visitor) => {
+    // Open ID card page in new tab for printing
+    const cardUrl = `/visitors/card/${visitor.visitorId || visitor.id || visitor._id}`;
+    window.open(cardUrl, '_blank');
+  };
+
+  const handlePhotoClick = (visitor) => {
+    // Get the best available photo URL
+    const photoUrl = 
+      fileManagerPhotos[visitor.photo] ||
+      fileManagerPhotos[visitor.photo?.replace(/\.[^/.]+$/, "")] ||
+      fileManagerPhotos[visitor.visitorId || visitor.id] ||
+      (visitor.photo ? getImageUrl(visitor.photo) : null);
+    
+    if (photoUrl) {
+      setSelectedPhoto({
+        url: photoUrl,
+        name: visitor.name,
+        visitorId: visitor.visitorId || visitor.id
+      });
+      setShowPhotoModal(true);
     }
   };
 
@@ -784,9 +814,12 @@ const Visitors = () => {
                         </TableHead>
                       )}
 
+                      {/* Source column hidden - kept in backend for history tracking */}
+                      {/* 
                       <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
                         Source
                       </TableHead>
+                      */}
 
                       <TableHead className="text-center whitespace-nowrap h-8 px-1 text-[11px]">
                         Action
@@ -833,7 +866,11 @@ const Visitors = () => {
                         {/* Photo */}
                         {shouldShow("photo") && (
                           <TableCell className="p-1">
-                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center">
+                            <div 
+                              className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all duration-200"
+                              onClick={() => handlePhotoClick(visitor)}
+                              title="Click to view full image"
+                            >
                               <VisitorAvatar
                                 photo={visitor.photo}
                                 name={visitor.name}
@@ -847,7 +884,7 @@ const Visitors = () => {
                                     visitor.visitorId || visitor.id
                                   ]
                                 }
-                                className="w-full h-full"
+                                className="w-full h-full object-cover rounded-full"
                               />
                             </div>
                           </TableCell>
@@ -963,16 +1000,14 @@ const Visitors = () => {
                           </TableCell>
                         )}
 
+                        {/* Source column hidden - data kept in backend for history tracking 
                         <TableCell className="p-1">
-                          {/* Source with Tooltip */}
                           <div className="relative group flex items-center w-full max-w-[100px] cursor-help">
                             <span className="text-[11px] text-gray-500 border-b border-dotted border-gray-400 truncate w-full block">
                               {formatRegistrationSource(
                                 visitor.registrationSource
                               )}
                             </span>
-
-                            {/* Tooltip Content */}
                             <div className="absolute bottom-full right-0 mb-2 w-max hidden group-hover:block bg-gray-900 text-white text-[10px] rounded py-1 px-2 z-10 shadow-lg">
                               <div className="font-semibold text-gray-200">
                                 Source Details
@@ -991,19 +1026,17 @@ const Visitors = () => {
                                   </span>
                                 </div>
                               )}
-                              {/* Arrow */}
                               <div className="absolute top-full right-4 border-4 border-transparent border-t-gray-900"></div>
                             </div>
                           </div>
                         </TableCell>
+                        */}
 
                         <TableCell className="p-1">
                           <div className="flex items-center justify-center gap-1">
                             <Link
-                              to={`/visitors/card/${
-                                visitor.visitorId || visitor.id || visitor._id
-                              }`}
-                              title="View ID Card"
+                              to={`/visitors/view/${visitor._id || visitor.id}`}
+                              title="View Visitor Details"
                             >
                               <Button
                                 variant="ghost"
@@ -1013,6 +1046,15 @@ const Visitors = () => {
                                 <EyeIcon className="h-3 w-3" />
                               </Button>
                             </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handlePrintCard(visitor)}
+                              title="Print ID Card"
+                            >
+                              <PrinterIcon className="h-3 w-3 text-blue-600" />
+                            </Button>
                             <Link
                               to={`/visitors/edit/${visitor._id || visitor.id}`}
                               title="Edit Visitor"
@@ -1154,6 +1196,43 @@ const Visitors = () => {
           fetchVisitors(); // Refresh the visitor list
         }}
       />
+
+      {/* Photo Modal */}
+      {showPhotoModal && selectedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setShowPhotoModal(false)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setShowPhotoModal(false)}
+              className="absolute -top-2 -right-2 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 z-10"
+              title="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Photo */}
+            <img
+              src={selectedPhoto.url}
+              alt={selectedPhoto.name}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            />
+            
+            {/* Photo Info */}
+            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 rounded-b-lg">
+              <h3 className="text-lg font-semibold">{selectedPhoto.name}</h3>
+              <p className="text-sm text-gray-300">Visitor ID: {selectedPhoto.visitorId}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

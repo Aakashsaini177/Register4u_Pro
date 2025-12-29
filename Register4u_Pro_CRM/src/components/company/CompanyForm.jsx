@@ -1,12 +1,22 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { Loading } from "@/components/ui/Loading";
+import { categoryAPI } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
+import { EyeIcon } from "@heroicons/react/24/outline";
 
-const CompanyForm = ({ onSubmit, loading, initialValues = {}, onCancel }) => {
+const CompanyForm = ({
+  onSubmit,
+  loading,
+  initialValues = {},
+  onCancel,
+  existingGstCertificate,
+}) => {
+  const [categories, setCategories] = useState([]);
   const {
     register,
     handleSubmit,
@@ -14,6 +24,21 @@ const CompanyForm = ({ onSubmit, loading, initialValues = {}, onCancel }) => {
   } = useForm({
     defaultValues: initialValues,
   });
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await categoryAPI.getAll();
+      if (response.data.success) {
+        setCategories(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -107,40 +132,61 @@ const CompanyForm = ({ onSubmit, loading, initialValues = {}, onCancel }) => {
           />
         </div>
 
-        <div>
-          <Label htmlFor="GSIJN">GSTIN</Label>
-          <Input
-            id="GSIJN"
-            type="text"
-            placeholder="Enter GSTIN"
-            className="mt-1"
-            {...register("GSIJN")}
-          />
+        <div className="flex gap-4 items-end">
+          <div className="w-1/2">
+            <Label htmlFor="GSIJN">GSTIN</Label>
+            <Input
+              id="GSIJN"
+              type="text"
+              placeholder="Enter GSTIN"
+              className="mt-1"
+              {...register("GSIJN")}
+            />
+          </div>
+          <div className="w-1/2">
+            <div className="flex justify-between items-center mb-1">
+              <Label htmlFor="gst_certificate">Upload GST Cert.</Label>
+              {existingGstCertificate && (
+                <a
+                  href={getImageUrl(existingGstCertificate)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <EyeIcon className="w-3 h-3" /> View
+                </a>
+              )}
+            </div>
+            <Input
+              id="gst_certificate"
+              type="file"
+              accept="image/*,application/pdf"
+              className="mt-1"
+              {...register("gst_certificate")}
+            />
+          </div>
         </div>
 
         <div>
-          <Label htmlFor="CIN">CIN</Label>
-          <Input
-            id="CIN"
-            type="text"
-            placeholder="Enter CIN"
-            className="mt-1"
-            {...register("CIN")}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="company_type">Company Type</Label>
+          <Label htmlFor="category">Category</Label>
           <select
-            id="company_type"
+            id="category"
             className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-            {...register("company_type")}
+            {...register("category")}
           >
-            <option value="General">General</option>
-            <option value="Corporate">Corporate</option>
-            <option value="NGO">NGO</option>
-            <option value="Government">Government</option>
-            <option value="Educational">Educational</option>
+            <option value="">Select Category</option>
+            {categories.map((cat, index) => (
+              <option key={cat._id || cat.id || index} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+            {/* Fallback options if no categories found */}
+            {categories.length === 0 && (
+              <>
+                <option value="General">General</option>
+                <option value="Corporate">Corporate</option>
+              </>
+            )}
           </select>
         </div>
       </div>

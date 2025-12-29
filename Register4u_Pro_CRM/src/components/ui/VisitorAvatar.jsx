@@ -11,31 +11,53 @@ import { UserIcon } from "@heroicons/react/24/outline";
  *
  * Displays a visitor's photo with robust fallback mechanisms.
  * 1. Tries to load the photo from backend (DB path).
- * 2. Tries common extensions in uploads folder.
- * 3. FALLBACK: Asynchronously checks File Manager for a file named "visitorId".
- * 4. Final Fallback: UserIcon.
+ * 2. Tries fallbackSrc if provided (from file manager).
+ * 3. Tries common extensions in uploads folder.
+ * 4. FALLBACK: Asynchronously checks File Manager for a file named "visitorId".
+ * 5. Final Fallback: UserIcon.
  */
-const VisitorAvatar = ({ photo, name, visitorId, className = "", alt = "Visitor" }) => {
+const VisitorAvatar = ({ 
+  photo, 
+  name, 
+  visitorId, 
+  fallbackSrc, 
+  className = "", 
+  alt = "Visitor" 
+}) => {
   const [imgSrc, setImgSrc] = useState(null);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isCheckingFileManager, setIsCheckingFileManager] = useState(false);
 
   useEffect(() => {
+    console.log(`🖼️ VisitorAvatar: photo=${photo}, fallbackSrc=${fallbackSrc}, visitorId=${visitorId}`);
+    
+    // Priority order: photo from DB -> fallbackSrc -> file manager check
     if (photo) {
-      setImgSrc(getImageUrl(photo));
+      const photoUrl = getImageUrl(photo);
+      console.log(`🖼️ Using DB photo: ${photoUrl}`);
+      setImgSrc(photoUrl);
+      setHasError(false);
+      setRetryCount(0);
+      setIsCheckingFileManager(false);
+    } else if (fallbackSrc) {
+      // Use fallbackSrc from file manager
+      console.log(`🖼️ Using fallback photo: ${fallbackSrc}`);
+      setImgSrc(fallbackSrc);
       setHasError(false);
       setRetryCount(0);
       setIsCheckingFileManager(false);
     } else if (visitorId && !isCheckingFileManager) {
-      // If no photo in DB, try File Manager with visitorId
+      // If no photo in DB and no fallbackSrc, try File Manager with visitorId
+      console.log(`🖼️ Checking file manager for visitorId: ${visitorId}`);
       setIsCheckingFileManager(true);
       checkFileManagerForPhoto();
     } else {
+      console.log(`🖼️ No photo sources available`);
       setImgSrc(null);
       setHasError(true);
     }
-  }, [photo, visitorId]);
+  }, [photo, visitorId, fallbackSrc]);
 
   const checkFileManagerForPhoto = async () => {
     try {
@@ -56,23 +78,30 @@ const VisitorAvatar = ({ photo, name, visitorId, className = "", alt = "Visitor"
   };
 
   const handleError = async () => {
+    // Try fallbackSrc first if available and not already tried
+    if (retryCount === 0 && fallbackSrc && imgSrc !== fallbackSrc) {
+      setImgSrc(fallbackSrc);
+      setRetryCount(1);
+      return;
+    }
+    
     // Basic extension fallback logic
-    if (retryCount === 0 && imgSrc && imgSrc.includes(".jpg")) {
+    if (retryCount <= 1 && imgSrc && imgSrc.includes(".jpg")) {
       // Try png
       setImgSrc(imgSrc.replace(".jpg", ".png"));
-      setRetryCount(1);
-    } else if (retryCount === 0 && imgSrc && imgSrc.includes(".png")) {
+      setRetryCount(retryCount + 1);
+    } else if (retryCount <= 1 && imgSrc && imgSrc.includes(".png")) {
       // Try jpg
       setImgSrc(imgSrc.replace(".png", ".jpg"));
-      setRetryCount(1);
-    } else if (retryCount === 1 && visitorId && !isCheckingFileManager) {
+      setRetryCount(retryCount + 1);
+    } else if (retryCount <= 2 && visitorId && !isCheckingFileManager) {
       // If extension fallback failed and we have visitorId, try File Manager
       setIsCheckingFileManager(true);
       try {
         const fileManagerUrl = await getPhotoFromFileManager(visitorId);
-        if (fileManagerUrl) {
+        if (fileManagerUrl && fileManagerUrl !== imgSrc) {
           setImgSrc(fileManagerUrl);
-          setRetryCount(2);
+          setRetryCount(retryCount + 1);
         } else {
           setHasError(true);
         }

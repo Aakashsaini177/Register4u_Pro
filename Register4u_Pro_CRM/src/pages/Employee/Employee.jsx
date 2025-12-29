@@ -160,10 +160,12 @@ const Employee = () => {
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Password</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead>Work Location/Desk</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Created Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      Created Date
+                    </TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -175,16 +177,16 @@ const Employee = () => {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">
+                          <p className="font-medium whitespace-nowrap">
                             {employee.fullName || employee.name || "N/A"}
                           </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {employee.emp_type || employee.designation || ""}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>{employee.email || "N/A"}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {employee.contact || employee.phone || "N/A"}
                       </TableCell>
                       <TableCell>
@@ -213,13 +215,20 @@ const Employee = () => {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <p className="text-gray-900 dark:text-gray-100">
+                      <TableCell className="max-w-[250px]">
+                        <div
+                          className="text-sm"
+                          title={`${employee.location || employee.city || ""}${
+                            employee.city && employee.state
+                              ? `, ${employee.city}, ${employee.state}`
+                              : ""
+                          }`}
+                        >
+                          <p className="text-gray-900 dark:text-gray-100 truncate">
                             {employee.location || employee.city || "N/A"}
                           </p>
                           {employee.city && employee.state && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               {employee.city}, {employee.state}
                             </p>
                           )}
@@ -236,9 +245,11 @@ const Employee = () => {
                           {employee.status || "Active"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(employee.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-2">
+                      <TableCell className="whitespace-nowrap">
+                        {formatDate(employee.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <Link to={`/employee/view/${employee.id}`}>
                             <Button variant="ghost" size="icon">
                               <EyeIcon className="h-4 w-4" />
