@@ -85,10 +85,10 @@ const CardDesigner = () => {
   const [showBarcode, setShowBarcode] = useState(true);
 
   // QR Code properties
-  const [qrCodeWidth, setQrCodeWidth] = useState(100);
-  const [qrCodeHeight, setQrCodeHeight] = useState(100);
-  const [qrCodeMarginTop, setQrCodeMarginTop] = useState(10);
-  const [qrCodeMarginLeft, setQrCodeMarginLeft] = useState(50);
+    const [qrCodeWidth, setQrCodeWidth] = useState(100);
+    const [qrCodeHeight, setQrCodeHeight] = useState(100);
+    const [qrCodeTop, setQrCodeTop] = useState(10);
+    const [qrCodeLeft, setQrCodeLeft] = useState(50);
   const [showQRCode, setShowQRCode] = useState(false);
 
   // Background image
@@ -141,21 +141,21 @@ const CardDesigner = () => {
       setCompanyNameAlign(settings.companyNameAlign || "left");
       setCompanyNameFontFamily(settings.companyNameFontFamily || "Arial");
 
-      setBarcodeImageWidth(settings.barcodeImageWidth || 200);
-      setBarcodeImageHeight(settings.barcodeImageHeight || 60);
-      setBarcodeImageMarginTop(settings.barcodeImageMarginTop || 10);
-      setBarcodeImageMarginRight(settings.barcodeImageMarginRight || 0);
-      setBarcodeImageMarginBottom(settings.barcodeImageMarginBottom || 10);
-      setBarcodeImageMarginLeft(settings.barcodeImageMarginLeft || 25);
+      setBarcodeImageWidth(Number(settings.barcodeImageWidth ?? 200));
+      setBarcodeImageHeight(Number(settings.barcodeImageHeight ?? 60));
+      setBarcodeImageMarginTop(Number(settings.barcodeImageMarginTop ?? 10));
+      setBarcodeImageMarginRight(Number(settings.barcodeImageMarginRight ?? 0));
+      setBarcodeImageMarginBottom(Number(settings.barcodeImageMarginBottom ?? 10));
+      setBarcodeImageMarginLeft(Number(settings.barcodeImageMarginLeft ?? 25));
       setBarcodeType(settings.barcodeType || "barcode");
       setShowBarcode(
         settings.showBarcode !== undefined ? settings.showBarcode : true
       );
 
-      setQrCodeWidth(settings.qrCodeWidth || 100);
-      setQrCodeHeight(settings.qrCodeHeight || 100);
-      setQrCodeMarginTop(settings.qrCodeMarginTop || 10);
-      setQrCodeMarginLeft(settings.qrCodeMarginLeft || 50);
+      setQrCodeWidth(Number(settings.qrCodeWidth ?? 100));
+      setQrCodeHeight(Number(settings.qrCodeHeight ?? 100));
+      setQrCodeTop(Number(settings.qrCodeTop ?? 10));
+      setQrCodeLeft(Number(settings.qrCodeLeft ?? 50));
       setShowQRCode(
         settings.showQRCode !== undefined ? settings.showQRCode : false
       );
@@ -189,27 +189,66 @@ const CardDesigner = () => {
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
 
+    // Card dimensions
+    const cardWidth = 309;
+    const cardHeight = 475;
+
     switch (dragging) {
-      case "imageBox":
-        setImageLeftMargin((prev) => (prev || 0) + deltaX);
-        setImageTopMargin((prev) => (prev || 0) + deltaY);
+      case "imageBox": {
+        setImageLeftMargin((prev) => {
+          const newLeft = (prev || 0) + deltaX;
+          return Math.max(0, Math.min(newLeft, cardWidth - imageWidth));
+        });
+        setImageTopMargin((prev) => {
+          const newTop = (prev || 0) + deltaY;
+          return Math.max(0, Math.min(newTop, cardHeight - imageHeight));
+        });
         break;
-      case "visitorName":
-        setVisitorNameMarginLeft((prev) => (prev || 0) + deltaX);
-        setVisitorNameMarginTop((prev) => (prev || 0) + deltaY);
+      }
+      case "visitorName": {
+        setVisitorNameMarginLeft((prev) => {
+          const newLeft = (prev || 0) + deltaX;
+          return Math.max(0, Math.min(newLeft, cardWidth - visitorNameWidth));
+        });
+        setVisitorNameMarginTop((prev) => {
+          const newTop = (prev || 0) + deltaY;
+          return Math.max(0, Math.min(newTop, cardHeight - visitorNameHeight));
+        });
         break;
-      case "companyName":
-        setCompanyNameMarginLeft((prev) => (prev || 0) + deltaX);
-        setCompanyNameMarginTop((prev) => (prev || 0) + deltaY);
+      }
+      case "companyName": {
+        setCompanyNameMarginLeft((prev) => {
+          const newLeft = (prev || 0) + deltaX;
+          return Math.max(0, Math.min(newLeft, cardWidth - companyNameWidth));
+        });
+        setCompanyNameMarginTop((prev) => {
+          const newTop = (prev || 0) + deltaY;
+          return Math.max(0, Math.min(newTop, cardHeight - companyNameHeight));
+        });
         break;
-      case "barcode":
-        setBarcodeImageMarginLeft((prev) => (prev || 0) + deltaX);
-        setBarcodeImageMarginTop((prev) => (prev || 0) + deltaY);
+      }
+      case "barcode": {
+        setBarcodeImageMarginLeft((prev) => {
+          const newLeft = (prev || 0) + deltaX;
+          return Math.max(0, Math.min(newLeft, cardWidth - barcodeImageWidth));
+        });
+        setBarcodeImageMarginTop((prev) => {
+          const newTop = (prev || 0) + deltaY;
+          return Math.max(0, Math.min(newTop, cardHeight - barcodeImageHeight));
+        });
         break;
-      case "qrcode":
-        setQrCodeMarginLeft((prev) => (prev || 0) + deltaX);
-        setQrCodeMarginTop((prev) => (prev || 0) + deltaY);
+      }
+      case "qrcode": {
+          setQrCodeLeft((prev) => {
+            const newLeft = (prev || 0) + deltaX;
+            return Math.max(0, Math.min(newLeft, cardWidth - qrCodeWidth));
+          });
+          setQrCodeTop((prev) => {
+            const newTop = (prev || 0) + deltaY;
+            return Math.max(0, Math.min(newTop, cardHeight - qrCodeHeight));
+          });
         break;
+      }
       default:
         break;
     }
@@ -312,6 +351,14 @@ const CardDesigner = () => {
   const saveSettings = () => {
     setSaving(true);
 
+    // Clamp barcode position and size to card bounds
+    const cardWidth = 309;
+    const cardHeight = 475;
+    const clampedBarcodeImageWidth = Math.max(10, Math.min(barcodeImageWidth, cardWidth));
+    const clampedBarcodeImageHeight = Math.max(10, Math.min(barcodeImageHeight, cardHeight));
+    const clampedBarcodeImageMarginLeft = Math.max(0, Math.min(barcodeImageMarginLeft, cardWidth - clampedBarcodeImageWidth));
+    const clampedBarcodeImageMarginTop = Math.max(0, Math.min(barcodeImageMarginTop, cardHeight - clampedBarcodeImageHeight));
+
     const settings = {
       imageWidth,
       imageHeight,
@@ -346,27 +393,24 @@ const CardDesigner = () => {
       companyNameColor,
       companyNameAlign,
       companyNameFontFamily,
-      barcodeImageWidth,
-      barcodeImageHeight,
-      barcodeImageMarginTop,
+      barcodeImageWidth: clampedBarcodeImageWidth,
+      barcodeImageHeight: clampedBarcodeImageHeight,
+      barcodeImageMarginTop: clampedBarcodeImageMarginTop,
       barcodeImageMarginRight,
       barcodeImageMarginBottom,
-      barcodeImageMarginLeft,
+      barcodeImageMarginLeft: clampedBarcodeImageMarginLeft,
       barcodeType,
       showBarcode,
       qrCodeWidth,
       qrCodeHeight,
-      qrCodeMarginTop,
-      qrCodeMarginLeft,
+      qrCodeTop,
+      qrCodeLeft,
       showQRCode,
       backgroundUrl,
     };
 
     // Save to localStorage
     localStorage.setItem("cardDesignSettings", JSON.stringify(settings));
-
-    // You can also save to backend API here
-    // await settingsAPI.save(settings)
 
     setTimeout(() => {
       setSaving(false);
@@ -1028,22 +1072,22 @@ const CardDesigner = () => {
                         />
                       </div>
                       <div>
-                        <Label>Margin Top</Label>
+                        <Label>Top</Label>
                         <Input
                           type="number"
-                          value={qrCodeMarginTop}
+                          value={qrCodeTop}
                           onChange={(e) =>
-                            setQrCodeMarginTop(Number(e.target.value))
+                            setQrCodeTop(Number(e.target.value))
                           }
                         />
                       </div>
                       <div>
-                        <Label>Margin Left</Label>
+                        <Label>Left</Label>
                         <Input
                           type="number"
-                          value={qrCodeMarginLeft}
+                          value={qrCodeLeft}
                           onChange={(e) =>
-                            setQrCodeMarginLeft(Number(e.target.value))
+                            setQrCodeLeft(Number(e.target.value))
                           }
                         />
                       </div>
@@ -1062,10 +1106,7 @@ const CardDesigner = () => {
               <CardTitle>Live Preview (Drag elements to move)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-blue-50 p-4 rounded-lg mb-4 text-sm text-blue-900">
-                <strong>💡 Tip:</strong> Click and drag any colored box or text
-                to reposition it on the card!
-              </div>
+              {/* ...tip removed... */}
 
               {/* Card Preview */}
               <div
@@ -1091,10 +1132,10 @@ const CardDesigner = () => {
                     width: `${imageWidth}px`,
                     height: `${imageHeight}px`,
                     border: "2px solid #39FF14", // Green as requested
-                    marginTop: `${imageTopMargin}px`,
-                    marginLeft: `${imageLeftMargin}px`,
+                    top: `${imageTopMargin}px`,
+                    left: `${imageLeftMargin}px`,
                     cursor: dragging === "imageBox" ? "grabbing" : "grab",
-                    position: "relative",
+                    position: "absolute",
                     backgroundColor: "rgba(255, 255, 255, 0.3)",
                     borderRadius:
                       imageShape === "circle"
@@ -1108,6 +1149,7 @@ const CardDesigner = () => {
                     color: "white",
                     fontSize: "12px",
                     fontWeight: "bold",
+                    zIndex: 30,
                   }}
                   title="Drag to move photo"
                 >
@@ -1125,7 +1167,7 @@ const CardDesigner = () => {
                       border: "2px solid white",
                       borderRadius: "50%",
                       cursor: "nwse-resize",
-                      zIndex: 10,
+                      zIndex: 40,
                     }}
                     title="Drag to resize"
                     onClick={(e) => e.stopPropagation()}
@@ -1241,10 +1283,10 @@ const CardDesigner = () => {
                     style={{
                       width: `${barcodeImageWidth}px`,
                       height: `${barcodeImageHeight}px`,
-                      marginTop: `${barcodeImageMarginTop}px`,
-                      marginLeft: `${barcodeImageMarginLeft}px`,
+                      top: `${barcodeImageMarginTop}px`,
+                      left: `${barcodeImageMarginLeft}px`,
                       cursor: dragging === "barcode" ? "grabbing" : "grab",
-                      position: "absolute", // Changed to absolute for proper positioning
+                      position: "absolute",
                       border: "2px solid rgb(43, 20, 255)",
                       backgroundColor: "rgba(255, 255, 255, 0.8)",
                       display: "flex",
@@ -1252,6 +1294,7 @@ const CardDesigner = () => {
                       justifyContent: "center",
                       fontSize: "10px",
                       fontWeight: "bold",
+                      zIndex: 25,
                     }}
                     title="Drag to move barcode"
                   >
@@ -1269,7 +1312,7 @@ const CardDesigner = () => {
                         border: "1px solid white",
                         borderRadius: "50%",
                         cursor: "nwse-resize",
-                        zIndex: 20,
+                        zIndex: 30,
                       }}
                       title="Drag to resize barcode"
                       onClick={(e) => e.stopPropagation()}
@@ -1284,10 +1327,10 @@ const CardDesigner = () => {
                     style={{
                       width: `${qrCodeWidth}px`,
                       height: `${qrCodeHeight}px`,
-                      marginTop: `${qrCodeMarginTop}px`,
-                      marginLeft: `${qrCodeMarginLeft}px`,
+                      top: `${qrCodeTop}px`,
+                      left: `${qrCodeLeft}px`,
                       cursor: dragging === "qrcode" ? "grabbing" : "grab",
-                      position: "absolute", // Changed to absolute for proper positioning
+                      position: "absolute",
                       border: "2px solid rgb(255, 0, 255)",
                       backgroundColor: "rgba(255, 255, 255, 0.8)",
                       display: "flex",
@@ -1295,6 +1338,7 @@ const CardDesigner = () => {
                       justifyContent: "center",
                       fontSize: "10px",
                       fontWeight: "bold",
+                      zIndex: 20,
                     }}
                     title="Drag to move QR code"
                   >
@@ -1312,7 +1356,7 @@ const CardDesigner = () => {
                         border: "1px solid black",
                         borderRadius: "50%",
                         cursor: "nwse-resize",
-                        zIndex: 20,
+                        zIndex: 30,
                       }}
                       title="Drag to resize QR code"
                       onClick={(e) => e.stopPropagation()}
@@ -1321,32 +1365,7 @@ const CardDesigner = () => {
                 )}
               </div>
 
-              <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 space-y-2">
-                <p>
-                  <span className="inline-block w-4 h-4 bg-green-400 border-2 border-green-500 mr-2"></span>
-                  Photo area (Green) - {imageShape} - Drag corner to resize
-                </p>
-                <p>
-                  <span className="inline-block w-4 h-4 bg-yellow-200 border border-yellow-400 mr-2"></span>
-                  Visitor name (Yellow border) - Drag to move
-                </p>
-                <p>
-                  <span className="inline-block w-4 h-4 bg-orange-200 border border-orange-400 mr-2"></span>
-                  Company name (Orange border) - Drag to move
-                </p>
-                {showBarcode && (
-                  <p>
-                    <span className="inline-block w-4 h-4 bg-blue-200 border-2 border-blue-500 mr-2"></span>
-                    Barcode (Blue border) - Drag to move
-                  </p>
-                )}
-                {showQRCode && (
-                  <p>
-                    <span className="inline-block w-4 h-4 bg-pink-200 border-2 border-pink-500 mr-2"></span>
-                    QR Code (Pink border) - Drag to move
-                  </p>
-                )}
-              </div>
+              {/* ...legend removed... */}
             </CardContent>
           </Card>
         </div>
