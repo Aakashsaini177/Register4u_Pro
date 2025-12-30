@@ -7,6 +7,7 @@ import {
   getImageUrl,
   getPhotoFromFileManager,
 } from "@/lib/api";
+import { fileManagerAPI } from "@/lib/fileManagerAPI";
 import VisitorAvatar from "@/components/ui/VisitorAvatar";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -62,8 +63,12 @@ const VisitorCard = () => {
 
   const loadCardSettings = () => {
     const saved = localStorage.getItem("cardDesignSettings");
+    console.log("🔍 [Card.jsx] Loading card settings:", saved ? "Found" : "Not found");
     if (saved) {
-      setCardSettings(JSON.parse(saved));
+      const parsedSettings = JSON.parse(saved);
+      console.log("🔍 [Card.jsx] showQRCode setting:", parsedSettings.showQRCode);
+      console.log("🔍 [Card.jsx] QR position:", parsedSettings.qrCodeTop, parsedSettings.qrCodeLeft);
+      setCardSettings(parsedSettings);
     } else {
       // Default settings
       setCardSettings({
@@ -99,8 +104,8 @@ const VisitorCard = () => {
         showBarcode: true,
         qrCodeWidth: 100,
         qrCodeHeight: 100,
-        qrCodeMarginTop: 10,
-        qrCodeMarginLeft: 50,
+        qrCodeTop: 10,
+        qrCodeLeft: 50,
         showQRCode: false,
         backgroundUrl: "",
       });
@@ -111,8 +116,6 @@ const VisitorCard = () => {
     try {
       console.log("📸 [Card] Fetching file manager photos...");
 
-      // Use the fileManagerAPI to get photos from photo folder
-      const { fileManagerAPI } = await import("@/lib/fileManagerAPI");
       const photosResponse = await fileManagerAPI.getPhotosFromPhotoFolder();
 
       console.log("📸 [Card] Photos response:", photosResponse);
@@ -162,7 +165,7 @@ const VisitorCard = () => {
   };
 
   const handlePrint = async () => {
-    // Simple print approach - just use window.print() with proper CSS
+    // Use current page print without opening new window
     window.print();
 
     // Mark as printed in background
@@ -181,6 +184,62 @@ const VisitorCard = () => {
 
   const handleDownload = () => {
     toast.info("Download feature coming soon!");
+  };
+
+  // Calculate print scale based on custom print size
+  const calculatePrintScale = () => {
+    if (!cardSettings) return 0.288; // Default scale for 89x127mm
+    
+    const printWidth = cardSettings.printWidth || 89;
+    const printHeight = cardSettings.printHeight || 127;
+    const printUnit = cardSettings.printUnit || "mm";
+    
+    // Convert to mm if needed
+    const widthMm = printUnit === "inches" ? printWidth * 25.4 : printWidth;
+    const heightMm = printUnit === "inches" ? printHeight * 25.4 : printHeight;
+    
+    // Original card design is 309x475px, standard print is 89x127mm
+    // Calculate scale to fit custom size
+    const scaleX = widthMm / 89 * 0.288;  // 0.288 is the base scale for 89mm
+    const scaleY = heightMm / 127 * 0.288; // 0.288 is the base scale for 127mm
+    
+    // Use the smaller scale to ensure card fits within print area
+    return Math.min(scaleX, scaleY);
+  };
+
+  // Get the calculated scale value for use in CSS
+  const printScale = calculatePrintScale();
+
+  // Convert 9-position alignment to Tailwind classes
+  const getAlignmentClasses = (alignment) => {
+    switch (alignment) {
+      case "top-left":
+        return "flex items-start justify-start text-left";
+      case "top-center":
+        return "flex items-start justify-center text-center";
+      case "top-right":
+        return "flex items-start justify-end text-right";
+      case "center-left":
+        return "flex items-center justify-start text-left";
+      case "center":
+        return "flex items-center justify-center text-center";
+      case "center-right":
+        return "flex items-center justify-end text-right";
+      case "bottom-left":
+        return "flex items-end justify-start text-left";
+      case "bottom-center":
+        return "flex items-end justify-center text-center";
+      case "bottom-right":
+        return "flex items-end justify-end text-right";
+      case "left":
+        return "text-left";
+      case "center":
+        return "text-center";
+      case "right":
+        return "text-right";
+      default:
+        return "text-left";
+    }
   };
 
   if (loading || !cardSettings) {
@@ -233,7 +292,7 @@ const VisitorCard = () => {
       {/* ID Card - Uses Card Designer Settings */}
       <div ref={cardRef} id="visitor-card" className="max-w-sm mx-auto">
         <div
-          className="border-2 border-gray-300 shadow-xl mx-auto print:border-0 print:shadow-none id-card-bg"
+          className="border-2 border-gray-300 shadow-xl mx-auto print:border-0 print:shadow-none id-card-bg print:bg-white"
           style={{
             width: "309px",
             height: "475px",
@@ -284,24 +343,16 @@ const VisitorCard = () => {
 
           {/* Visitor Name - Positioned by settings */}
           <div
+            className={`absolute whitespace-nowrap overflow-hidden text-ellipsis font-bold ${getAlignmentClasses(cardSettings.visitorNameAlign)}`}
             style={{
               fontSize: `${cardSettings.visitorNameFontSize}px`,
-              top: `${cardSettings.visitorNameMarginTop}px`,
-              left: `${cardSettings.visitorNameMarginLeft}px`,
+              top: `${Math.min(cardSettings.visitorNameMarginTop || 140, 475 - (cardSettings.visitorNameHeight || 30))}px`,
+              left: `${Math.min(cardSettings.visitorNameMarginLeft || 20, 309 - (cardSettings.visitorNameWidth || 200))}px`,
               width: `${cardSettings.visitorNameWidth || 200}px`,
               height: `${cardSettings.visitorNameHeight || 30}px`,
-              textAlign: cardSettings.visitorNameAlign,
-              fontWeight: "bold",
               fontFamily: cardSettings.visitorNameFontFamily || "Arial",
               color: cardSettings.visitorNameColor || "white",
               textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
-              position: "absolute",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "flex",
-              alignItems: "center",
-              // Remove justifyContent to let textAlign work properly - matches CardDesigner preview
             }}
           >
             {visitor.name}
@@ -309,23 +360,16 @@ const VisitorCard = () => {
 
           {/* Company Name - Positioned by settings */}
           <div
+            className={`absolute whitespace-nowrap overflow-hidden text-ellipsis ${getAlignmentClasses(cardSettings.companyNameAlign)}`}
             style={{
               fontSize: `${cardSettings.companyNameFontSize}px`,
-              top: `${cardSettings.companyNameMarginTop}px`,
-              left: `${cardSettings.companyNameMarginLeft}px`,
+              top: `${Math.min(cardSettings.companyNameMarginTop || 170, 475 - (cardSettings.companyNameHeight || 25))}px`,
+              left: `${Math.min(cardSettings.companyNameMarginLeft || 20, 309 - (cardSettings.companyNameWidth || 200))}px`,
               width: `${cardSettings.companyNameWidth || 200}px`,
               height: `${cardSettings.companyNameHeight || 25}px`,
-              textAlign: cardSettings.companyNameAlign,
               fontFamily: cardSettings.companyNameFontFamily || "Arial",
               color: cardSettings.companyNameColor || "white",
               textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
-              position: "absolute",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "flex",
-              alignItems: "center",
-              // Remove justifyContent to let textAlign work properly - matches CardDesigner preview
             }}
           >
             {visitor.companyName || "No Company"}
@@ -355,11 +399,24 @@ const VisitorCard = () => {
           )}
 
           {/* QR Code - Positioned by settings */}
-          {visitor.visitorId && cardSettings.showQRCode && (
+          {(() => {
+            const qrLeft = Math.min(cardSettings.qrCodeLeft || 50, 309 - (cardSettings.qrCodeWidth || 100));
+            const qrTop = Math.min(cardSettings.qrCodeTop || 10, 475 - (cardSettings.qrCodeHeight || 100));
+            
+            console.log("🔍 [Card.jsx] QR Code check:", {
+              visitorId: visitor.visitorId,
+              showQRCode: cardSettings.showQRCode,
+              shouldShow: visitor.visitorId && cardSettings.showQRCode,
+              originalPosition: `${cardSettings.qrCodeTop}px, ${cardSettings.qrCodeLeft}px`,
+              clampedPosition: `${qrTop}px, ${qrLeft}px`,
+              cardSize: "309x475px"
+            });
+            return visitor.visitorId && cardSettings.showQRCode;
+          })() && (
             <div
               style={{
-                marginTop: `${cardSettings.qrCodeMarginTop}px`,
-                marginLeft: `${cardSettings.qrCodeMarginLeft}px`,
+                top: `${Math.min(cardSettings.qrCodeTop || 10, 475 - (cardSettings.qrCodeHeight || 100))}px`,
+                left: `${Math.min(cardSettings.qrCodeLeft || 50, 309 - (cardSettings.qrCodeWidth || 100))}px`,
                 position: "absolute",
                 display: "inline-block",
               }}
@@ -375,12 +432,27 @@ const VisitorCard = () => {
                   e.target.style.display = "none";
                 }}
               />
+              {/* QR Code Number - Like barcode */}
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: "bold",
+                  color: "#000",
+                  textAlign: "center",
+                  marginTop: "2px",
+                  fontFamily: "monospace",
+                  letterSpacing: "1px",
+                  textShadow: "1px 1px 2px rgba(255,255,255,0.8)",
+                }}
+              >
+                {visitor.visitorId}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Print Styles - Only ID Card */}
+      {/* Print Styles to hide browser UI */}
       <style>{`
         @media print {
           @page {
@@ -391,7 +463,7 @@ const VisitorCard = () => {
           
           /* Hide everything first */
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
           }
           
           /* Show only the visitor card and its contents */
@@ -400,38 +472,69 @@ const VisitorCard = () => {
             visibility: visible !important;
           }
           
+          /* Hide browser UI elements */
+          header,
+          nav,
+          .header,
+          .navbar,
+          .menu,
+          .sidebar,
+          .toolbar,
+          button,
+          .btn,
+          .print\\:hidden {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          
           /* Position and size the card for print */
           #visitor-card {
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
-            width: 89mm !important;
-            height: 127mm !important;
+            width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
             transform: none !important;
+            background: white !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
           }
           
-          /* Scale the inner card content to fit 89mm x 127mm */
+          /* Scale the inner card content */
           #visitor-card > div {
             width: 309px !important;
             height: 475px !important;
-            transform: scale(0.288) !important;
-            transform-origin: top left !important;
+            transform: scale(1) !important;
+            transform-origin: center center !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background-image: none !important;
+            background: white !important;
           }
           
-          /* Ensure colors and images print */
+          /* Remove backgrounds */
+          .id-card-bg {
+            background-image: none !important;
+            background: white !important;
+          }
+          
+          /* Ensure colors print */
           * {
+            background-image: none !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
           
-          /* Hide specific UI elements */
-          .print\\:hidden {
-            display: none !important;
-            visibility: hidden !important;
+          /* No page breaks */
+          #visitor-card {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>

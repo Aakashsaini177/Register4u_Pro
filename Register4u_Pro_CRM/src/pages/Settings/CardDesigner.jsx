@@ -9,6 +9,69 @@ import { CheckCircleIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 
 const CardDesigner = () => {
 
+  // Color palette for easy selection
+  const colorPalette = [
+    // Standard Colors (Row 1)
+    "#FF0000", "#FFFF00", "#00FF00", "#00FFFF", "#0000FF", "#FF00FF", "#FFFFFF", "#000000",
+    // Standard Colors (Row 2) 
+    "#FFA500", "#FFFF80", "#FF8000", "#FF6B6B", "#DC143C", "#FF69B4", "#FF1493", "#4169E1",
+    // Standard Colors (Row 3)
+    "#0080FF", "#008080", "#00FF80", "#80FF00", "#FFFF00", "#FFFF80", "#FFFF40",
+    // Custom Colors
+    "#8A2BE2", "#00FF00", "#4682B4", "#8B0000", "#FF0000", "#FFB6C1", "#F5F5F5", "#20B2AA"
+  ];
+
+  // Color Palette Component
+  const ColorPalette = ({ currentColor, onColorChange, label }) => (
+    <div>
+      <Label className="text-sm font-medium">{label}</Label>
+      <div className="mt-2">
+        {/* Current Color Display */}
+        <div className="flex items-center gap-2 mb-3">
+          <div 
+            className="w-8 h-8 border-2 border-gray-300 rounded cursor-pointer"
+            style={{ backgroundColor: currentColor }}
+            title={`Current: ${currentColor}`}
+          />
+          <Input
+            type="text"
+            value={currentColor}
+            onChange={(e) => onColorChange(e.target.value)}
+            placeholder="#FFFFFF"
+            className="flex-1 text-sm"
+          />
+        </div>
+        
+        {/* Color Palette Grid */}
+        <div className="grid grid-cols-8 gap-1 p-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800">
+          {colorPalette.map((color, index) => (
+            <button
+              key={index}
+              type="button"
+              className={`w-6 h-6 border-2 rounded cursor-pointer hover:scale-110 transition-transform ${
+                currentColor === color ? 'border-gray-800 dark:border-white' : 'border-gray-400'
+              }`}
+              style={{ backgroundColor: color }}
+              onClick={() => onColorChange(color)}
+              title={color}
+            />
+          ))}
+        </div>
+        
+        {/* Custom Color Picker */}
+        <div className="mt-2">
+          <Input
+            type="color"
+            value={currentColor}
+            onChange={(e) => onColorChange(e.target.value)}
+            className="w-full h-8 cursor-pointer"
+            title="Custom color picker"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   // Refs for draggable elements
   const imageDivRef = useRef(null);
   const imageBoxRef = useRef(null);
@@ -99,6 +162,43 @@ const CardDesigner = () => {
   // Advanced settings toggle
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
+  // Print size settings
+  const [printWidth, setPrintWidth] = useState(89); // mm
+  const [printHeight, setPrintHeight] = useState(127); // mm
+  const [printUnit, setPrintUnit] = useState("mm"); // mm or inches
+
+  // Convert 9-position alignment to Tailwind classes (same as Card.jsx)
+  const getAlignmentClasses = (alignment) => {
+    switch (alignment) {
+      case "top-left":
+        return "flex items-start justify-start text-left";
+      case "top-center":
+        return "flex items-start justify-center text-center";
+      case "top-right":
+        return "flex items-start justify-end text-right";
+      case "center-left":
+        return "flex items-center justify-start text-left";
+      case "center":
+        return "flex items-center justify-center text-center";
+      case "center-right":
+        return "flex items-center justify-end text-right";
+      case "bottom-left":
+        return "flex items-end justify-start text-left";
+      case "bottom-center":
+        return "flex items-end justify-center text-center";
+      case "bottom-right":
+        return "flex items-end justify-end text-right";
+      case "left":
+        return "text-left";
+      case "center":
+        return "text-center";
+      case "right":
+        return "text-right";
+      default:
+        return "text-left";
+    }
+  };
+
   // Load saved settings from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("cardDesignSettings");
@@ -163,10 +263,15 @@ const CardDesigner = () => {
       if (settings.backgroundUrl) {
         setBackgroundUrl(settings.backgroundUrl);
       }
+
+      // Load print size settings
+      setPrintWidth(settings.printWidth || 89);
+      setPrintHeight(settings.printHeight || 127);
+      setPrintUnit(settings.printUnit || "mm");
     }
   }, []);
 
-  // Text Alignment Handler (simplified for better UX)
+  // Text Alignment Handler (9-position grid)
   const handleTextAlignment = (type, alignment) => {
     if (type === "visitor") {
       setVisitorNameAlign(alignment);
@@ -288,26 +393,60 @@ const CardDesigner = () => {
     const deltaX = e.clientX - resizeStart.x;
     const deltaY = e.clientY - resizeStart.y;
 
+    // Card dimensions for boundary constraints
+    const cardWidth = 309;
+    const cardHeight = 475;
+
     if (resizing === "image") {
-      setImageWidth(Math.max(50, resizeStart.width + deltaX));
-      setImageHeight(Math.max(50, resizeStart.height + deltaY));
+      const newWidth = Math.max(50, resizeStart.width + deltaX);
+      const newHeight = Math.max(50, resizeStart.height + deltaY);
+      
+      // Ensure image doesn't exceed card boundaries
+      const maxWidth = cardWidth - imageLeftMargin;
+      const maxHeight = cardHeight - imageTopMargin;
+      
+      setImageWidth(Math.min(newWidth, maxWidth));
+      setImageHeight(Math.min(newHeight, maxHeight));
     } else if (resizing === "visitorName") {
-      // Resize the box width and height like barcode
-      setVisitorNameWidth(Math.max(50, resizeStart.visitorWidth + deltaX));
-      setVisitorNameHeight(Math.max(20, resizeStart.visitorHeight + deltaY));
+      const newWidth = Math.max(50, resizeStart.visitorWidth + deltaX);
+      const newHeight = Math.max(20, resizeStart.visitorHeight + deltaY);
+      
+      // Ensure visitor name doesn't exceed card boundaries
+      const maxWidth = cardWidth - visitorNameMarginLeft;
+      const maxHeight = cardHeight - visitorNameMarginTop;
+      
+      setVisitorNameWidth(Math.min(newWidth, maxWidth));
+      setVisitorNameHeight(Math.min(newHeight, maxHeight));
     } else if (resizing === "companyName") {
-      // Resize the box width and height like barcode
-      setCompanyNameWidth(Math.max(50, resizeStart.companyWidth + deltaX));
-      setCompanyNameHeight(Math.max(20, resizeStart.companyHeight + deltaY));
+      const newWidth = Math.max(50, resizeStart.companyWidth + deltaX);
+      const newHeight = Math.max(20, resizeStart.companyHeight + deltaY);
+      
+      // Ensure company name doesn't exceed card boundaries
+      const maxWidth = cardWidth - companyNameMarginLeft;
+      const maxHeight = cardHeight - companyNameMarginTop;
+      
+      setCompanyNameWidth(Math.min(newWidth, maxWidth));
+      setCompanyNameHeight(Math.min(newHeight, maxHeight));
     } else if (resizing === "barcode") {
-      setBarcodeImageWidth(Math.max(50, resizeStart.barcodeWidth + deltaX));
-      setBarcodeImageHeight(Math.max(20, resizeStart.barcodeHeight + deltaY));
+      const newWidth = Math.max(50, resizeStart.barcodeWidth + deltaX);
+      const newHeight = Math.max(20, resizeStart.barcodeHeight + deltaY);
+      
+      // Ensure barcode doesn't exceed card boundaries
+      const maxWidth = cardWidth - barcodeImageMarginLeft;
+      const maxHeight = cardHeight - barcodeImageMarginTop;
+      
+      setBarcodeImageWidth(Math.min(newWidth, maxWidth));
+      setBarcodeImageHeight(Math.min(newHeight, maxHeight));
     } else if (resizing === "qrCode") {
-      // QR usually square, but we allow free resize or keep aspect?
-      // User said "Drag corner to resize", implying free or square.
-      // Let's allow free for now as variables are separate width/height.
-      setQrCodeWidth(Math.max(50, resizeStart.qrWidth + deltaX));
-      setQrCodeHeight(Math.max(50, resizeStart.qrHeight + deltaY));
+      const newWidth = Math.max(50, resizeStart.qrWidth + deltaX);
+      const newHeight = Math.max(50, resizeStart.qrHeight + deltaY);
+      
+      // Ensure QR code doesn't exceed card boundaries
+      const maxWidth = cardWidth - qrCodeLeft;
+      const maxHeight = cardHeight - qrCodeTop;
+      
+      setQrCodeWidth(Math.min(newWidth, maxWidth));
+      setQrCodeHeight(Math.min(newHeight, maxHeight));
     }
   };
 
@@ -407,6 +546,9 @@ const CardDesigner = () => {
       qrCodeLeft,
       showQRCode,
       backgroundUrl,
+      printWidth,
+      printHeight,
+      printUnit,
     };
 
     // Save to localStorage
@@ -450,6 +592,54 @@ const CardDesigner = () => {
                   onChange={handleImageUpload}
                   className="mt-2"
                 />
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4"></div>
+
+              {/* Print Size Settings */}
+              <div>
+                <Label className="text-base font-semibold">Print Size Settings</Label>
+
+                <div className="grid grid-cols-3 gap-3 mt-2">
+                  <div>
+                    <Label className="text-sm">Width</Label>
+                    <Input
+                      type="number"
+                      value={printWidth}
+                      onChange={(e) => setPrintWidth(Number(e.target.value))}
+                      className="mt-1"
+                      min="50"
+                      max="300"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Height</Label>
+                    <Input
+                      type="number"
+                      value={printHeight}
+                      onChange={(e) => setPrintHeight(Number(e.target.value))}
+                      className="mt-1"
+                      min="80"
+                      max="400"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Unit</Label>
+                    <select
+                      value={printUnit}
+                      onChange={(e) => setPrintUnit(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="mm">mm</option>
+                      <option value="inches">inches</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Current: {printWidth} x {printHeight} {printUnit}
+                </p>
               </div>
 
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4"></div>
@@ -628,22 +818,11 @@ const CardDesigner = () => {
                       />
                     </div>
                     <div>
-                      <Label>Text Color</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="color"
-                          value={visitorNameColor}
-                          onChange={(e) => setVisitorNameColor(e.target.value)}
-                          className="w-16 h-10 p-1 cursor-pointer"
-                        />
-                        <Input
-                          type="text"
-                          value={visitorNameColor}
-                          onChange={(e) => setVisitorNameColor(e.target.value)}
-                          placeholder="#FFFFFF"
-                          className="flex-1"
-                        />
-                      </div>
+                      <ColorPalette
+                        currentColor={visitorNameColor}
+                        onColorChange={setVisitorNameColor}
+                        label="Text Color"
+                      />
                     </div>
                     <div>
                       <Label>Margin Top</Label>
@@ -670,54 +849,25 @@ const CardDesigner = () => {
                         Text Alignment
                       </Label>
                       
-                      {/* Quick Alignment Buttons */}
-                      <div className="flex gap-1 mb-2">
-                        <button
-                          type="button"
-                          onClick={() => handleTextAlignment("visitor", "left")}
-                          className={`px-3 py-1 text-xs border rounded ${
-                            visitorNameAlign === "left" 
-                              ? "bg-blue-500 text-white border-blue-500" 
-                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                          }`}
-                        >
-                          ← Left
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTextAlignment("visitor", "center")}
-                          className={`px-3 py-1 text-xs border rounded ${
-                            visitorNameAlign === "center" 
-                              ? "bg-blue-500 text-white border-blue-500" 
-                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                          }`}
-                        >
-                          ↔ Center
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTextAlignment("visitor", "right")}
-                          className={`px-3 py-1 text-xs border rounded ${
-                            visitorNameAlign === "right" 
-                              ? "bg-blue-500 text-white border-blue-500" 
-                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                          }`}
-                        >
-                          Right →
-                        </button>
-                      </div>
-                      
+                      {/* Dropdown Select List */}
                       <select
                         value={visitorNameAlign}
                         onChange={(e) => handleTextAlignment("visitor", e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="left">Left Align</option>
-                        <option value="center">Center Align</option>
-                        <option value="right">Right Align</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="top-center">Top Center</option>
+                        <option value="top-right">Top Right</option>
+                        <option value="center-left">Center Left</option>
+                        <option value="center">Center</option>
+                        <option value="center-right">Center Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="bottom-right">Bottom Right</option>
                       </select>
+                      
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        💡 Drag the yellow box to position it, then use this to align text inside the box
+                        💡 Select text position within the box
                       </p>
                     </div>
                     <div>
@@ -828,22 +978,11 @@ const CardDesigner = () => {
                       />
                     </div>
                     <div>
-                      <Label>Text Color</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="color"
-                          value={companyNameColor}
-                          onChange={(e) => setCompanyNameColor(e.target.value)}
-                          className="w-16 h-10 p-1 cursor-pointer"
-                        />
-                        <Input
-                          type="text"
-                          value={companyNameColor}
-                          onChange={(e) => setCompanyNameColor(e.target.value)}
-                          placeholder="#FFFFFF"
-                          className="flex-1"
-                        />
-                      </div>
+                      <ColorPalette
+                        currentColor={companyNameColor}
+                        onColorChange={setCompanyNameColor}
+                        label="Text Color"
+                      />
                     </div>
                     <div>
                       <Label>Margin Top</Label>
@@ -870,54 +1009,25 @@ const CardDesigner = () => {
                         Text Alignment
                       </Label>
                       
-                      {/* Quick Alignment Buttons */}
-                      <div className="flex gap-1 mb-2">
-                        <button
-                          type="button"
-                          onClick={() => handleTextAlignment("company", "left")}
-                          className={`px-3 py-1 text-xs border rounded ${
-                            companyNameAlign === "left" 
-                              ? "bg-orange-500 text-white border-orange-500" 
-                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                          }`}
-                        >
-                          ← Left
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTextAlignment("company", "center")}
-                          className={`px-3 py-1 text-xs border rounded ${
-                            companyNameAlign === "center" 
-                              ? "bg-orange-500 text-white border-orange-500" 
-                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                          }`}
-                        >
-                          ↔ Center
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleTextAlignment("company", "right")}
-                          className={`px-3 py-1 text-xs border rounded ${
-                            companyNameAlign === "right" 
-                              ? "bg-orange-500 text-white border-orange-500" 
-                              : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-                          }`}
-                        >
-                          Right →
-                        </button>
-                      </div>
-                      
+                      {/* Dropdown Select List */}
                       <select
                         value={companyNameAlign}
                         onChange={(e) => handleTextAlignment("company", e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="left">Left Align</option>
-                        <option value="center">Center Align</option>
-                        <option value="right">Right Align</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="top-center">Top Center</option>
+                        <option value="top-right">Top Right</option>
+                        <option value="center-left">Center Left</option>
+                        <option value="center">Center</option>
+                        <option value="center-right">Center Right</option>
+                        <option value="bottom-left">Bottom Left</option>
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="bottom-right">Bottom Right</option>
                       </select>
+                      
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        💡 Drag the orange box to position it, then use this to align text inside the box
+                        💡 Select text position within the box
                       </p>
                     </div>
                     <div>
@@ -1178,29 +1288,17 @@ const CardDesigner = () => {
                 <div
                   ref={visitorNameRef}
                   onMouseDown={(e) => handleMouseDown(e, "visitorName")}
+                  className={`absolute whitespace-nowrap overflow-hidden text-ellipsis font-bold border-2 border-yellow-400 bg-yellow-100 bg-opacity-10 p-1 rounded ${getAlignmentClasses(visitorNameAlign)}`}
                   style={{
                     fontSize: `${visitorNameFontSize}px`,
                     top: `${visitorNameMarginTop}px`,
                     left: `${visitorNameMarginLeft}px`,
                     width: `${visitorNameWidth}px`,
                     height: `${visitorNameHeight}px`,
-                    textAlign: visitorNameAlign,
                     cursor: dragging === "visitorName" ? "grabbing" : "grab",
-                    position: "absolute",
                     color: visitorNameColor,
-                    fontWeight: "bold",
                     fontFamily: visitorNameFontFamily,
-                    border: "2px solid #FFFF00", // Bright yellow border like image shows
-                    backgroundColor: "rgba(255, 255, 0, 0.1)", // Light yellow background
-                    padding: "2px 4px",
-                    borderRadius: "2px",
                     textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    display: "flex",
-                    alignItems: "center", // Vertical center
-                    // Remove justifyContent to let textAlign work properly
                   }}
                   title="Drag to move visitor name"
                 >
@@ -1229,28 +1327,17 @@ const CardDesigner = () => {
                 <div
                   ref={companyNameRef}
                   onMouseDown={(e) => handleMouseDown(e, "companyName")}
+                  className={`absolute whitespace-nowrap overflow-hidden text-ellipsis border-2 border-orange-400 bg-orange-100 bg-opacity-10 p-1 rounded ${getAlignmentClasses(companyNameAlign)}`}
                   style={{
                     fontSize: `${companyNameFontSize}px`,
                     top: `${companyNameMarginTop}px`,
                     left: `${companyNameMarginLeft}px`,
                     width: `${companyNameWidth}px`,
                     height: `${companyNameHeight}px`,
-                    textAlign: companyNameAlign,
                     cursor: dragging === "companyName" ? "grabbing" : "grab",
-                    position: "absolute",
                     color: companyNameColor,
                     fontFamily: companyNameFontFamily,
-                    border: "2px solid #FFA500", // Bright orange border like image shows
-                    backgroundColor: "rgba(255, 165, 0, 0.1)", // Light orange background
-                    padding: "2px 4px",
-                    borderRadius: "2px",
                     textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    display: "flex",
-                    alignItems: "center", // Vertical center
-                    // Remove justifyContent to let textAlign work properly
                   }}
                   title="Drag to move company name"
                 >

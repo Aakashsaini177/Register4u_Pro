@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import VisitorAvatar from "@/components/ui/VisitorAvatar";
-
+import { fileManagerAPI } from "@/lib/fileManagerAPI";
 import { Link } from "react-router-dom";
 import {
   visitorAPI,
@@ -301,8 +301,6 @@ const Visitors = () => {
     try {
       console.log("📸 Fetching file manager photos...");
 
-      // Use the fileManagerAPI to get photos from photo folder
-      const { fileManagerAPI } = await import("@/lib/fileManagerAPI");
       const photosResponse = await fileManagerAPI.getPhotosFromPhotoFolder();
 
       if (photosResponse.data.success) {

@@ -134,8 +134,9 @@ const VisitorAvatar = ({
     <img
       src={imgSrc}
       alt={name || alt}
-      className={`${className} object-contain`}
+      className={`${className} object-cover`}
       onError={handleError}
+      style={{ objectFit: 'cover' }}
     />
   );
 };
