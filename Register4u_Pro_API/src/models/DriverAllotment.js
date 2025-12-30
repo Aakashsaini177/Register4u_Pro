@@ -47,8 +47,17 @@ const driverAllotmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
-    default: 'scheduled'
+    enum: ['assigned', 'on_trip', 'completed', 'cancelled'],
+    default: 'assigned'
+  },
+  tripType: {
+    type: String,
+    enum: ['pickup', 'drop', 'pickup_drop'],
+    default: 'pickup_drop'
+  },
+  emergencyContact: {
+    type: String,
+    default: '+91-9999999999' // Admin emergency number
   }
 }, {
   timestamps: true,
