@@ -331,6 +331,33 @@ const getDriverAllotments = async (req, res) => {
   }
 };
 
+// Get driver allotments by visitor ID
+const getDriverAllotmentsByVisitorId = async (req, res) => {
+  try {
+    const { visitorId } = req.params;
+
+    const allotments = await DriverAllotment.find({ visitorId })
+      .populate("driverId")
+      .sort({ pickupDate: 1, pickupTime: 1 });
+
+    res.json({
+      success: true,
+      data: allotments.map((a) => ({
+        ...a.toObject(),
+        id: a._id,
+        driver: a.driverId,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching driver allotments by visitor ID:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching driver allotments",
+      error: error.message,
+    });
+  }
+};
+
 // Create driver allotment
 const createDriverAllotment = async (req, res) => {
   try {
@@ -629,6 +656,7 @@ module.exports = {
   updateDriver,
   deleteDriver,
   getDriverAllotments,
+  getDriverAllotmentsByVisitorId,
   createDriverAllotment,
   getDriverDailyReport,
   getDriverWorkReport,

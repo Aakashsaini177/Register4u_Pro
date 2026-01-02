@@ -121,4 +121,27 @@ const visitorSchema = new mongoose.Schema(
   }
 );
 
+// Add indexes for better search performance
+visitorSchema.index({ visitorId: 1 });
+visitorSchema.index({ name: "text" });
+visitorSchema.index({ email: 1 });
+visitorSchema.index({ contact: 1 });
+visitorSchema.index({ city: 1 });
+visitorSchema.index({ companyName: "text" });
+visitorSchema.index({ category: 1 });
+visitorSchema.index({ createdAt: -1 });
+
+// Compound index for common search patterns
+visitorSchema.index({ 
+  name: "text", 
+  companyName: "text", 
+  city: "text" 
+}, {
+  weights: {
+    name: 10,
+    companyName: 5,
+    city: 1
+  }
+});
+
 module.exports = mongoose.model("Visitor", visitorSchema);

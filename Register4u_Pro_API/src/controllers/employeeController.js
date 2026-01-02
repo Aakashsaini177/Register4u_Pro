@@ -7,15 +7,33 @@ exports.getAllEmployees = async (req, res) => {
     console.log("📋 Fetching all employees with login info...");
 
     let query = {};
+    const { search } = req.body || {};
 
-    if (req.body && req.body.search) {
-      let searchTerm = req.body.search;
-      const searchRegex = new RegExp(searchTerm, "i");
+    // Enhanced Search for Employee fields
+    if (search) {
+      const searchRegex = new RegExp(search, "i");
+      
       query.$or = [
+        // Basic fields
+        { emp_code: searchRegex },
         { fullName: searchRegex },
         { email: searchRegex },
         { contact: searchRegex },
-        { id: searchRegex },
+        { phone: searchRegex },
+        
+        // Employee type and work details
+        { emp_type: searchRegex },
+        { department: searchRegex },
+        { designation: searchRegex },
+        { location: searchRegex }, // Work location
+        
+        // Location fields
+        { city: searchRegex },
+        { state: searchRegex },
+        
+        // Additional searchable fields
+        { role: searchRegex },
+        { status: searchRegex },
       ];
     }
 
@@ -86,7 +104,6 @@ exports.getEmployeeById = async (req, res) => {
 };
 
 // Create employee
-// Create employee
 exports.createEmployee = async (req, res) => {
   try {
     console.log("📝 Creating employee:", req.body);
@@ -141,6 +158,44 @@ exports.createEmployee = async (req, res) => {
   } catch (error) {
     console.error("❌ Create Employee Error:", error);
     console.error("Error details:", error.message);
+    
+    // Handle duplicate email error
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.email) {
+      return res.status(400).json({
+        message: "Email already exists. Please use a different email address.",
+        success: false,
+        error: "DUPLICATE_EMAIL",
+      });
+    }
+    
+    // Handle duplicate username error
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.username) {
+      return res.status(400).json({
+        message: "Username already exists. Please use a different username.",
+        success: false,
+        error: "DUPLICATE_USERNAME",
+      });
+    }
+    
+    // Handle duplicate emp_code error
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.emp_code) {
+      return res.status(400).json({
+        message: "Employee code already exists. Please try again.",
+        success: false,
+        error: "DUPLICATE_EMP_CODE",
+      });
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        message: "Validation failed: " + validationErrors.join(', '),
+        success: false,
+        error: "VALIDATION_ERROR",
+      });
+    }
+    
     res.status(500).json({
       message: "Internal Server Error",
       success: false,

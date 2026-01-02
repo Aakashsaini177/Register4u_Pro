@@ -275,6 +275,32 @@ const EditEmployee = () => {
                 </div>
 
                 <div>
+                  <Label htmlFor="department">
+                    Department
+                  </Label>
+                  <Input
+                    id="department"
+                    type="text"
+                    placeholder="Enter department"
+                    className="mt-1"
+                    {...register("department")}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="designation">
+                    Designation
+                  </Label>
+                  <Input
+                    id="designation"
+                    type="text"
+                    placeholder="Enter designation"
+                    className="mt-1"
+                    {...register("designation")}
+                  />
+                </div>
+
+                <div>
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
@@ -468,7 +494,7 @@ const EditEmployee = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="location">Location/Address</Label>
+                  <Label htmlFor="location">Location</Label>
                   <Input
                     id="location"
                     type="text"

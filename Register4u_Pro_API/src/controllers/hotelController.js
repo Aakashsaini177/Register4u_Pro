@@ -407,6 +407,50 @@ const getRoomAllotments = async (req, res) => {
   }
 };
 
+// Get hotel allotments by visitor ID
+const getHotelAllotmentsByVisitorId = async (req, res) => {
+  try {
+    const { visitorId } = req.params;
+
+    const allotments = await RoomAllotment.find({ visitorId })
+      .populate("hotelId")
+      .populate({
+        path: "roomId",
+        populate: {
+          path: "categoryId",
+          model: "HotelCategory",
+        },
+      })
+      .sort({ createdAt: -1 });
+
+    // Transform to match structure
+    const transformedAllotments = allotments.map((a) => {
+      const obj = a.toObject();
+      return {
+        ...obj,
+        id: obj._id,
+        hotel: obj.hotelId,
+        room: {
+          ...obj.roomId,
+          category: obj.roomId ? obj.roomId.categoryId : null,
+        },
+      };
+    });
+
+    res.json({
+      success: true,
+      data: transformedAllotments,
+    });
+  } catch (error) {
+    console.error("Error fetching hotel allotments by visitor ID:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching hotel allotments",
+      error: error.message,
+    });
+  }
+};
+
 // Get available rooms for allotment (Date-Aware)
 const getAvailableRooms = async (req, res) => {
   try {
@@ -980,6 +1024,7 @@ module.exports = {
   updateHotel,
   deleteHotel,
   getRoomAllotments,
+  getHotelAllotmentsByVisitorId,
   getAvailableRooms,
   createRoomAllotment,
   getHotelLists,

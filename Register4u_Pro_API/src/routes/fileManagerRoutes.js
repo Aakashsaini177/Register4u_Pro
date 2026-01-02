@@ -7,6 +7,7 @@ const {
   deleteNode,
   renameNode,
   bulkDelete,
+  bulkExport,
   resetDefaults,
 } = require("../controllers/fileManagerController");
 const { authenticate } = require("../middleware/auth");
@@ -23,6 +24,7 @@ router.post("/reset", resetDefaults); // Reset and recreate defaults
 router.post("/upload", fileManagerUpload.single("file"), uploadFile);
 router.put("/:id/rename", renameNode);
 router.post("/bulk-delete", bulkDelete);
+router.post("/bulk-export", bulkExport);
 router.delete("/:id", deleteNode);
 
 module.exports = router;

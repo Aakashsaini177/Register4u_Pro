@@ -118,6 +118,67 @@ const getAllTravelDetails = async (req, res) => {
   }
 };
 
+// Get travel detail by visitor ID
+const getTravelDetailByVisitorId = async (req, res) => {
+  try {
+    const { visitorId } = req.params;
+    
+    const travelDetail = await TravelDetail.findOne({ visitorId })
+      .populate({
+        path: "hotelAllotments",
+        populate: [
+          { path: "hotelId", model: "Hotel" },
+          {
+            path: "roomId",
+            model: "HotelRoom",
+            populate: { path: "categoryId", model: "HotelCategory" },
+          },
+        ],
+      })
+      .populate({
+        path: "driverAllotments",
+        populate: { path: "driverId", model: "Driver" },
+      });
+
+    if (!travelDetail) {
+      return res.status(404).json({
+        success: false,
+        message: "Travel detail not found for this visitor",
+      });
+    }
+
+    const obj = travelDetail.toObject();
+    obj.id = obj._id;
+
+    if (obj.hotelAllotments) {
+      obj.hotelAllotments = obj.hotelAllotments.map((a) => ({
+        ...a,
+        hotel: a.hotelId,
+        room: a.roomId,
+      }));
+    }
+
+    if (obj.driverAllotments) {
+      obj.driverAllotments = obj.driverAllotments.map((a) => ({
+        ...a,
+        driver: a.driverId,
+      }));
+    }
+
+    res.json({
+      success: true,
+      data: obj,
+    });
+  } catch (error) {
+    console.error("Error fetching travel detail by visitor ID:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching travel detail",
+      error: error.message,
+    });
+  }
+};
+
 // Get travel detail by ID
 const getTravelDetailById = async (req, res) => {
   try {
@@ -654,6 +715,7 @@ const exportTravelReport = async (req, res) => {
 module.exports = {
   getAllTravelDetails,
   getTravelDetailById,
+  getTravelDetailByVisitorId,
   createTravelDetail,
   updateTravelDetail,
   deleteTravelDetail,

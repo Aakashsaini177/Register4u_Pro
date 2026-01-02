@@ -25,6 +25,7 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   ArrowPathIcon,
+  LinkIcon,
 } from "@heroicons/react/24/outline";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -234,7 +235,7 @@ const Invites = () => {
                         onClick={() => copyToClipboard(invite.code)}
                         className="text-purple-600 flex items-center gap-1 hover:text-purple-800"
                       >
-                        <EyeIcon className="h-4 w-4" /> Preview
+                        <LinkIcon className="h-4 w-4" /> Link
                       </button>
                       <button
                         onClick={() => navigate(`/invites/edit/${invite._id}`)}

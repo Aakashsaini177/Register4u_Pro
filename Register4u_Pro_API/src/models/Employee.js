@@ -140,6 +140,30 @@ employeeSchema.virtual("name").get(function () {
   return this.fullName;
 });
 
+// Indexes for better search performance
+employeeSchema.index({ emp_code: 1 });
+employeeSchema.index({ fullName: 1 });
+employeeSchema.index({ email: 1 }); // Already unique, but good for search
+employeeSchema.index({ contact: 1 });
+employeeSchema.index({ phone: 1 });
+employeeSchema.index({ emp_type: 1 });
+employeeSchema.index({ department: 1 });
+employeeSchema.index({ designation: 1 });
+employeeSchema.index({ location: 1 });
+employeeSchema.index({ city: 1 });
+employeeSchema.index({ status: 1 });
+
+// Compound index for common search combinations
+employeeSchema.index({ 
+  fullName: 'text', 
+  email: 'text', 
+  emp_code: 'text',
+  department: 'text',
+  designation: 'text'
+}, {
+  name: 'employee_search_text_index'
+});
+
 // Pre-save middleware to set contact field and generate emp_code
 employeeSchema.pre("save", async function (next) {
   // Set contact from phone if missing

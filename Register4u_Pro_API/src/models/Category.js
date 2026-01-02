@@ -22,4 +22,8 @@ categorySchema.virtual('name').get(function() {
   return this.category;
 });
 
+// Add index for search performance
+categorySchema.index({ category: "text" });
+categorySchema.index({ name: 1 }); // For virtual field queries
+
 module.exports = mongoose.model('Category', categorySchema);

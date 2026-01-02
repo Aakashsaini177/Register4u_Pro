@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/Table";
 import { PageLoading, TableSkeleton } from "@/components/ui/Loading";
 import { useMinimumLoading } from "@/hooks/useMinimumLoading";
+import { highlightText } from "@/lib/highlightUtils";
 import toast from "react-hot-toast";
 import {
   PlusIcon,
@@ -28,6 +29,7 @@ import { formatDate } from "@/lib/utils";
 
 const Employee = () => {
   const [employees, setEmployees] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]); // Store all employees for client-side filtering
   const [loading, withMinimumLoading] = useMinimumLoading(600);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,27 +37,68 @@ const Employee = () => {
   const [initialLoad, setInitialLoad] = useState(true);
   const [showPasswords, setShowPasswords] = useState({}); // Track which passwords are visible
 
+  // Real-time search effect
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      // Filter from all employees for real-time search
+      const filtered = allEmployees.filter(employee => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          (employee.emp_code && employee.emp_code.toLowerCase().includes(searchLower)) ||
+          (employee.fullName && employee.fullName.toLowerCase().includes(searchLower)) ||
+          (employee.email && employee.email.toLowerCase().includes(searchLower)) ||
+          (employee.contact && employee.contact.toLowerCase().includes(searchLower)) ||
+          (employee.phone && employee.phone.toLowerCase().includes(searchLower)) ||
+          (employee.emp_type && employee.emp_type.toLowerCase().includes(searchLower)) ||
+          (employee.department && employee.department.toLowerCase().includes(searchLower)) ||
+          (employee.designation && employee.designation.toLowerCase().includes(searchLower)) ||
+          (employee.location && employee.location.toLowerCase().includes(searchLower)) ||
+          (employee.city && employee.city.toLowerCase().includes(searchLower))
+        );
+      });
+      
+      // Pagination for filtered results
+      const startIndex = (currentPage - 1) * 10;
+      const endIndex = startIndex + 10;
+      const paginatedData = filtered.slice(startIndex, endIndex);
+      
+      setEmployees(paginatedData);
+      setTotalPages(Math.ceil(filtered.length / 10) || 1);
+    } else {
+      // Show all employees when no search term
+      const startIndex = (currentPage - 1) * 10;
+      const endIndex = startIndex + 10;
+      const paginatedData = allEmployees.slice(startIndex, endIndex);
+      
+      setEmployees(paginatedData);
+      setTotalPages(Math.ceil(allEmployees.length / 10) || 1);
+    }
+  }, [searchTerm, allEmployees, currentPage]);
+
+  // Initial data fetch
   useEffect(() => {
     fetchEmployees();
-  }, [currentPage, searchTerm]);
+  }, []);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const fetchEmployees = async () => {
     await withMinimumLoading(async () => {
-      const response = await employeeAPI.getAll({
-        search: searchTerm,
-      });
+      const response = await employeeAPI.getAll({});
 
       console.log("Employee Response:", response.data);
 
       if (response.data.success) {
-        const allEmployees = response.data.data || [];
-        // Pagination on frontend
-        const startIndex = (currentPage - 1) * 10;
-        const endIndex = startIndex + 10;
-        const paginatedData = allEmployees.slice(startIndex, endIndex);
-
+        const employeeData = response.data.data || [];
+        setAllEmployees(employeeData);
+        
+        // Set initial display (first page, no search)
+        const paginatedData = employeeData.slice(0, 10);
         setEmployees(paginatedData);
-        setTotalPages(Math.ceil(allEmployees.length / 10) || 1);
+        setTotalPages(Math.ceil(employeeData.length / 10) || 1);
         setInitialLoad(false);
       }
     }).catch((error) => {
@@ -105,6 +148,29 @@ const Employee = () => {
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage your employees
+            {searchTerm && (
+              <span className="ml-2 text-sm">
+                • Showing {employees.length + (currentPage - 1) * 10} of {
+                  searchTerm.trim() 
+                    ? allEmployees.filter(emp => {
+                        const searchLower = searchTerm.toLowerCase();
+                        return (
+                          (emp.emp_code && emp.emp_code.toLowerCase().includes(searchLower)) ||
+                          (emp.fullName && emp.fullName.toLowerCase().includes(searchLower)) ||
+                          (emp.email && emp.email.toLowerCase().includes(searchLower)) ||
+                          (emp.contact && emp.contact.toLowerCase().includes(searchLower)) ||
+                          (emp.phone && emp.phone.toLowerCase().includes(searchLower)) ||
+                          (emp.emp_type && emp.emp_type.toLowerCase().includes(searchLower)) ||
+                          (emp.department && emp.department.toLowerCase().includes(searchLower)) ||
+                          (emp.designation && emp.designation.toLowerCase().includes(searchLower)) ||
+                          (emp.location && emp.location.toLowerCase().includes(searchLower)) ||
+                          (emp.city && emp.city.toLowerCase().includes(searchLower))
+                        );
+                      }).length
+                    : allEmployees.length
+                } results for "{searchTerm}"
+              </span>
+            )}
           </p>
         </div>
         <Link to="/employee/add">
@@ -155,14 +221,14 @@ const Employee = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Password</TableHead>
-                    <TableHead>Work Location/Desk</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="whitespace-nowrap">
+                    <TableHead className="text-center">Code</TableHead>
+                    <TableHead className="text-center">Name</TableHead>
+                    <TableHead className="text-center">Email</TableHead>
+                    <TableHead className="text-center">Phone</TableHead>
+                    <TableHead className="text-center">Password</TableHead>
+                    <TableHead className="text-center">Work Location</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">
                       Created Date
                     </TableHead>
                     <TableHead className="text-center">Actions</TableHead>
@@ -171,26 +237,39 @@ const Employee = () => {
                 <TableBody>
                   {employees.map((employee) => (
                     <TableRow key={employee.id}>
-                      <TableCell className="font-medium">
-                        {employee.emp_code ||
-                          `#${employee.id.substring(0, 6)}...`}
+                      <TableCell className="font-medium text-center">
+                        {highlightText(
+                          employee.emp_code || `#${employee.id.substring(0, 6)}...`,
+                          searchTerm
+                        )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div>
                           <p className="font-medium whitespace-nowrap">
-                            {employee.fullName || employee.name || "N/A"}
+                            {highlightText(
+                              employee.fullName || employee.name || "N/A",
+                              searchTerm
+                            )}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {employee.emp_type || employee.designation || ""}
+                            {highlightText(
+                              employee.emp_type || employee.designation || "",
+                              searchTerm
+                            )}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>{employee.email || "N/A"}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {employee.contact || employee.phone || "N/A"}
+                      <TableCell className="text-center">
+                        {highlightText(employee.email || "N/A", searchTerm)}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="whitespace-nowrap text-center">
+                        {highlightText(
+                          employee.contact || employee.phone || "N/A",
+                          searchTerm
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <span className="font-mono text-sm">
                             {showPasswords[employee.id]
                               ? employee.currentPassword || "N/A"
@@ -215,26 +294,17 @@ const Employee = () => {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[250px]">
-                        <div
-                          className="text-sm"
-                          title={`${employee.location || employee.city || ""}${
-                            employee.city && employee.state
-                              ? `, ${employee.city}, ${employee.state}`
-                              : ""
-                          }`}
-                        >
-                          <p className="text-gray-900 dark:text-gray-100 truncate">
-                            {employee.location || employee.city || "N/A"}
+                      <TableCell className="max-w-[250px] text-center">
+                        <div className="text-sm">
+                          <p className="text-gray-900 dark:text-gray-100">
+                            {highlightText(
+                              employee.workLocation || employee.desk || employee.counter || employee.location || "N/A",
+                              searchTerm
+                            )}
                           </p>
-                          {employee.city && employee.state && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                              {employee.city}, {employee.state}
-                            </p>
-                          )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <Badge
                           variant={
                             employee.status === "active"
@@ -245,7 +315,7 @@ const Employee = () => {
                           {employee.status || "Active"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap text-center">
                         {formatDate(employee.createdAt)}
                       </TableCell>
                       <TableCell className="text-center">

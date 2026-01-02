@@ -40,6 +40,7 @@ import {
   PrinterIcon, // Added for print ID card
 } from "@heroicons/react/24/outline";
 import { formatDate } from "@/lib/utils";
+import { highlightText } from "@/lib/highlightUtils.jsx";
 
 // Utility function to resolve photo URL
 const resolvePhotoUrl = (photoFilename, fileManagerPhotos) => {
@@ -892,7 +893,7 @@ const Visitors = () => {
                         {shouldShow("visitorId") && (
                           <TableCell className="whitespace-nowrap text-[11px] p-1">
                             <span className="font-mono font-semibold text-primary-600 dark:text-primary-400">
-                              #{visitor.visitorId || visitor.id}
+                              #{highlightText(visitor.visitorId || visitor.id, searchTerm)}
                             </span>
                           </TableCell>
                         )}
@@ -925,7 +926,7 @@ const Visitors = () => {
                         {shouldShow("name") && (
                           <TableCell className="font-medium text-[11px] p-1">
                             <span title={visitor.name}>
-                              {visitor.name || "N/A"}
+                              {highlightText(visitor.name || "N/A", searchTerm)}
                             </span>
                           </TableCell>
                         )}
@@ -936,14 +937,14 @@ const Visitors = () => {
                             className="text-[11px] text-gray-600 dark:text-gray-400 p-1"
                             title={visitor.companyName}
                           >
-                            {visitor.companyName || "N/A"}
+                            {highlightText(visitor.companyName || "N/A", searchTerm)}
                           </TableCell>
                         )}
 
                         {/* Contact */}
                         {shouldShow("contact") && (
                           <TableCell className="text-[11px] whitespace-nowrap p-1">
-                            {visitor.contact || "N/A"}
+                            {highlightText(visitor.contact || "N/A", searchTerm)}
                           </TableCell>
                         )}
 
@@ -953,7 +954,7 @@ const Visitors = () => {
                             className="text-[11px] break-all p-1"
                             title={visitor.email}
                           >
-                            {visitor.email || "-"}
+                            {highlightText(visitor.email || "-", searchTerm)}
                           </TableCell>
                         )}
 
@@ -964,9 +965,12 @@ const Visitors = () => {
                               variant="success"
                               className="text-[10px] px-1 py-0 h-5"
                             >
-                              {categories[visitor.category] ||
+                              {highlightText(
+                                categories[visitor.category] ||
                                 visitor.category ||
-                                "N/A"}
+                                "N/A",
+                                searchTerm
+                              )}
                             </Badge>
                           </TableCell>
                         )}
@@ -977,7 +981,7 @@ const Visitors = () => {
                             className="text-[11px] p-1"
                             title={visitor.city}
                           >
-                            {visitor.city || "-"}
+                            {highlightText(visitor.city || "-", searchTerm)}
                           </TableCell>
                         )}
 
