@@ -56,8 +56,6 @@ const AddVisitor = () => {
         formData.append("aadharBack", data.aadharBack[0]);
       if (data.panFront && data.panFront[0])
         formData.append("panFront", data.panFront[0]);
-      if (data.panBack && data.panBack[0])
-        formData.append("panBack", data.panBack[0]);
 
       const response = await visitorAPI.create(formData);
 

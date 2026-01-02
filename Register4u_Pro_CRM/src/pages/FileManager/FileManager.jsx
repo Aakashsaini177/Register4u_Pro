@@ -17,6 +17,7 @@ import {
   PhotoIcon,
   VideoCameraIcon,
   MusicalNoteIcon,
+  ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import { FolderIcon as FolderSolid } from "@heroicons/react/24/solid";
 
@@ -204,6 +205,39 @@ const FileManager = () => {
     }
   };
 
+  const handleBulkExport = async () => {
+    if (selectedNodes.length === 0) return;
+    
+    const toastId = toast.loading(`Preparing ${selectedNodes.length} files for export...`);
+    
+    try {
+      const response = await fileManagerAPI.bulkExport(selectedNodes);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.setAttribute('download', `exported-files-${timestamp}.zip`);
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`Successfully exported ${selectedNodes.length} files`, { id: toastId });
+      setSelectedNodes([]); // Clear selection after export
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export files: " + (error.response?.data?.message || error.message), { id: toastId });
+    }
+  };
+
   const toggleSelectNode = (nodeId) => {
     setSelectedNodes((prev) =>
       prev.includes(nodeId)
@@ -284,14 +318,24 @@ const FileManager = () => {
 
         <div className="flex gap-2">
           {selectedNodes.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
-              className="flex items-center gap-2"
-            >
-              <TrashIcon className="h-4 w-4" />
-              Delete ({selectedNodes.length})
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={handleBulkExport}
+                className="flex items-center gap-2"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                Export ({selectedNodes.length})
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2"
+              >
+                <TrashIcon className="h-4 w-4" />
+                Delete ({selectedNodes.length})
+              </Button>
+            </>
           )}
 
           <Button

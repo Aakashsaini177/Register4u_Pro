@@ -182,6 +182,145 @@ exports.bulkDelete = asyncHandler(async (req, res) => {
   });
 });
 
+// Bulk export nodes as ZIP
+exports.bulkExport = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "IDs array is required" });
+  }
+
+  const archiver = require('archiver');
+  const axios = require('axios');
+  
+  // Create ZIP archive
+  const archive = archiver('zip', {
+    zlib: { level: 9 } // Maximum compression
+  });
+
+  // Set response headers for ZIP download
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="exported-files-${timestamp}.zip"`);
+
+  // Pipe archive to response
+  archive.pipe(res);
+
+  let addedCount = 0;
+  const errors = [];
+
+  try {
+    for (const id of ids) {
+      try {
+        const node = await FileNode.findById(id);
+        if (!node) {
+          errors.push(`File not found: ${id}`);
+          continue;
+        }
+
+        if (node.type === 'folder') {
+          // Include folder contents recursively
+          try {
+            const folderFiles = await getFolderContentsRecursive(node._id, node.name);
+            for (const folderFile of folderFiles) {
+              if (folderFile.url && folderFile.url.startsWith('http')) {
+                try {
+                  const response = await axios({
+                    method: 'GET',
+                    url: folderFile.url,
+                    responseType: 'stream'
+                  });
+                  
+                  // Add file to archive with folder path
+                  archive.append(response.data, { name: folderFile.path });
+                  addedCount++;
+                } catch (downloadError) {
+                  errors.push(`Failed to download ${folderFile.path}: ${downloadError.message}`);
+                }
+              } else if (folderFile.url) {
+                // Local file
+                const path = require("path");
+                const filename = folderFile.url.replace("/uploads/", "");
+                const filePath = path.join(__dirname, "../../uploads", filename);
+                
+                if (require('fs').existsSync(filePath)) {
+                  archive.file(filePath, { name: folderFile.path });
+                  addedCount++;
+                } else {
+                  errors.push(`Local file not found: ${folderFile.path}`);
+                }
+              }
+            }
+          } catch (folderError) {
+            errors.push(`Failed to process folder ${node.name}: ${folderError.message}`);
+          }
+          continue;
+        }
+
+        if (node.type === 'file' && node.url) {
+          if (node.url.startsWith('http')) {
+            // Download from Cloudinary/external URL
+            try {
+              const response = await axios({
+                method: 'GET',
+                url: node.url,
+                responseType: 'stream'
+              });
+              
+              // Add file to archive with original name
+              archive.append(response.data, { name: node.name });
+              addedCount++;
+            } catch (downloadError) {
+              errors.push(`Failed to download ${node.name}: ${downloadError.message}`);
+            }
+          } else {
+            // Local file
+            const path = require("path");
+            const filename = node.url.replace("/uploads/", "");
+            const filePath = path.join(__dirname, "../../uploads", filename);
+            
+            if (require('fs').existsSync(filePath)) {
+              archive.file(filePath, { name: node.name });
+              addedCount++;
+            } else {
+              errors.push(`Local file not found: ${node.name}`);
+            }
+          }
+        }
+      } catch (error) {
+        errors.push(`Error processing ${id}: ${error.message}`);
+      }
+    }
+
+    // Only add summary file if there were errors
+    if (errors.length > 0) {
+      const errorSummary = `Export Summary
+=============
+
+Successfully exported: ${addedCount} files
+Errors encountered: ${errors.length}
+Export completed at: ${new Date().toLocaleString()}
+
+Error Details:
+${errors.join('\n')}`;
+      
+      archive.append(errorSummary, { name: 'export-summary.txt' });
+    }
+
+    // Finalize the archive
+    await archive.finalize();
+    
+    console.log(`✅ Bulk export completed: ${addedCount} files exported, ${errors.length} errors`);
+  } catch (error) {
+    console.error('❌ Bulk export error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Export failed: ' + error.message });
+    }
+  }
+});
+
 exports.deleteNode = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -222,4 +361,26 @@ async function deleteRecursive(nodeId) {
 
   // Delete the node from database
   await FileNode.findByIdAndDelete(nodeId);
+}
+
+// Helper function to get all files in a folder recursively
+async function getFolderContentsRecursive(folderId, folderPath = '') {
+  const files = [];
+  const children = await FileNode.find({ parentId: folderId });
+  
+  for (const child of children) {
+    if (child.type === 'file') {
+      files.push({
+        ...child.toObject(),
+        path: folderPath ? `${folderPath}/${child.name}` : child.name
+      });
+    } else if (child.type === 'folder') {
+      // Recursively get files from subfolders
+      const subFolderPath = folderPath ? `${folderPath}/${child.name}` : child.name;
+      const subFiles = await getFolderContentsRecursive(child._id, subFolderPath);
+      files.push(...subFiles);
+    }
+  }
+  
+  return files;
 }

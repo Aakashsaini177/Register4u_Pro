@@ -34,6 +34,7 @@ router.delete("/:id", driverController.deleteDriver);
 
 // Driver allotment routes
 router.get("/allotments/list", driverController.getDriverAllotments);
+router.get("/allotments/visitor/:visitorId", driverController.getDriverAllotmentsByVisitorId);
 router.post("/allotments", driverController.createDriverAllotment);
 
 // Update allotment route

@@ -32,14 +32,17 @@ const AddEmployee = () => {
 
   const selectedEmpType = watch("emp_type");
 
-  // Fetch reporting managers
+  // Fetch reporting managers (only employees, not volunteers/exhibitors)
   useEffect(() => {
     const fetchManagers = async () => {
       try {
         const response = await employeeAPI.getAll();
         if (response.data.success) {
-          // Show all employees as potential managers
-          setManagers(response.data.data || []);
+          // Filter to show only employees as potential managers (not volunteers, exhibitors, etc.)
+          const employeeManagers = (response.data.data || []).filter(
+            emp => emp.emp_type === "employee"
+          );
+          setManagers(employeeManagers);
         }
       } catch (error) {
         console.error("Failed to fetch managers:", error);
@@ -50,11 +53,8 @@ const AddEmployee = () => {
 
   // Update Reporting Manager based on Employee Type
   useEffect(() => {
-    if (selectedEmpType === "permanent") {
-      // Default to "Admin" if permanent, but respect existing value if user changes it
-      // actually, if switching to permanent, and no value is set (or value is invalid?), set to Admin.
-      // But we shouldn't overwrite if user is just editing other fields.
-      // For AddEmployee, it's fine to set default on switch.
+    if (selectedEmpType === "employee") {
+      // Default to "Admin" for employee type
       const currentManager = watch("Reporting_Manager");
       if (!currentManager) {
         setValue("Reporting_Manager", "Admin");
@@ -66,6 +66,7 @@ const AddEmployee = () => {
       selectedEmpType === "cab_assistance_desk" ||
       selectedEmpType === "help_desk"
     ) {
+      // Clear Admin if switching from employee to other types
       const currentManager = watch("Reporting_Manager");
       if (currentManager === "Admin") {
         setValue("Reporting_Manager", "");
@@ -99,7 +100,16 @@ const AddEmployee = () => {
         toast.error(response.data.message || "Failed to add employee");
       }
     } catch (error) {
-      toast.error("Failed to add employee");
+      console.error("Create employee error:", error);
+      
+      // Handle specific error types
+      if (error.response?.data?.error === "DUPLICATE_EMAIL") {
+        toast.error("This email is already registered. Please use a different email address.");
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Failed to add employee. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -171,9 +181,10 @@ const AddEmployee = () => {
                     {selectedEmpType === "employee" && (
                       <option value="Admin">Admin</option>
                     )}
+                    {/* Show only employees as managers (not volunteers, exhibitors, etc.) */}
                     {managers.map((manager) => (
                       <option key={manager.id} value={manager.id}>
-                        {manager.fullName}
+                        {manager.fullName} ({manager.emp_code || manager.id})
                       </option>
                     ))}
                   </select>
@@ -227,6 +238,32 @@ const AddEmployee = () => {
                       {errors.email.message}
                     </p>
                   )}
+                </div>
+
+                <div>
+                  <Label htmlFor="department">
+                    Department
+                  </Label>
+                  <Input
+                    id="department"
+                    type="text"
+                    placeholder="Enter department"
+                    className="mt-1"
+                    {...register("department")}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="designation">
+                    Designation
+                  </Label>
+                  <Input
+                    id="designation"
+                    type="text"
+                    placeholder="Enter designation"
+                    className="mt-1"
+                    {...register("designation")}
+                  />
                 </div>
 
                 <div>
@@ -431,7 +468,7 @@ const AddEmployee = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="location">Location/Address</Label>
+                  <Label htmlFor="location">Location</Label>
                   <Input
                     id="location"
                     type="text"
