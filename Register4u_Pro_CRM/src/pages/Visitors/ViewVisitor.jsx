@@ -143,6 +143,11 @@ const ViewVisitor = () => {
               View ID Card
             </Button>
           </Link>
+          <Link to={`/visitors/history/${visitor?._id || id}`}>
+            <Button variant="outline" className="flex items-center gap-2">
+              History
+            </Button>
+          </Link>
           <Link to={`/visitors/edit/${id}`}>
             <Button variant="outline" className="flex items-center gap-2">
               <PencilIcon className="h-4 w-4" />

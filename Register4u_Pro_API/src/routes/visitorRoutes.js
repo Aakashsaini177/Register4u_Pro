@@ -43,6 +43,9 @@ router.post("/", authenticate, visitorController.getAllVisitors);
 // Get visitor by ID
 router.get("/:id", authenticate, visitorController.getVisitorById);
 
+// Get visitor history (activity logs related to this visitor)
+router.get("/:id/history", authenticate, visitorController.getVisitorHistory);
+
 // Create visitor (with photo upload)
 router.post(
   "/create",

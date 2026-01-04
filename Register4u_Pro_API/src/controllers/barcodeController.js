@@ -1,4 +1,4 @@
-const { Visitor } = require("../models");
+const { Visitor, ActivityLog } = require("../models");
 const bwipjs = require("bwip-js");
 
 // Generate barcode for visitor (same as old system)
@@ -33,13 +33,30 @@ exports.generateBarcode = async (req, res) => {
         height: 10,
         includetext: true, // Show text below barcode
       },
-      (err, png) => {
+      async (err, png) => {
         if (err) {
           console.error("Barcode generation error:", err);
           return res.status(500).json({
             error: "Error generating barcode",
             success: false,
           });
+        }
+
+        // Log the barcode request (non-blocking)
+        try {
+          await ActivityLog.create({
+            user: req.user ? req.user.id : null,
+            action: "REQUEST_BARCODE",
+            module: "VISITOR",
+            details: `Generated barcode for ${visitor.visitorId}`,
+            ipAddress: req.ip,
+            metadata: {
+              visitorId: visitor.visitorId,
+              requestedBy: req.user ? req.user.name : "public",
+            },
+          });
+        } catch (logErr) {
+          console.error("Failed to log barcode request:", logErr.message || logErr);
         }
 
         res.setHeader("Content-Type", "image/png");
