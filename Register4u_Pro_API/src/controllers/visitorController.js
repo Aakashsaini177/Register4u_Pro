@@ -15,25 +15,41 @@ exports.getAllVisitors = asyncHandler(async (req, res) => {
       query.inviteCode = inviteCode;
     }
 
-    // Optimized Search with Category Name & Travel Details
+    // Enhanced Search with Company Name, City, Category Name & Travel Details
     if (search) {
       const searchRegex = new RegExp(search, "i");
 
-      // 1. Find Visitors matching search
-      const visitors = await Visitor.find({
+      // 1. Find Categories matching search term
+      const { TravelDetail, Category } = require("../models");
+      const matchingCategories = await Category.find({
+        name: searchRegex
+      }).select("_id").lean();
+      
+      const categoryIds = matchingCategories.map(cat => cat._id.toString());
+
+      // 2. Build comprehensive search query
+      const searchQuery = {
         $or: [
+          // Direct field searches
           { visitorId: searchRegex },
           { name: searchRegex },
           { email: searchRegex },
           { contact: searchRegex },
+          { city: searchRegex },
+          { companyName: searchRegex },
+          
+          // Category searches (both name and ID)
+          { category: searchRegex }, // Direct category name
+          { category: { $in: categoryIds } }, // Category by ID reference
         ],
-      })
+      };
+
+      // 3. Find Visitors matching enhanced search
+      const visitors = await Visitor.find(searchQuery)
         .sort({ createdAt: -1 })
         .lean();
 
-      // 2. Enhance with Category Name & Travel Details & Photo Resolution
-      const { TravelDetail, Category } = require("../models");
-
+      // 4. Enhance with Category Name & Travel Details & Photo Resolution
       const enrichedVisitors = await Promise.all(
         visitors.map(async (v) => {
           // Resolve Category Name if it's an ID
@@ -69,7 +85,7 @@ exports.getAllVisitors = asyncHandler(async (req, res) => {
         })
       );
 
-      console.log(`✅ Found & Enriched ${enrichedVisitors.length} visitors`);
+      console.log(`✅ Enhanced Search: Found ${enrichedVisitors.length} visitors for "${search}"`);
 
       return res.status(200).json({
         message: "Get All Visitors",

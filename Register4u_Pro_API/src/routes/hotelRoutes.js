@@ -12,6 +12,7 @@ router.delete("/:id", hotelController.deleteHotel);
 
 // Room allotment routes
 router.get("/allotments/list", hotelController.getRoomAllotments);
+router.get("/allotments/visitor/:visitorId", hotelController.getHotelAllotmentsByVisitorId);
 router.get("/:hotelId/rooms/available", hotelController.getAvailableRooms);
 router.post("/allotments", hotelController.createRoomAllotment);
 router.put("/allotments/:id/status", hotelController.updateRoomAllotmentStatus);

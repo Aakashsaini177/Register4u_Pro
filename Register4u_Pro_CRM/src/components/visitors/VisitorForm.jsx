@@ -471,22 +471,6 @@ const VisitorForm = ({
                     }}
                   />
                 </div>
-
-                {/* PAN Back */}
-                <div>
-                  <ImageInput
-                    label="PAN Card (Back)"
-                    required={false}
-                    defaultPreview={getImageUrl(existingDocuments.panBack)}
-                    error={errors.panBack?.message}
-                    aspectRatio={1.6}
-                    onChange={(file) => {
-                      if (file)
-                        setValue("panBack", [file], { shouldValidate: true });
-                      else setValue("panBack", null, { shouldValidate: true });
-                    }}
-                  />
-                </div>
               </div>
             </div>
 

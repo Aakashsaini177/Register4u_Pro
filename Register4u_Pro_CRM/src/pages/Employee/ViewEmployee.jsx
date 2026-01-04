@@ -304,6 +304,24 @@ const ViewEmployee = () => {
             </div>
 
             <div>
+              <Label className="text-xs text-gray-500">Department</Label>
+              <Input
+                value={employee.department || ""}
+                readOnly
+                className="mt-0.5 h-7 text-xs bg-gray-50"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500">Designation</Label>
+              <Input
+                value={employee.designation || ""}
+                readOnly
+                className="mt-0.5 h-7 text-xs bg-gray-50"
+              />
+            </div>
+
+            <div>
               <Label className="text-xs text-gray-500">Joining Date</Label>
               <Input
                 value={

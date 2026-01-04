@@ -83,6 +83,9 @@ export const fileManagerAPI = {
   // Bulk delete nodes
   bulkDelete: (ids) => api.post("/files/bulk-delete", { ids }),
 
+  // Bulk export selected files
+  bulkExport: (ids) => api.post("/files/bulk-export", { ids }, { responseType: 'blob' }),
+
   // Seed defaults (auto-run if needed)
   seed: () => api.post("/files/seed"),
 

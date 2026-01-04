@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { visitorAPI, getImageUrl, API_BASE_URL } from "@/lib/api";
+import { visitorAPI, getImageUrl, API_BASE_URL, SERVER_BASE_URL, hotelAPI, driverAPI } from "@/lib/api";
 import VisitorAvatar from "@/components/ui/VisitorAvatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,11 +19,14 @@ import {
   MapPinIcon,
   TicketIcon,
 } from "@heroicons/react/24/outline";
+import { Hotel, Car, Calendar, Clock } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 
 const ViewVisitor = () => {
   const [visitor, setVisitor] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hotelAllotments, setHotelAllotments] = useState([]);
+  const [driverAllotments, setDriverAllotments] = useState([]);
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -35,7 +38,16 @@ const ViewVisitor = () => {
     try {
       const response = await visitorAPI.getById(id);
       if (response.data.success) {
-        setVisitor(response.data.data);
+        const visitorData = response.data.data;
+        setVisitor(visitorData);
+        
+        // Fetch hotel and driver allotments using visitorId
+        if (visitorData.visitorId) {
+          await Promise.all([
+            fetchHotelAllotments(visitorData.visitorId),
+            fetchDriverAllotments(visitorData.visitorId)
+          ]);
+        }
       } else {
         toast.error("Visitor not found");
         navigate("/visitors");
@@ -46,6 +58,40 @@ const ViewVisitor = () => {
       navigate("/visitors");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHotelAllotments = async (visitorId) => {
+    try {
+      const response = await hotelAPI.getAllotmentsByVisitorId(visitorId);
+      if (response.data.success) {
+        // Only show the latest allotment (first one since backend sorts by createdAt desc)
+        const allotments = response.data.data || [];
+        setHotelAllotments(allotments.length > 0 ? [allotments[0]] : []);
+      }
+    } catch (error) {
+      // Silently handle 404 - visitor might not have hotel allotments
+      if (error.response?.status !== 404) {
+        console.error("Error fetching hotel allotments:", error);
+      }
+      setHotelAllotments([]);
+    }
+  };
+
+  const fetchDriverAllotments = async (visitorId) => {
+    try {
+      const response = await driverAPI.getAllotmentsByVisitorId(visitorId);
+      if (response.data.success) {
+        // Only show the latest allotment (first one since backend sorts by pickupDate desc)
+        const allotments = response.data.data || [];
+        setDriverAllotments(allotments.length > 0 ? [allotments[0]] : []);
+      }
+    } catch (error) {
+      // Silently handle 404 - visitor might not have driver allotments
+      if (error.response?.status !== 404) {
+        console.error("Error fetching driver allotments:", error);
+      }
+      setDriverAllotments([]);
     }
   };
 
@@ -228,6 +274,168 @@ const ViewVisitor = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Hotel Allotments */}
+          {hotelAllotments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hotel className="h-5 w-5 text-blue-600" />
+                  Hotel Allotment (Latest)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border rounded-lg p-4 bg-blue-50">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Hotel Name</p>
+                      <p className="text-base font-medium">
+                        {hotelAllotments[0].hotel?.hotelName || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Room Number</p>
+                      <p className="text-base font-medium">
+                        {hotelAllotments[0].room?.roomNumber || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Room Category</p>
+                      <p className="text-base font-medium">
+                        {hotelAllotments[0].room?.category?.categoryName || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Status</p>
+                      <Badge variant={hotelAllotments[0].status === 'booked' ? 'default' : 'secondary'}>
+                        {hotelAllotments[0].status || "N/A"}
+                      </Badge>
+                    </div>
+                    {hotelAllotments[0].checkInDate && (
+                      <div>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          Check-in Date
+                        </p>
+                        <p className="text-base font-medium">
+                          {new Date(hotelAllotments[0].checkInDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {hotelAllotments[0].checkOutDate && (
+                      <div>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          Check-out Date
+                        </p>
+                        <p className="text-base font-medium">
+                          {new Date(hotelAllotments[0].checkOutDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {hotelAllotments[0].remarks && (
+                    <div className="mt-3">
+                      <p className="text-sm text-gray-500">Remarks</p>
+                      <p className="text-base font-medium">{hotelAllotments[0].remarks}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Driver Allotments */}
+          {driverAllotments.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Car className="h-5 w-5 text-green-600" />
+                  Driver Allotment (Latest)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border rounded-lg p-4 bg-green-50">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Driver Name</p>
+                      <p className="text-base font-medium">
+                        {driverAllotments[0].driver?.driverName || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Contact Number</p>
+                      <p className="text-base font-medium">
+                        {driverAllotments[0].driver?.contactNumber || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Number</p>
+                      <p className="text-base font-medium">
+                        {driverAllotments[0].driver?.vehicleNumber || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Type</p>
+                      <p className="text-base font-medium">
+                        {driverAllotments[0].driver?.vehicleType || "N/A"} ({driverAllotments[0].driver?.seater || "N/A"} seater)
+                      </p>
+                    </div>
+                    {driverAllotments[0].pickupDate && (
+                      <div>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          Pickup Date
+                        </p>
+                        <p className="text-base font-medium">
+                          {new Date(driverAllotments[0].pickupDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {driverAllotments[0].pickupTime && (
+                      <div>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Pickup Time
+                        </p>
+                        <p className="text-base font-medium">
+                          {driverAllotments[0].pickupTime}
+                        </p>
+                      </div>
+                    )}
+                    {driverAllotments[0].dropDate && (
+                      <div>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          Drop Date
+                        </p>
+                        <p className="text-base font-medium">
+                          {new Date(driverAllotments[0].dropDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                    {driverAllotments[0].dropTime && (
+                      <div>
+                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Drop Time
+                        </p>
+                        <p className="text-base font-medium">
+                          {driverAllotments[0].dropTime}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {driverAllotments[0].remarks && (
+                    <div className="mt-3">
+                      <p className="text-sm text-gray-500">Remarks</p>
+                      <p className="text-base font-medium">{driverAllotments[0].remarks}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}

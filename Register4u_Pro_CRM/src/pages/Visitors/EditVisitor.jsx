@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { visitorAPI } from "@/lib/api";
+import { visitorAPI, API_BASE_URL } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { Hotel, Car } from "lucide-react";
 import toast from "react-hot-toast";
 import VisitorForm from "@/components/visitors/VisitorForm";
 import { PageLoading } from "@/components/ui/Loading";
+import HotelAllotmentModal from "@/components/modals/HotelAllotmentModal";
+import DriverAllotmentModal from "@/components/modals/DriverAllotmentModal";
 
 const EditVisitor = () => {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [visitorData, setVisitorData] = useState(null);
   const [existingDocuments, setExistingDocuments] = useState({});
+  
+  // Hotel/Driver Allotment Modal States
+  const [showHotelModal, setShowHotelModal] = useState(false);
+  const [showDriverModal, setShowDriverModal] = useState(false);
 
   const navigate = useNavigate();
   const { id } = useParams();
@@ -62,6 +69,22 @@ const EditVisitor = () => {
     }
   };
 
+  const handleHotelAllot = () => {
+    setShowHotelModal(true);
+  };
+
+  const handleDriverAllot = () => {
+    setShowDriverModal(true);
+  };
+
+  const handleHotelModalClose = () => {
+    setShowHotelModal(false);
+  };
+
+  const handleDriverModalClose = () => {
+    setShowDriverModal(false);
+  };
+
   const onSubmit = async (data) => {
     setLoading(true);
     try {
@@ -106,7 +129,6 @@ const EditVisitor = () => {
       appendFile("aadharFront", data.aadharFront);
       appendFile("aadharBack", data.aadharBack);
       appendFile("panFront", data.panFront);
-      appendFile("panBack", data.panBack);
 
       const response = await visitorAPI.update(id, formData);
 
@@ -130,15 +152,37 @@ const EditVisitor = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/visitors">
-          <Button variant="ghost" size="icon">
-            <ArrowLeftIcon className="h-5 w-5" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/visitors">
+            <Button variant="ghost" size="icon">
+              <ArrowLeftIcon className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Edit Visitor</h1>
+            <p className="text-gray-600 mt-1">Update visitor information</p>
+          </div>
+        </div>
+        
+        {/* Hotel and Driver Allot Buttons - Only show in edit mode */}
+        <div className="flex gap-3">
+          <Button
+            onClick={handleHotelAllot}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Hotel className="h-4 w-4" />
+            Hotel Allot
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Visitor</h1>
-          <p className="text-gray-600 mt-1">Update visitor information</p>
+          <Button
+            onClick={handleDriverAllot}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Car className="h-4 w-4" />
+            Driver Allot
+          </Button>
         </div>
       </div>
 
@@ -151,6 +195,20 @@ const EditVisitor = () => {
           isPublic={false}
         />
       )}
+      
+      {/* Hotel Allotment Modal */}
+      <HotelAllotmentModal
+        isOpen={showHotelModal}
+        onClose={handleHotelModalClose}
+        visitorData={visitorData}
+      />
+      
+      {/* Driver Allotment Modal */}
+      <DriverAllotmentModal
+        isOpen={showDriverModal}
+        onClose={handleDriverModalClose}
+        visitorData={visitorData}
+      />
     </div>
   );
 };

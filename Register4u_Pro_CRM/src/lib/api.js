@@ -8,6 +8,7 @@ import { useAuthStore } from "@/store/authStore";
   // export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
   // export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
 
+// Production URLs (Render.com) - Commented for local development
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
 export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
 export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
@@ -324,6 +325,7 @@ export const barcodeAPI = {
 export const travelAPI = {
   getAll: (params) => api.get("/travel", { params }),
   getById: (id) => api.get(`/travel/${id}`),
+  getByVisitorId: (visitorId) => api.get(`/travel/visitor/${visitorId}`),
   create: (data) => api.post("/travel", data),
   update: (id, data) => api.put(`/travel/${id}`, data),
   delete: (id) => api.delete(`/travel/${id}`),
@@ -339,6 +341,8 @@ export const hotelAPI = {
   delete: (id) => api.delete(`/hotels/${id}`),
   getInventoryStatus: (date) =>
     api.get("/hotels/inventory-status", { params: { date } }),
+  getAllotmentsByVisitorId: (visitorId) => 
+    api.get(`/hotels/allotments/visitor/${visitorId}`, { skipErrorHandling: true }),
 };
 
 export const reportAPI = {
@@ -370,6 +374,8 @@ export const driverAPI = {
     api.get(`/drivers/reports/daily`, { params: { date } }),
   getWorkReport: (startDate, endDate) =>
     api.get(`/drivers/reports/work`, { params: { startDate, endDate } }),
+  getAllotmentsByVisitorId: (visitorId) => 
+    api.get(`/drivers/allotments/visitor/${visitorId}`, { skipErrorHandling: true }),
 };
 
 export const requirementAPI = {

@@ -10,6 +10,7 @@ router.get("/lists/departure", travelController.getDepartureGuestList);
 // Travel detail routes
 router.get("/", travelController.getAllTravelDetails);
 router.post("/", travelController.createTravelDetail);
+router.get("/visitor/:visitorId", travelController.getTravelDetailByVisitorId);
 router.get("/:id", travelController.getTravelDetailById);
 router.put("/:id", travelController.updateTravelDetail);
 router.delete("/:id", travelController.deleteTravelDetail);
