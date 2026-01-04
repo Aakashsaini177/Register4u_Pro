@@ -117,6 +117,13 @@ router.get(
   visitorController.getEmployeeDashboardStats
 );
 
+// Visitor history route
+router.get(
+  "/visitors/:visitorId/history",
+  authenticate,
+  visitorController.getVisitorHistory
+);
+
 router.get(
   "/visitors/:visitorId",
   authenticate,

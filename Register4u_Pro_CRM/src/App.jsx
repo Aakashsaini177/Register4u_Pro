@@ -35,6 +35,7 @@ import AddVisitor from "./pages/Visitors/AddVisitor";
 import EditVisitor from "./pages/Visitors/EditVisitor";
 import ViewVisitor from "./pages/Visitors/ViewVisitor";
 import Card from "./pages/Visitors/Card";
+import VisitorHistory from "./pages/Visitors/VisitorHistory";
 import Scanner from "./pages/Scanner/Scanner";
 import PrintScanner from "./pages/Scanner/PrintScanner";
 import Category from "./pages/Category/Category";
@@ -333,6 +334,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ViewVisitor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/visitors/history/:id"
+          element={
+            <ProtectedRoute>
+              <VisitorHistory />
             </ProtectedRoute>
           }
         />

@@ -575,6 +575,26 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       }
     );
 
+    // Log print action if card printed flag was set in this update
+    try {
+      const printedNow = !visitor.isCardPrinted && updateData.isCardPrinted;
+      if (printedNow) {
+        await ActivityLog.create({
+          user: req.user ? req.user.id : null,
+          action: "PRINT_VISITOR_CARD",
+          module: "VISITOR",
+          details: `Printed card for ${updatedVisitor.name} (${updatedVisitor.visitorId})`,
+          ipAddress: req.ip,
+          metadata: {
+            visitorId: updatedVisitor.visitorId,
+            printedBy: req.user ? req.user.name : "unknown",
+          },
+        });
+      }
+    } catch (logErr) {
+      console.error("Failed to log print action:", logErr.message || logErr);
+    }
+
     console.log("✅ UPDATE COMPLETE!");
     console.log("📸 Final photo in DB:", updatedVisitor.photo || "NO PHOTO");
     console.log("=====================================\n");
@@ -792,6 +812,45 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
       message: "Error scanning visitor",
       error: error.message,
     });
+  }
+});
+
+// Get visitor history from ActivityLog
+exports.getVisitorHistory = asyncHandler(async (req, res) => {
+  try {
+    const idParam = req.params.visitorId || req.params.id;
+
+    // Resolve visitor to canonical visitorId and _id
+    let query = { visitorId: idParam };
+    if (idParam.match(/^[0-9a-fA-F]{24}$/)) {
+      query = { $or: [{ visitorId: idParam }, { _id: idParam }] };
+    }
+
+    const visitor = await Visitor.findOne(query).lean();
+
+    if (!visitor) {
+      return res.status(404).json({ success: false, message: "Visitor not found" });
+    }
+
+    // Search ActivityLog for entries that reference this visitor.
+    // Common places: metadata.visitorId, details text, metadata.visitorObjectId
+    const visitorIdentifier = visitor.visitorId || String(visitor._id);
+
+    const logs = await ActivityLog.find({
+      $or: [
+        { "metadata.visitorId": visitorIdentifier },
+        { details: new RegExp(visitorIdentifier, "i") },
+        { "metadata.visitorObjectId": visitor._id },
+      ],
+    })
+      .sort({ timestamp: -1 })
+      .limit(500)
+      .lean();
+
+    return res.status(200).json({ success: true, message: "Visitor history fetched", data: logs });
+  } catch (error) {
+    console.error("❌ Get Visitor History Error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 });
 

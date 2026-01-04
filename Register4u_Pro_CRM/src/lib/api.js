@@ -3,10 +3,10 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 
 // API Configuration from Environment Variables
-// export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
-// export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
-// export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
-// export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
+  // export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
+  // export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
+  // export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
+  // export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
 export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
@@ -268,6 +268,7 @@ export const visitorAPI = {
   // New methods
   scan: (visitorId) => api.post("/visitors/scan", { visitorId }),
   getDashboardStats: () => api.get("/visitors/dashboard/stats"),
+  getHistory: (id) => api.get(`/visitors/${id}/history`),
 };
 
 export const categoryAPI = {
