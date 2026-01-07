@@ -1,4 +1,4 @@
-const { Event, Organization } = require("../models");
+const { Event, Organization, Company } = require("../models");
 
 // Get all events
 exports.getAllEvents = async (req, res) => {
@@ -19,18 +19,26 @@ exports.getAllEvents = async (req, res) => {
     const transformedEvents = await Promise.all(
       events.map(async (evt) => {
         let orgName = evt.orgId;
-        let location = evt.location;
+        let location = evt.location || evt.venue;
 
         if (evt.orgId) {
           try {
-            const org = await Organization.findById(evt.orgId);
-            if (org) {
-              orgName = org.name;
-              if (!location) location = org.address;
+            // First try Company collection
+            const company = await Company.findById(evt.orgId);
+            if (company) {
+              orgName = company.name;
+              if (!location) location = company.address;
+            } else {
+              // If not found in Company, try Organization collection
+              const org = await Organization.findById(evt.orgId);
+              if (org) {
+                orgName = org.name;
+                if (!location) location = org.address;
+              }
             }
           } catch (err) {
             console.error(
-              `Error fetching org for event ${evt._id}:`,
+              `Error fetching org/company for event ${evt._id}:`,
               err.message
             );
           }
@@ -38,7 +46,7 @@ exports.getAllEvents = async (req, res) => {
 
         return {
           id: evt._id,
-          eventId: evt.eventId, // Add eventId
+          eventId: evt.eventId,
           name: evt.eventName,
           eventName: evt.eventName,
           date: evt.StartTime,
@@ -50,6 +58,16 @@ exports.getAllEvents = async (req, res) => {
           organizationId: evt.organizationId,
           status: evt.status,
           description: evt.description,
+          expectedVisitor: evt.expectedVisitor,
+          eventHeadName: evt.eventHeadName,
+          eventHeadEmail: evt.eventHeadEmail,
+          eventHeadMob: evt.eventHeadMob,
+          venue: evt.venue,
+          city: evt.city,
+          state: evt.state,
+          pincode: evt.pincode,
+          address: evt.address,
+          locationUrl: evt.locationUrl,
           createdAt: evt.createdAt,
           updatedAt: evt.updatedAt,
         };
@@ -87,18 +105,26 @@ exports.getEventById = async (req, res) => {
     }
 
     let orgName = event.orgId;
-    let location = event.location;
+    let location = event.location || event.venue;
 
     if (event.orgId) {
       try {
-        const org = await Organization.findById(event.orgId);
-        if (org) {
-          orgName = org.name;
-          if (!location) location = org.address;
+        // First try Company collection
+        const company = await Company.findById(event.orgId);
+        if (company) {
+          orgName = company.name;
+          if (!location) location = company.address;
+        } else {
+          // If not found in Company, try Organization collection
+          const org = await Organization.findById(event.orgId);
+          if (org) {
+            orgName = org.name;
+            if (!location) location = org.address;
+          }
         }
       } catch (err) {
         console.error(
-          `Error fetching org for event ${event._id}:`,
+          `Error fetching org/company for event ${event._id}:`,
           err.message
         );
       }
@@ -107,7 +133,7 @@ exports.getEventById = async (req, res) => {
     // Map database fields to frontend-friendly fields
     const transformedEvent = {
       id: event._id,
-      eventId: event.eventId, // Add eventId
+      eventId: event.eventId,
       name: event.eventName,
       eventName: event.eventName,
       date: event.StartTime,
@@ -119,6 +145,16 @@ exports.getEventById = async (req, res) => {
       organizationId: event.organizationId,
       status: event.status,
       description: event.description,
+      expectedVisitor: event.expectedVisitor,
+      eventHeadName: event.eventHeadName,
+      eventHeadEmail: event.eventHeadEmail,
+      eventHeadMob: event.eventHeadMob,
+      venue: event.venue,
+      city: event.city,
+      state: event.state,
+      pincode: event.pincode,
+      address: event.address,
+      locationUrl: event.locationUrl,
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
     };
@@ -153,16 +189,46 @@ exports.createEvent = async (req, res) => {
       exists = await Event.findOne({ eventId });
     }
 
+    // Handle organization/company lookup
+    let orgId = null;
+    if (req.body.orgName) {
+      // First try to find in Company collection
+      const company = await Company.findOne({ name: req.body.orgName });
+      if (company) {
+        orgId = company._id;
+      } else {
+        // If not found in Company, try Organization collection
+        const org = await Organization.findOne({ name: req.body.orgName });
+        if (org) {
+          orgId = org._id;
+        }
+      }
+    } else if (req.body.organizer || req.body.orgId) {
+      orgId = req.body.organizer || req.body.orgId;
+    }
+
     // Map frontend fields to database fields
     const eventData = {
       eventName: req.body.name || req.body.eventName,
       eventId, // Add generated ID
       StartTime: req.body.date || req.body.StartTime || new Date(),
       EndTime: req.body.EndTime || req.body.date || new Date(),
-      location: req.body.location || null,
-      orgId: req.body.organizer || req.body.orgId || null,
+      location: req.body.location || req.body.venue || null,
+      orgId: orgId,
       organizationId: req.body.organizationId || null,
       status: req.body.status || "active",
+      description: req.body.eventDescription || req.body.description || null,
+      // Additional fields from frontend
+      expectedVisitor: req.body.expectedVisitor || null,
+      eventHeadName: req.body.eventHeadName || null,
+      eventHeadEmail: req.body.eventHeadEmail || null,
+      eventHeadMob: req.body.eventHeadMob || null,
+      venue: req.body.venue || null,
+      city: req.body.city || null,
+      state: req.body.state || null,
+      pincode: req.body.pincode || null,
+      address: req.body.address || null,
+      locationUrl: req.body.locationUrl || null,
     };
 
     const event = await Event.create(eventData);

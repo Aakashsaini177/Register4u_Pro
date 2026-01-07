@@ -93,6 +93,206 @@ exports.resetDefaults = asyncHandler(async (req, res) => {
   });
 });
 
+// Sync existing files to file manager
+exports.syncExistingFiles = asyncHandler(async (req, res) => {
+  const { syncExistingFilesToFileManager } = require("../utils/syncExistingFilesToFileManager");
+  
+  try {
+    const result = await syncExistingFilesToFileManager();
+    
+    res.json({
+      success: true,
+      message: "Successfully synced existing files to file manager",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Sync existing files error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to sync existing files",
+      error: error.message,
+    });
+  }
+});
+
+// Sync Cloudinary files to file manager
+exports.syncCloudinaryFiles = asyncHandler(async (req, res) => {
+  const { syncCloudinaryToFileManager } = require("../utils/syncCloudinaryToFileManager");
+  
+  try {
+    const result = await syncCloudinaryToFileManager();
+    
+    res.json({
+      success: true,
+      message: "Successfully synced Cloudinary files to file manager",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Sync Cloudinary files error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to sync Cloudinary files",
+      error: error.message,
+    });
+  }
+});
+
+// Debug endpoint to check file URLs
+exports.debugFiles = asyncHandler(async (req, res) => {
+  const fs = require("fs");
+  const path = require("path");
+  
+  try {
+    // Get all files from file manager
+    const allFiles = await FileNode.find({ type: "file" });
+    
+    // Separate files by URL type
+    const cloudinaryFiles = [];
+    const localFiles = [];
+    const problematicFiles = [];
+    
+    allFiles.forEach(file => {
+      if (file.url && (file.url.includes('cloudinary') || file.url.startsWith('http'))) {
+        cloudinaryFiles.push(file);
+      } else if (file.url && file.url.startsWith('/uploads/')) {
+        localFiles.push(file);
+        
+        // Check if local file exists
+        const uploadsDir = path.join(__dirname, "../../uploads");
+        const fileName = path.basename(file.url);
+        const physicalPath = path.join(uploadsDir, fileName);
+        
+        if (!fs.existsSync(physicalPath)) {
+          problematicFiles.push({
+            name: file.name,
+            url: file.url,
+            physicalPath: physicalPath,
+            exists: false,
+            _id: file._id
+          });
+        }
+      }
+    });
+    
+    res.json({
+      success: true,
+      summary: {
+        total: allFiles.length,
+        cloudinary: cloudinaryFiles.length,
+        local: localFiles.length,
+        problematic: problematicFiles.length
+      },
+      problematicFiles: problematicFiles.slice(0, 10), // Show first 10
+      cloudinaryFiles: cloudinaryFiles.slice(0, 5).map(f => ({ name: f.name, url: f.url })),
+      localFiles: localFiles.slice(0, 5).map(f => ({ name: f.name, url: f.url }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Fix problematic files by removing them or updating URLs
+exports.fixProblematicFiles = asyncHandler(async (req, res) => {
+  try {
+    // Find files with /uploads/ URLs that don't exist physically
+    const fs = require("fs");
+    const path = require("path");
+    const uploadsDir = path.join(__dirname, "../../uploads");
+    
+    const localFiles = await FileNode.find({ 
+      type: "file", 
+      url: { $regex: "^/uploads/" } 
+    });
+    
+    let removedCount = 0;
+    let fixedCount = 0;
+    
+    for (const file of localFiles) {
+      const fileName = path.basename(file.url);
+      const physicalPath = path.join(uploadsDir, fileName);
+      
+      if (!fs.existsSync(physicalPath)) {
+        // Try to find corresponding visitor/company with Cloudinary URL
+        const { Visitor, Company } = require("../models");
+        
+        // Check if this is a visitor photo
+        if (file.name.match(/^[A-Z]{2}\d+\.(jpg|jpeg|png)$/i)) {
+          const visitorId = file.name.replace(/\.(jpg|jpeg|png)$/i, '');
+          const visitor = await Visitor.findOne({ visitorId });
+          
+          if (visitor && visitor.photo && visitor.photo.includes('cloudinary')) {
+            // Update file manager entry with Cloudinary URL
+            await FileNode.findByIdAndUpdate(file._id, { url: visitor.photo });
+            fixedCount++;
+            console.log(`✅ Fixed ${file.name} with Cloudinary URL`);
+            continue;
+          }
+        }
+        
+        // Check if this is an ID proof document
+        if (file.name.match(/^(aadhrFR|aadhrBK|PAN|PANBACK)_[A-Z]{2}\d+\.(jpg|jpeg|png)$/i)) {
+          const visitorId = file.name.replace(/^(aadhrFR|aadhrBK|PAN|PANBACK)_/, '').replace(/\.(jpg|jpeg|png)$/i, '');
+          const visitor = await Visitor.findOne({ visitorId });
+          
+          if (visitor && visitor.documents) {
+            let cloudinaryUrl = null;
+            
+            if (file.name.startsWith('aadhrFR_') && visitor.documents.aadharFront?.includes('cloudinary')) {
+              cloudinaryUrl = visitor.documents.aadharFront;
+            } else if (file.name.startsWith('aadhrBK_') && visitor.documents.aadharBack?.includes('cloudinary')) {
+              cloudinaryUrl = visitor.documents.aadharBack;
+            } else if (file.name.startsWith('PAN_') && visitor.documents.panFront?.includes('cloudinary')) {
+              cloudinaryUrl = visitor.documents.panFront;
+            } else if (file.name.startsWith('PANBACK_') && visitor.documents.panBack?.includes('cloudinary')) {
+              cloudinaryUrl = visitor.documents.panBack;
+            }
+            
+            if (cloudinaryUrl) {
+              await FileNode.findByIdAndUpdate(file._id, { url: cloudinaryUrl });
+              fixedCount++;
+              console.log(`✅ Fixed ${file.name} with Cloudinary URL`);
+              continue;
+            }
+          }
+        }
+        
+        // Check if this is a GST certificate
+        if (file.name.match(/^GST_[A-Z0-9]+\.(pdf|jpg|jpeg|png)$/i)) {
+          const companyId = file.name.replace(/^GST_/, '').replace(/\.(pdf|jpg|jpeg|png)$/i, '');
+          const company = await Company.findOne({ companyId });
+          
+          if (company && company.gst_certificate && company.gst_certificate.includes('cloudinary')) {
+            await FileNode.findByIdAndUpdate(file._id, { url: company.gst_certificate });
+            fixedCount++;
+            console.log(`✅ Fixed ${file.name} with Cloudinary URL`);
+            continue;
+          }
+        }
+        
+        // If no Cloudinary URL found, remove the problematic entry
+        await FileNode.findByIdAndDelete(file._id);
+        removedCount++;
+        console.log(`🗑️ Removed problematic file: ${file.name}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Fixed ${fixedCount} files, removed ${removedCount} problematic entries`,
+      fixedCount,
+      removedCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 exports.uploadFile = asyncHandler(async (req, res) => {
   console.log("📁 File upload request received");
   console.log("📁 Request body:", req.body);

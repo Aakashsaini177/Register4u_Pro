@@ -10,6 +10,8 @@ const ImageCropper = ({
   freeAspect = false,
   title = "Adjust Photo",
 }) => {
+  console.log(`🔧 ImageCropper: aspect=${aspect}, freeAspect=${freeAspect}, title=${title}`);
+  
   const imageRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -19,7 +21,7 @@ const ImageCropper = ({
     x: 50,
     y: 50,
     width: 200,
-    height: 200 * (freeAspect ? 1 : 1 / aspect),
+    height: 200 * (freeAspect || !aspect ? 1 : 1 / aspect),
   });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -43,7 +45,7 @@ const ImageCropper = ({
       const containerWidth = 400;
       const containerHeight = 500;
       const cropWidth = Math.min(200, containerWidth * 0.6);
-      const cropHeight = freeAspect ? cropWidth : cropWidth / aspect;
+      const cropHeight = (freeAspect || !aspect) ? cropWidth : cropWidth / aspect;
 
       setCropArea({
         x: (containerWidth - cropWidth) / 2,
@@ -124,7 +126,7 @@ const ImageCropper = ({
       // Handle different resize directions
       switch (resizeDirection) {
         case "se": // Bottom-right corner
-          if (freeAspect) {
+          if (freeAspect || !aspect) {
             newCrop.width = Math.max(50, startCrop.width + deltaX);
             newCrop.height = Math.max(50, startCrop.height + deltaY);
           } else {
@@ -134,7 +136,7 @@ const ImageCropper = ({
           break;
 
         case "nw": // Top-left corner
-          if (freeAspect) {
+          if (freeAspect || !aspect) {
             const newWidth = Math.max(50, startCrop.width - deltaX);
             const newHeight = Math.max(50, startCrop.height - deltaY);
             newCrop.x = startCrop.x + startCrop.width - newWidth;
@@ -152,7 +154,7 @@ const ImageCropper = ({
           break;
 
         case "ne": // Top-right corner
-          if (freeAspect) {
+          if (freeAspect || !aspect) {
             const newWidth = Math.max(50, startCrop.width + deltaX);
             const newHeight = Math.max(50, startCrop.height - deltaY);
             newCrop.y = startCrop.y + startCrop.height - newHeight;
@@ -168,7 +170,7 @@ const ImageCropper = ({
           break;
 
         case "sw": // Bottom-left corner
-          if (freeAspect) {
+          if (freeAspect || !aspect) {
             const newWidth = Math.max(50, startCrop.width - deltaX);
             const newHeight = Math.max(50, startCrop.height + deltaY);
             newCrop.x = startCrop.x + startCrop.width - newWidth;
@@ -185,7 +187,7 @@ const ImageCropper = ({
 
         case "e": // Right edge
           newCrop.width = Math.max(50, startCrop.width + deltaX);
-          if (!freeAspect) {
+          if (!freeAspect && aspect) {
             newCrop.height = newCrop.width / aspect;
           }
           break;
@@ -194,13 +196,13 @@ const ImageCropper = ({
           const newWidth = Math.max(50, startCrop.width - deltaX);
           newCrop.x = startCrop.x + startCrop.width - newWidth;
           newCrop.width = newWidth;
-          if (!freeAspect) {
+          if (!freeAspect && aspect) {
             newCrop.height = newCrop.width / aspect;
           }
           break;
 
         case "s": // Bottom edge
-          if (freeAspect) {
+          if (freeAspect || !aspect) {
             newCrop.height = Math.max(50, startCrop.height + deltaY);
           } else {
             newCrop.height = Math.max(50, startCrop.height + deltaY);
@@ -209,7 +211,7 @@ const ImageCropper = ({
           break;
 
         case "n": // Top edge
-          if (freeAspect) {
+          if (freeAspect || !aspect) {
             const newHeight = Math.max(50, startCrop.height - deltaY);
             newCrop.y = startCrop.y + startCrop.height - newHeight;
             newCrop.height = newHeight;
@@ -271,67 +273,82 @@ const ImageCropper = ({
       const img = new Image();
 
       img.onload = () => {
-        // Calculate scale factors
+        // Get container dimensions
         const containerRect = containerRef.current.getBoundingClientRect();
         const displayWidth = containerRect.width;
         const displayHeight = containerRect.height;
 
-        const scaleX = (imageSize.width * zoom) / displayWidth;
-        const scaleY = (imageSize.height * zoom) / displayHeight;
-
-        // Determine output size based on document type
-        let outputWidth, outputHeight;
-
-        if (title.includes("Driver Photo") || title.includes("Passport")) {
-          // Passport size: 600x800 pixels (3:4 ratio, high quality)
-          outputWidth = 600;
-          outputHeight = 800;
+        // Calculate how the image is displayed with object-contain + zoom
+        const imageAspect = imageSize.width / imageSize.height;
+        const containerAspect = displayWidth / displayHeight;
+        
+        let displayedImageWidth, displayedImageHeight, offsetX = 0, offsetY = 0;
+        
+        if (imageAspect > containerAspect) {
+          // Image is wider - fits to container width
+          displayedImageWidth = displayWidth * zoom;
+          displayedImageHeight = (displayWidth / imageAspect) * zoom;
+          offsetY = (displayHeight - displayedImageHeight) / 2;
         } else {
-          // For documents, maintain original crop size but ensure minimum quality
-          const originalWidth = cropArea.width * scaleX;
-          const originalHeight = cropArea.height * scaleY;
-
-          // Ensure minimum 800px on the longer side for document quality
-          const minSize = 800;
-          if (originalWidth > originalHeight) {
-            if (originalWidth < minSize) {
-              const ratio = minSize / originalWidth;
-              outputWidth = minSize;
-              outputHeight = originalHeight * ratio;
-            } else {
-              outputWidth = originalWidth;
-              outputHeight = originalHeight;
-            }
-          } else {
-            if (originalHeight < minSize) {
-              const ratio = minSize / originalHeight;
-              outputHeight = minSize;
-              outputWidth = originalWidth * ratio;
-            } else {
-              outputWidth = originalWidth;
-              outputHeight = originalHeight;
-            }
-          }
+          // Image is taller - fits to container height  
+          displayedImageHeight = displayHeight * zoom;
+          displayedImageWidth = (displayHeight * imageAspect) * zoom;
+          offsetX = (displayWidth - displayedImageWidth) / 2;
         }
-
-        // Set canvas size to output size
-        canvas.width = outputWidth;
-        canvas.height = outputHeight;
-
-        // Draw cropped portion scaled to output size
-        ctx.drawImage(
-          img,
-          cropArea.x * scaleX,
-          cropArea.y * scaleY,
+        
+        // Calculate scale factors from displayed image to natural image
+        const scaleX = imageSize.width / displayedImageWidth;
+        const scaleY = imageSize.height / displayedImageHeight;
+        
+        // Convert crop area from container coordinates to natural image coordinates
+        const cropX = Math.max(0, (cropArea.x - offsetX) * scaleX);
+        const cropY = Math.max(0, (cropArea.y - offsetY) * scaleY);
+        const cropWidth = Math.min(
           cropArea.width * scaleX,
+          imageSize.width - cropX
+        );
+        const cropHeight = Math.min(
           cropArea.height * scaleY,
-          0,
-          0,
-          outputWidth,
-          outputHeight
+          imageSize.height - cropY
         );
 
-        // Use higher quality for passport photos
+        // Ensure we have valid crop dimensions
+        if (cropWidth <= 0 || cropHeight <= 0) {
+          console.warn('⚠️ Invalid crop dimensions');
+          return;
+        }
+
+        // Set canvas size to exact crop dimensions (this is key!)
+        canvas.width = Math.round(cropWidth);
+        canvas.height = Math.round(cropHeight);
+        
+        // Clear canvas to prevent black areas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        console.log(`🎯 Pixel-Perfect Crop:`, {
+          naturalImage: { width: imageSize.width, height: imageSize.height },
+          displayedImage: { width: displayedImageWidth, height: displayedImageHeight },
+          offset: { x: offsetX, y: offsetY },
+          cropAreaUI: { x: cropArea.x, y: cropArea.y, width: cropArea.width, height: cropArea.height },
+          cropInNaturalImage: { x: cropX, y: cropY, width: cropWidth, height: cropHeight },
+          canvasSize: { width: canvas.width, height: canvas.height },
+          scales: { scaleX, scaleY }
+        });
+
+        // Draw the exact cropped portion using 9-parameter drawImage
+        ctx.drawImage(
+          img,                    // source image
+          Math.round(cropX),      // source x
+          Math.round(cropY),      // source y  
+          Math.round(cropWidth),  // source width
+          Math.round(cropHeight), // source height
+          0,                      // destination x
+          0,                      // destination y
+          canvas.width,           // destination width
+          canvas.height           // destination height
+        );
+
+        // Use higher quality for important photos
         const quality = title.includes("Driver Photo") ? 0.95 : 0.9;
 
         canvas.toBlob(
@@ -433,7 +450,7 @@ const ImageCropper = ({
                   }}
                 />
 
-                {freeAspect && (
+                {(freeAspect || !aspect) && (
                   <>
                     {/* Additional corner handles for free aspect */}
                     <div
@@ -478,7 +495,7 @@ const ImageCropper = ({
                   }}
                 />
 
-                {freeAspect && (
+                {(freeAspect || !aspect) && (
                   <>
                     {/* Additional edge handles for free aspect */}
                     <div
@@ -533,12 +550,12 @@ const ImageCropper = ({
             <div>
               🎯 <strong>Double click</strong> to center crop area
             </div>
-            {!freeAspect && (
+            {!freeAspect && aspect && (
               <div className="text-blue-400 mt-1">
                 🔒 <strong>Fixed aspect ratio:</strong> {aspect.toFixed(2)}:1
               </div>
             )}
-            {freeAspect && (
+            {(freeAspect || !aspect) && (
               <div className="text-green-400 mt-1">
                 🆓 <strong>Free cropping:</strong> Any size/shape
               </div>
@@ -546,7 +563,7 @@ const ImageCropper = ({
             <div className="text-gray-500 mt-2">
               Zoom: {zoom.toFixed(1)}x • Crop: {Math.round(cropArea.width)}×
               {Math.round(cropArea.height)}
-              {!freeAspect &&
+              {!freeAspect && aspect &&
                 ` • Ratio: ${(cropArea.width / cropArea.height).toFixed(2)}:1`}
             </div>
             {(title.includes("Driver Photo") || title.includes("Passport")) && (

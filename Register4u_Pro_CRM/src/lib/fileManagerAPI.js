@@ -91,4 +91,13 @@ export const fileManagerAPI = {
 
   // Reset and recreate defaults
   reset: () => api.post("/files/reset"),
+
+  // Sync existing files to file manager
+  syncExistingFiles: () => api.post("/files/sync-existing"),
+
+  // Sync Cloudinary files to file manager
+  syncCloudinaryFiles: () => api.post("/files/sync-cloudinary"),
+
+  // Fix problematic files
+  fixProblematicFiles: () => api.post("/files/fix-problematic"),
 };

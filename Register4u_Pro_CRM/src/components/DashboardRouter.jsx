@@ -28,7 +28,7 @@ const DashboardRouter = () => {
   if (isMainAuth) {
     // If Admin (role might be undefined or 'admin')
     if (!mainRole || mainRole === "admin") {
-      return <Dashboard />; // Render Admin Dashboard directly
+      return <Dashboard />; // Original Dashboard with improved backend data
     }
 
     // If Employee
@@ -46,7 +46,7 @@ const DashboardRouter = () => {
       if (employee) {
         return <Navigate to="/employee/dashboard" replace />;
       }
-      return <Dashboard />; // Default to Admin
+      return <Dashboard />; // Original Dashboard with improved backend data
     }
   }
 
