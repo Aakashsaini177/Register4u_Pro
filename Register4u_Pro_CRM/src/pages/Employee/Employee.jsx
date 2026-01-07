@@ -57,33 +57,25 @@ const Employee = () => {
         );
       });
       
-      // Pagination for filtered results
-      const startIndex = (currentPage - 1) * 10;
-      const endIndex = startIndex + 10;
-      const paginatedData = filtered.slice(startIndex, endIndex);
-      
-      setEmployees(paginatedData);
-      setTotalPages(Math.ceil(filtered.length / 10) || 1);
+      // Show all filtered results with scroll instead of pagination
+      setEmployees(filtered);
+      setTotalPages(1); // No pagination needed with scroll
     } else {
       // Show all employees when no search term
-      const startIndex = (currentPage - 1) * 10;
-      const endIndex = startIndex + 10;
-      const paginatedData = allEmployees.slice(startIndex, endIndex);
-      
-      setEmployees(paginatedData);
-      setTotalPages(Math.ceil(allEmployees.length / 10) || 1);
+      setEmployees(allEmployees);
+      setTotalPages(1); // No pagination needed with scroll
     }
-  }, [searchTerm, allEmployees, currentPage]);
+  }, [searchTerm, allEmployees]);
 
   // Initial data fetch
   useEffect(() => {
     fetchEmployees();
   }, []);
 
-  // Reset to page 1 when search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+  // Reset to page 1 when search changes - not needed with scroll
+  // useEffect(() => {
+  //   setCurrentPage(1);
+  // }, [searchTerm]);
 
   const fetchEmployees = async () => {
     await withMinimumLoading(async () => {
@@ -95,10 +87,9 @@ const Employee = () => {
         const employeeData = response.data.data || [];
         setAllEmployees(employeeData);
         
-        // Set initial display (first page, no search)
-        const paginatedData = employeeData.slice(0, 10);
-        setEmployees(paginatedData);
-        setTotalPages(Math.ceil(employeeData.length / 10) || 1);
+        // Show all employees with scroll instead of pagination
+        setEmployees(employeeData);
+        setTotalPages(1);
         setInitialLoad(false);
       }
     }).catch((error) => {
@@ -217,9 +208,9 @@ const Employee = () => {
               </Link>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-white dark:bg-gray-900 z-10">
                   <TableRow>
                     <TableHead className="text-center">Code</TableHead>
                     <TableHead className="text-center">Name</TableHead>
@@ -346,32 +337,7 @@ const Employee = () => {
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <p className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Pagination - Removed since we're using scroll */}
         </CardContent>
       </Card>
     </div>

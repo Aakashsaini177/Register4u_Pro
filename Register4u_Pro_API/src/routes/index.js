@@ -39,6 +39,7 @@ const fileManagerRoutes = require("./fileManagerRoutes");
 const authRoutes = require("./auth"); // Employee authentication routes
 const employeeRoutes = require("./employeeRoutes"); // Employee management routes
 const requirementRoutes = require("./requirementRoutes");
+const dashboardRoutes = require("./dashboardRoutes"); // Dashboard routes
 
 // ==================== AUTH ROUTES ====================
 // Get current user
@@ -184,7 +185,7 @@ router.get("/barcode/:visitorId", barcodeController.generateBarcode);
 router.get("/visitorcard/:visitorId", barcodeController.getVisitorCard);
 
 // ==================== DASHBOARD ROUTES ====================
-router.get("/dashboard", dashboardController.getDashboard);
+// Removed single route, now using dashboard routes file
 
 // ==================== NEW MODULE ROUTES ====================
 router.use("/auth", authRoutes); // Employee authentication routes
@@ -197,6 +198,7 @@ router.use("/settings", sysSettingsRoutes);
 router.use("/activity-logs", activityLogRoutes);
 router.use("/invites", inviteRoutes);
 router.use("/requirements", requirementRoutes);
+router.use("/dashboard", dashboardRoutes); // Dashboard routes with sub-routes
 const reportRoutes = require("./reportRoutes");
 router.use("/events", reportRoutes);
 

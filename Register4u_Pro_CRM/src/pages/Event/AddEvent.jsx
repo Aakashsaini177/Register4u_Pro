@@ -1,20 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { eventAPI } from "@/lib/api";
+import { eventAPI, companyAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { Loading } from "@/components/ui/Loading";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import toast from "react-hot-toast";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
-import useFormPersistence from "@/hooks/useFormPersistence";
-
 const AddEvent = () => {
   const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
   const navigate = useNavigate();
   const {
     register,
@@ -24,7 +31,31 @@ const AddEvent = () => {
     formState: { errors },
   } = useForm();
 
-  useFormPersistence("add_event_form", watch, setValue);
+  // useFormPersistence("add_event_form", watch, setValue); // Removed - don't persist data in add form
+
+  // Fetch companies on component mount
+  useEffect(() => {
+    fetchCompanies();
+    // Clear any existing form persistence data for add event
+    localStorage.removeItem("add_event_form");
+  }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await companyAPI.getAll();
+      if (response.data.success) {
+        setCompanies(response.data.data || []);
+      } else {
+        toast.error("Failed to load companies");
+      }
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      toast.error("Failed to load companies");
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
 
   const onSubmit = async (data) => {
     setLoading(true);
@@ -32,6 +63,22 @@ const AddEvent = () => {
       const response = await eventAPI.create(data);
       if (response.data.success) {
         toast.success("Event added successfully!");
+        // Clear form after successful submission
+        setValue("orgName", "");
+        setValue("eventName", "");
+        setValue("StartTime", "");
+        setValue("EndTime", "");
+        setValue("expectedVisitor", "");
+        setValue("eventDescription", "");
+        setValue("eventHeadName", "");
+        setValue("eventHeadEmail", "");
+        setValue("eventHeadMob", "");
+        setValue("venue", "");
+        setValue("city", "");
+        setValue("state", "");
+        setValue("pincode", "");
+        setValue("address", "");
+        setValue("locationUrl", "");
         navigate("/event");
       } else {
         toast.error("Failed to add event");
@@ -68,14 +115,38 @@ const AddEvent = () => {
               <h3 className="text-lg font-semibold mb-4">Event Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="orgName">Organisation Name</Label>
-                  <Input
-                    id="orgName"
-                    type="text"
-                    placeholder="Enter organisation name"
-                    className="mt-1"
-                    {...register("orgName")}
-                  />
+                  <Label htmlFor="orgName">Company/Organisation Name</Label>
+                  <Select
+                    onValueChange={(value) => setValue("orgName", value)}
+                    defaultValue=""
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder={loadingCompanies ? "Loading companies..." : "Select a company/organisation"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingCompanies ? (
+                        <SelectItem value="" disabled>
+                          Loading companies...
+                        </SelectItem>
+                      ) : companies.length === 0 ? (
+                        <SelectItem value="" disabled>
+                          No companies found
+                        </SelectItem>
+                      ) : (
+                        companies.map((company) => (
+                          <SelectItem key={company.id || company._id} value={company.name || company.companyName}>
+                            {company.name || company.companyName}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select from existing companies or{" "}
+                    <Link to="/company/add" className="text-blue-600 hover:underline">
+                      add a new company
+                    </Link>
+                  </p>
                 </div>
 
                 <div>

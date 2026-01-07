@@ -58,6 +58,11 @@ exports.getAllVisitors = asyncHandler(async (req, res) => {
             const cat = await Category.findById(v.category).select("name");
             if (cat) categoryName = cat.name;
           }
+          
+          // If categoryName is still undefined/null, keep original category or set to empty string
+          if (!categoryName) {
+            categoryName = v.category || "";
+          }
 
           // Fetch Travel Details
           const travelInfo = await TravelDetail.find({ visitorId: v.visitorId })
@@ -233,74 +238,211 @@ exports.createVisitor = async (req, res) => {
       req.files ? Object.keys(req.files) : "No files"
     );
 
-    // ... (after rename logic)
     if (req.files) {
       const { FileNode } = require("../models"); // Import FileNode
+      const path = require("path");
+      const fs = require("fs");
 
-      // PRO-TIP: Helpher to sync to File Manager
-      const syncToFM = async (filename, folderName) => {
+      // Helper to sync files to File Manager with proper naming
+      const syncToFileManager = async (originalFile, newFileName, folderName) => {
         try {
-          if (!filename) return;
-          // 1. Find folder
+          if (!originalFile || !newFileName) return null;
+
+          // Find the target folder (photo or idproof)
           let folder = await FileNode.findOne({
             name: folderName,
             type: "folder",
-            parentId: { $ne: null },
+            parentId: null, // Root level folders
           });
-          // Note: The default folders are usually under 'uploads'.
-          // But 'uploads' itself is a folder.
-          // Let's find 'uploads' first, then find child.
-          const root = await FileNode.findOne({
-            name: "uploads",
-            parentId: null,
-          });
-          if (root) {
-            folder = await FileNode.findOne({
+
+          if (!folder) {
+            // Create folder if it doesn't exist
+            folder = await FileNode.create({
               name: folderName,
-              parentId: root._id,
+              type: "folder",
+              parentId: null,
             });
+            console.log(`📁 Created folder: ${folderName}`);
           }
 
-          if (folder) {
-            // Check if file node exists
-            const existingNode = await FileNode.findOne({
-              name: filename,
-              parentId: folder._id,
-            });
-            if (!existingNode) {
-              await FileNode.create({
-                name: filename,
-                type: "file",
-                parentId: folder._id,
-                url: `/uploads/${filename}`, // Assuming /uploads is served statically and flat
-                size: 0, // We can get size if needed, skipping for speed
-                mimeType: "image/jpeg", // Generic or detect
-              });
-            }
+          // Get file extension from original file
+          const ext = path.extname(originalFile.originalname);
+          const finalFileName = `${newFileName}${ext}`;
+          
+          // Create new file path
+          const uploadsDir = path.join(__dirname, "../../uploads");
+          const newFilePath = path.join(uploadsDir, finalFileName);
+          
+          // Copy/rename the uploaded file
+          if (fs.existsSync(originalFile.path)) {
+            fs.copyFileSync(originalFile.path, newFilePath);
+            console.log(`📁 File copied to: ${finalFileName}`);
           }
-        } catch (e) {
-          console.error("Sync to FM failed:", e);
+
+          // Check if file node already exists in file manager
+          const existingNode = await FileNode.findOne({
+            name: finalFileName,
+            parentId: folder._id,
+          });
+
+          if (!existingNode) {
+            // Create file node in file manager
+            await FileNode.create({
+              name: finalFileName,
+              type: "file",
+              parentId: folder._id,
+              url: `/uploads/${finalFileName}`,
+              size: originalFile.size || 0,
+              mimeType: originalFile.mimetype || "image/jpeg",
+            });
+            console.log(`📁 Added to file manager: ${finalFileName} in ${folderName}`);
+          }
+
+          return finalFileName;
+        } catch (error) {
+          console.error("Sync to File Manager failed:", error);
+          return null;
         }
       };
 
+      // Handle visitor photo
       if (req.files.photo) {
         const photoFile = req.files.photo[0];
         console.log(`📸 Photo Uploaded: ${photoFile.path}`);
-        visitorData.photo = photoFile.path;
+        console.log(`🔧 DEBUG: Using UPDATED photo upload logic - Cloudinary only!`);
+        
+        // Always use Cloudinary URL if available, and store it properly in file manager
+        if (photoFile.path && (photoFile.path.includes('cloudinary') || photoFile.path.startsWith('http'))) {
+          visitorData.photo = photoFile.path; // Keep Cloudinary URL in visitor record
+          console.log(`✅ Cloudinary URL detected: ${photoFile.path}`);
+          
+          // Add to file manager with Cloudinary URL (not local path)
+          try {
+            const { FileNode } = require("../models");
+            let folder = await FileNode.findOne({
+              name: "photo",
+              type: "folder",
+              parentId: null,
+            });
+
+            if (!folder) {
+              folder = await FileNode.create({
+                name: "photo",
+                type: "folder",
+                parentId: null,
+              });
+            }
+
+            const ext = path.extname(photoFile.originalname) || '.jpg';
+            const finalFileName = `${newVisitorId}${ext}`;
+
+            const existingNode = await FileNode.findOne({
+              name: finalFileName,
+              parentId: folder._id,
+            });
+
+            if (!existingNode) {
+              await FileNode.create({
+                name: finalFileName,
+                type: "file",
+                parentId: folder._id,
+                url: photoFile.path, // Store Cloudinary URL in file manager - this fixes the display issue
+                size: photoFile.size || 0,
+                mimeType: photoFile.mimetype || "image/jpeg",
+              });
+              console.log(`📁 ✅ CLOUDINARY: Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+            } else {
+              console.log(`📁 Photo already exists in file manager: ${finalFileName}`);
+            }
+          } catch (error) {
+            console.error("Error adding photo to file manager:", error);
+          }
+        } else {
+          // Local file handling (fallback) - only if not Cloudinary
+          console.log(`⚠️  WARNING: Photo is not Cloudinary URL, using local fallback: ${photoFile.path}`);
+          const photoFileName = await syncToFileManager(photoFile, newVisitorId, "photo");
+          visitorData.photo = photoFileName ? `/uploads/${photoFileName}` : photoFile.path;
+        }
       }
-      // Handle documents
+
+      // Handle ID proof documents
       visitorData.documents = {};
-      const handleDoc = async (field, docName) => {
-        if (req.files[field]) {
-          visitorData.documents[docName] = req.files[field][0].path;
-          // syncToFM deprecated or needs to handle URL. Skipping for now to avoid errors.
+      
+      // Helper function to handle document with Cloudinary support
+      const handleDocument = async (fileArray, fileName, folderName) => {
+        if (!fileArray || !fileArray[0]) return null;
+        
+        const file = fileArray[0];
+        
+        // If file is on Cloudinary, use that URL and add to file manager
+        if (file.path && (file.path.includes('cloudinary') || file.path.startsWith('http'))) {
+          try {
+            const { FileNode } = require("../models");
+            let folder = await FileNode.findOne({
+              name: folderName,
+              type: "folder",
+              parentId: null,
+            });
+
+            if (!folder) {
+              folder = await FileNode.create({
+                name: folderName,
+                type: "folder",
+                parentId: null,
+              });
+            }
+
+            const ext = path.extname(file.originalname) || '.jpg';
+            const finalFileName = `${fileName}${ext}`;
+
+            const existingNode = await FileNode.findOne({
+              name: finalFileName,
+              parentId: folder._id,
+            });
+
+            if (!existingNode) {
+              await FileNode.create({
+                name: finalFileName,
+                type: "file",
+                parentId: folder._id,
+                url: file.path, // Use Cloudinary URL
+                size: file.size || 0,
+                mimeType: file.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Added ${fileName} to file manager with Cloudinary URL`);
+            }
+          } catch (error) {
+            console.error(`Error adding ${fileName} to file manager:`, error);
+          }
+          
+          return file.path; // Return Cloudinary URL
+        } else {
+          // Local file handling
+          const localFileName = await syncToFileManager(file, fileName, folderName);
+          return localFileName ? `/uploads/${localFileName}` : file.path;
         }
       };
 
-      await handleDoc("aadharFront", "aadharFront");
-      await handleDoc("aadharBack", "aadharBack");
-      await handleDoc("panFront", "panFront");
-      await handleDoc("panBack", "panBack");
+      // Aadhar Front
+      if (req.files.aadharFront) {
+        visitorData.documents.aadharFront = await handleDocument(req.files.aadharFront, `aadhrFR_${newVisitorId}`, "idproof");
+      }
+
+      // Aadhar Back
+      if (req.files.aadharBack) {
+        visitorData.documents.aadharBack = await handleDocument(req.files.aadharBack, `aadhrBK_${newVisitorId}`, "idproof");
+      }
+
+      // PAN Card
+      if (req.files.panFront) {
+        visitorData.documents.panFront = await handleDocument(req.files.panFront, `PAN_${newVisitorId}`, "idproof");
+      }
+
+      // PAN Back (if needed)
+      if (req.files.panBack) {
+        visitorData.documents.panBack = await handleDocument(req.files.panBack, `PANBACK_${newVisitorId}`, "idproof");
+      }
+
     } else if (req.body.photo) {
       // Handle photo URL from file manager
       console.log("📸 Photo URL from file manager:", req.body.photo);
@@ -401,32 +543,207 @@ exports.createPublicVisitor = async (req, res) => {
       registrationSource: "PUBLIC_FORM",
     };
 
-    // Handle Files
+    // Handle Files with File Manager Sync
     if (req.files) {
-      if (req.files.photo) {
-        visitorData.photo = req.files.photo[0].path;
-      }
+      const { FileNode } = require("../models");
+      const path = require("path");
+      const fs = require("fs");
 
-      visitorData.documents = {};
+      // Helper to sync files to File Manager with proper naming
+      const syncToFileManager = async (originalFile, newFileName, folderName) => {
+        try {
+          if (!originalFile || !newFileName) return null;
 
-      const handleDoc = (field) => {
-        if (req.files[field]) {
-          return req.files[field][0].path;
+          // Find the target folder (photo or idproof)
+          let folder = await FileNode.findOne({
+            name: folderName,
+            type: "folder",
+            parentId: null, // Root level folders
+          });
+
+          if (!folder) {
+            // Create folder if it doesn't exist
+            folder = await FileNode.create({
+              name: folderName,
+              type: "folder",
+              parentId: null,
+            });
+            console.log(`📁 Created folder: ${folderName}`);
+          }
+
+          // Get file extension from original file
+          const ext = path.extname(originalFile.originalname);
+          const finalFileName = `${newFileName}${ext}`;
+          
+          // Create new file path
+          const uploadsDir = path.join(__dirname, "../../uploads");
+          const newFilePath = path.join(uploadsDir, finalFileName);
+          
+          // Copy/rename the uploaded file
+          if (fs.existsSync(originalFile.path)) {
+            fs.copyFileSync(originalFile.path, newFilePath);
+            console.log(`📁 File copied to: ${finalFileName}`);
+          }
+
+          // Check if file node already exists in file manager
+          const existingNode = await FileNode.findOne({
+            name: finalFileName,
+            parentId: folder._id,
+          });
+
+          if (!existingNode) {
+            // Create file node in file manager
+            await FileNode.create({
+              name: finalFileName,
+              type: "file",
+              parentId: folder._id,
+              url: `/uploads/${finalFileName}`,
+              size: originalFile.size || 0,
+              mimeType: originalFile.mimetype || "image/jpeg",
+            });
+            console.log(`📁 Added to file manager: ${finalFileName} in ${folderName}`);
+          }
+
+          return finalFileName;
+        } catch (error) {
+          console.error("Sync to File Manager failed:", error);
+          return null;
         }
-        return null;
       };
 
-      const af = handleDoc("aadharFront");
-      if (af) visitorData.documents.aadharFront = af;
+      // Handle visitor photo
+      if (req.files.photo) {
+        const photoFile = req.files.photo[0];
+        
+        // Always use Cloudinary URL if available, and store it properly in file manager
+        if (photoFile.path && (photoFile.path.includes('cloudinary') || photoFile.path.startsWith('http'))) {
+          visitorData.photo = photoFile.path; // Keep Cloudinary URL in visitor record
+          
+          // Add to file manager with Cloudinary URL (not local path)
+          try {
+            const { FileNode } = require("../models");
+            let folder = await FileNode.findOne({
+              name: "photo",
+              type: "folder",
+              parentId: null,
+            });
 
-      const ab = handleDoc("aadharBack");
-      if (ab) visitorData.documents.aadharBack = ab;
+            if (!folder) {
+              folder = await FileNode.create({
+                name: "photo",
+                type: "folder",
+                parentId: null,
+              });
+            }
 
-      const pf = handleDoc("panFront");
-      if (pf) visitorData.documents.panFront = pf;
+            const ext = path.extname(photoFile.originalname) || '.jpg';
+            const finalFileName = `${newVisitorId}${ext}`;
 
-      const pb = handleDoc("panBack");
-      if (pb) visitorData.documents.panBack = pb;
+            const existingNode = await FileNode.findOne({
+              name: finalFileName,
+              parentId: folder._id,
+            });
+
+            if (!existingNode) {
+              await FileNode.create({
+                name: finalFileName,
+                type: "file",
+                parentId: folder._id,
+                url: photoFile.path, // Store Cloudinary URL in file manager - this fixes the display issue
+                size: photoFile.size || 0,
+                mimeType: photoFile.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+            } else {
+              console.log(`📁 Photo already exists in file manager: ${finalFileName}`);
+            }
+          } catch (error) {
+            console.error("Error adding photo to file manager:", error);
+          }
+        } else {
+          // Local file handling (fallback) - only if not Cloudinary
+          const photoFileName = await syncToFileManager(photoFile, newVisitorId, "photo");
+          visitorData.photo = photoFileName ? `/uploads/${photoFileName}` : photoFile.path;
+        }
+      }
+
+      // Handle ID proof documents with Cloudinary support
+      visitorData.documents = {};
+      
+      // Helper function to handle document with Cloudinary support
+      const handleDocument = async (fileArray, fileName, folderName) => {
+        if (!fileArray || !fileArray[0]) return null;
+        
+        const file = fileArray[0];
+        
+        // If file is on Cloudinary, use that URL and add to file manager
+        if (file.path && (file.path.includes('cloudinary') || file.path.startsWith('http'))) {
+          try {
+            const { FileNode } = require("../models");
+            let folder = await FileNode.findOne({
+              name: folderName,
+              type: "folder",
+              parentId: null,
+            });
+
+            if (!folder) {
+              folder = await FileNode.create({
+                name: folderName,
+                type: "folder",
+                parentId: null,
+              });
+            }
+
+            const ext = path.extname(file.originalname) || '.jpg';
+            const finalFileName = `${fileName}${ext}`;
+
+            const existingNode = await FileNode.findOne({
+              name: finalFileName,
+              parentId: folder._id,
+            });
+
+            if (!existingNode) {
+              await FileNode.create({
+                name: finalFileName,
+                type: "file",
+                parentId: folder._id,
+                url: file.path, // Use Cloudinary URL
+                size: file.size || 0,
+                mimeType: file.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Added ${fileName} to file manager with Cloudinary URL`);
+            }
+          } catch (error) {
+            console.error(`Error adding ${fileName} to file manager:`, error);
+          }
+          
+          return file.path; // Return Cloudinary URL
+        } else {
+          // Local file handling
+          const localFileName = await syncToFileManager(file, fileName, folderName);
+          return localFileName ? `/uploads/${localFileName}` : file.path;
+        }
+      };
+
+      // Aadhar Front
+      if (req.files.aadharFront) {
+        visitorData.documents.aadharFront = await handleDocument(req.files.aadharFront, `aadhrFR_${newVisitorId}`, "idproof");
+      }
+
+      // Aadhar Back
+      if (req.files.aadharBack) {
+        visitorData.documents.aadharBack = await handleDocument(req.files.aadharBack, `aadhrBK_${newVisitorId}`, "idproof");
+      }
+
+      // PAN Card
+      if (req.files.panFront) {
+        visitorData.documents.panFront = await handleDocument(req.files.panFront, `PAN_${newVisitorId}`, "idproof");
+      }
+
+      // PAN Back (if needed)
+      if (req.files.panBack) {
+        visitorData.documents.panBack = await handleDocument(req.files.panBack, `PANBACK_${newVisitorId}`, "idproof");
+      }
     }
 
     // Handle Invite Logic BEFORE Creation
@@ -546,15 +863,231 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       },
     };
 
-    // Handle file uploads
-    // Handle file uploads
+    // Handle file uploads with File Manager Sync
     if (req.files) {
       console.log("📁 Files uploaded:", Object.keys(req.files));
+      
+      const { FileNode } = require("../models");
+      const path = require("path");
+      const fs = require("fs");
 
+      // Helper to sync files to File Manager with proper naming
+      const syncToFileManager = async (originalFile, newFileName, folderName) => {
+        try {
+          if (!originalFile || !newFileName) return null;
+
+          // Find the target folder (photo or idproof)
+          let folder = await FileNode.findOne({
+            name: folderName,
+            type: "folder",
+            parentId: null, // Root level folders
+          });
+
+          if (!folder) {
+            // Create folder if it doesn't exist
+            folder = await FileNode.create({
+              name: folderName,
+              type: "folder",
+              parentId: null,
+            });
+            console.log(`📁 Created folder: ${folderName}`);
+          }
+
+          // Get file extension from original file
+          const ext = path.extname(originalFile.originalname);
+          const finalFileName = `${newFileName}${ext}`;
+          
+          // Create new file path
+          const uploadsDir = path.join(__dirname, "../../uploads");
+          const newFilePath = path.join(uploadsDir, finalFileName);
+          
+          // Copy/rename the uploaded file
+          if (fs.existsSync(originalFile.path)) {
+            fs.copyFileSync(originalFile.path, newFilePath);
+            console.log(`📁 File copied to: ${finalFileName}`);
+          }
+
+          // Check if file node already exists in file manager
+          const existingNode = await FileNode.findOne({
+            name: finalFileName,
+            parentId: folder._id,
+          });
+
+          if (!existingNode) {
+            // Create file node in file manager
+            await FileNode.create({
+              name: finalFileName,
+              type: "file",
+              parentId: folder._id,
+              url: `/uploads/${finalFileName}`,
+              size: originalFile.size || 0,
+              mimeType: originalFile.mimetype || "image/jpeg",
+            });
+            console.log(`📁 Added to file manager: ${finalFileName} in ${folderName}`);
+          }
+
+          return finalFileName;
+        } catch (error) {
+          console.error("Sync to File Manager failed:", error);
+          return null;
+        }
+      };
+
+      // Handle visitor photo
       if (req.files.photo) {
         console.log("📸 NEW PHOTO UPLOADED:", req.files.photo[0].path);
-        updateData.photo = req.files.photo[0].path;
+        const photoFile = req.files.photo[0];
+        
+        // Always use Cloudinary URL if available, and store it properly in file manager
+        if (photoFile.path && (photoFile.path.includes('cloudinary') || photoFile.path.startsWith('http'))) {
+          updateData.photo = photoFile.path; // Keep Cloudinary URL in visitor record
+          
+          // Add to file manager with Cloudinary URL (not local path)
+          try {
+            const { FileNode } = require("../models");
+            let folder = await FileNode.findOne({
+              name: "photo",
+              type: "folder",
+              parentId: null,
+            });
+
+            if (!folder) {
+              folder = await FileNode.create({
+                name: "photo",
+                type: "folder",
+                parentId: null,
+              });
+            }
+
+            const ext = path.extname(photoFile.originalname) || '.jpg';
+            const finalFileName = `${visitor.visitorId}${ext}`;
+
+            // Update existing or create new
+            const existingNode = await FileNode.findOne({
+              name: finalFileName,
+              parentId: folder._id,
+            });
+
+            if (existingNode) {
+              // Update existing node with new Cloudinary URL
+              await FileNode.findByIdAndUpdate(existingNode._id, {
+                url: photoFile.path,
+                size: photoFile.size || 0,
+                mimeType: photoFile.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Updated photo in file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+            } else {
+              // Create new node
+              await FileNode.create({
+                name: finalFileName,
+                type: "file",
+                parentId: folder._id,
+                url: photoFile.path, // Store Cloudinary URL in file manager
+                size: photoFile.size || 0,
+                mimeType: photoFile.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+            }
+          } catch (error) {
+            console.error("Error adding photo to file manager:", error);
+          }
+        } else {
+          // Local file handling (fallback)
+          const photoFileName = await syncToFileManager(photoFile, visitor.visitorId, "photo");
+          updateData.photo = photoFileName ? `/uploads/${photoFileName}` : photoFile.path;
+        }
       }
+
+      // Handle documents updates with file manager sync and Cloudinary support
+      const existingDocs = visitor.documents || {};
+      const newDocs = { ...existingDocs }; // Start with existing
+
+      // Helper function to handle document with Cloudinary support
+      const handleDocumentUpdate = async (fileArray, fileName, folderName) => {
+        if (!fileArray || !fileArray[0]) return null;
+        
+        const file = fileArray[0];
+        
+        // If file is on Cloudinary, use that URL and add to file manager
+        if (file.path && (file.path.includes('cloudinary') || file.path.startsWith('http'))) {
+          try {
+            const { FileNode } = require("../models");
+            let folder = await FileNode.findOne({
+              name: folderName,
+              type: "folder",
+              parentId: null,
+            });
+
+            if (!folder) {
+              folder = await FileNode.create({
+                name: folderName,
+                type: "folder",
+                parentId: null,
+              });
+            }
+
+            const ext = path.extname(file.originalname) || '.jpg';
+            const finalFileName = `${fileName}${ext}`;
+
+            // Update existing or create new
+            const existingNode = await FileNode.findOne({
+              name: finalFileName,
+              parentId: folder._id,
+            });
+
+            if (existingNode) {
+              // Update existing node with new Cloudinary URL
+              await FileNode.findByIdAndUpdate(existingNode._id, {
+                url: file.path,
+                size: file.size || 0,
+                mimeType: file.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Updated ${fileName} in file manager with Cloudinary URL`);
+            } else {
+              // Create new node
+              await FileNode.create({
+                name: finalFileName,
+                type: "file",
+                parentId: folder._id,
+                url: file.path, // Use Cloudinary URL
+                size: file.size || 0,
+                mimeType: file.mimetype || "image/jpeg",
+              });
+              console.log(`📁 Added ${fileName} to file manager with Cloudinary URL`);
+            }
+          } catch (error) {
+            console.error(`Error adding ${fileName} to file manager:`, error);
+          }
+          
+          return file.path; // Return Cloudinary URL
+        } else {
+          // Local file handling
+          const localFileName = await syncToFileManager(file, fileName, folderName);
+          return localFileName ? `/uploads/${localFileName}` : file.path;
+        }
+      };
+
+      // Aadhar Front
+      if (req.files.aadharFront) {
+        newDocs.aadharFront = await handleDocumentUpdate(req.files.aadharFront, `aadhrFR_${visitor.visitorId}`, "idproof");
+      }
+
+      // Aadhar Back
+      if (req.files.aadharBack) {
+        newDocs.aadharBack = await handleDocumentUpdate(req.files.aadharBack, `aadhrBK_${visitor.visitorId}`, "idproof");
+      }
+
+      // PAN Front
+      if (req.files.panFront) {
+        newDocs.panFront = await handleDocumentUpdate(req.files.panFront, `PAN_${visitor.visitorId}`, "idproof");
+      }
+
+      // PAN Back
+      if (req.files.panBack) {
+        newDocs.panBack = await handleDocumentUpdate(req.files.panBack, `PANBACK_${visitor.visitorId}`, "idproof");
+      }
+
+      updateData.documents = newDocs;
     }
 
     // Handle photo URL from file manager (only if no new photo file was uploaded)
@@ -640,7 +1173,93 @@ exports.deleteVisitor = asyncHandler(async (req, res) => {
       });
     }
 
+    console.log(`🗑️ Deleting visitor: ${visitor.visitorId} (${visitor.name})`);
+
+    // Clean up file manager entries for this visitor
+    try {
+      const { FileNode } = require("../models");
+      
+      // Helper function to delete file from file manager by name pattern
+      const deleteFileFromManager = async (fileName, folderName) => {
+        try {
+          // Find folder
+          const folder = await FileNode.findOne({
+            name: folderName,
+            type: "folder",
+            parentId: null,
+          });
+
+          if (folder) {
+            console.log(`📁 Found ${folderName} folder: ${folder._id}`);
+            
+            // Try multiple search patterns for better matching
+            const searchPatterns = [
+              { name: fileName }, // Exact match
+              { name: { $regex: new RegExp(`^${fileName}`, 'i') } }, // Starts with (case insensitive)
+              { name: { $regex: new RegExp(fileName, 'i') } }, // Contains (case insensitive)
+              { name: { $regex: new RegExp(`${fileName}\\.(jpg|jpeg|png|pdf)$`, 'i') } } // With common extensions
+            ];
+
+            let fileNode = null;
+            for (const pattern of searchPatterns) {
+              fileNode = await FileNode.findOne({
+                ...pattern,
+                parentId: folder._id,
+                type: "file"
+              });
+              if (fileNode) {
+                console.log(`🔍 Found file with pattern: ${JSON.stringify(pattern)}`);
+                break;
+              }
+            }
+
+            if (fileNode) {
+              await FileNode.findByIdAndDelete(fileNode._id);
+              console.log(`🗑️ Deleted from file manager: ${fileNode.name} from ${folderName}`);
+              return true;
+            } else {
+              console.log(`ℹ️ File not found in ${folderName} folder with any pattern: ${fileName}`);
+              
+              // Debug: List all files in the folder
+              const allFiles = await FileNode.find({
+                parentId: folder._id,
+                type: "file"
+              }).select('name');
+              console.log(`📋 All files in ${folderName}:`, allFiles.map(f => f.name));
+            }
+          } else {
+            console.log(`⚠️ Folder not found: ${folderName}`);
+          }
+          return false;
+        } catch (error) {
+          console.error(`Error deleting ${fileName} from file manager:`, error);
+          return false;
+        }
+      };
+
+      // Delete visitor photo from file manager
+      if (visitor.visitorId) {
+        await deleteFileFromManager(visitor.visitorId, "photo");
+      }
+
+      // Delete visitor documents from file manager
+      if (visitor.visitorId) {
+        console.log(`🔍 Looking for ID proof documents for visitor: ${visitor.visitorId}`);
+        await deleteFileFromManager(`aadhrFR_${visitor.visitorId}`, "idproof");
+        await deleteFileFromManager(`aadhrBK_${visitor.visitorId}`, "idproof");
+        await deleteFileFromManager(`PAN_${visitor.visitorId}`, "idproof");
+        await deleteFileFromManager(`PANBACK_${visitor.visitorId}`, "idproof");
+      }
+
+      console.log(`🧹 File manager cleanup completed for visitor: ${visitor.visitorId}`);
+    } catch (error) {
+      console.error("Error during file manager cleanup:", error);
+      // Continue with visitor deletion even if file cleanup fails
+    }
+
     await Visitor.findByIdAndDelete(visitorId);
+
+    console.log(`✅ Visitor deleted successfully: ${visitor.visitorId}`);
 
     res.status(200).json({
       message: "Visitor deleted successfully",
@@ -657,15 +1276,94 @@ exports.deleteMultipleVisitors = asyncHandler(async (req, res) => {
   try {
     const { ids } = req.body;
 
-    await Visitor.deleteMany({
+    console.log(`🗑️ Bulk deleting ${ids.length} visitors...`);
+
+    // Get visitor details before deletion for file cleanup
+    const visitors = await Visitor.find({
+      _id: { $in: ids }
+    }).select('visitorId name');
+
+    console.log(`📋 Found ${visitors.length} visitors to delete`);
+
+    // Clean up file manager entries for all visitors
+    try {
+      const { FileNode } = require("../models");
+      
+      // Helper function to delete file from file manager by name pattern
+      const deleteFileFromManager = async (fileName, folderName) => {
+        try {
+          // Find folder
+          const folder = await FileNode.findOne({
+            name: folderName,
+            type: "folder",
+            parentId: null,
+          });
+
+          if (folder) {
+            // Try multiple search patterns for better matching
+            const searchPatterns = [
+              { name: fileName }, // Exact match
+              { name: { $regex: new RegExp(`^${fileName}`, 'i') } }, // Starts with (case insensitive)
+              { name: { $regex: new RegExp(fileName, 'i') } }, // Contains (case insensitive)
+              { name: { $regex: new RegExp(`${fileName}\\.(jpg|jpeg|png|pdf)$`, 'i') } } // With common extensions
+            ];
+
+            let fileNode = null;
+            for (const pattern of searchPatterns) {
+              fileNode = await FileNode.findOne({
+                ...pattern,
+                parentId: folder._id,
+                type: "file"
+              });
+              if (fileNode) break;
+            }
+
+            if (fileNode) {
+              await FileNode.findByIdAndDelete(fileNode._id);
+              console.log(`🗑️ Bulk deleted from file manager: ${fileNode.name} from ${folderName}`);
+              return true;
+            }
+          }
+          return false;
+        } catch (error) {
+          console.error(`Error deleting ${fileName} from file manager:`, error);
+          return false;
+        }
+      };
+
+      // Delete files for each visitor
+      for (const visitor of visitors) {
+        if (visitor.visitorId) {
+          // Delete visitor photo
+          await deleteFileFromManager(visitor.visitorId, "photo");
+          
+          // Delete visitor documents
+          await deleteFileFromManager(`aadhrFR_${visitor.visitorId}`, "idproof");
+          await deleteFileFromManager(`aadhrBK_${visitor.visitorId}`, "idproof");
+          await deleteFileFromManager(`PAN_${visitor.visitorId}`, "idproof");
+          await deleteFileFromManager(`PANBACK_${visitor.visitorId}`, "idproof");
+        }
+      }
+
+      console.log(`🧹 Bulk file manager cleanup completed for ${visitors.length} visitors`);
+    } catch (error) {
+      console.error("Error during bulk file manager cleanup:", error);
+      // Continue with visitor deletion even if file cleanup fails
+    }
+
+    // Delete visitors from database
+    const result = await Visitor.deleteMany({
       _id: {
         $in: ids,
       },
     });
 
+    console.log(`✅ Bulk deleted ${result.deletedCount} visitors successfully`);
+
     res.status(200).json({
       message: "Visitors deleted successfully",
       success: true,
+      deletedCount: result.deletedCount,
     });
   } catch (error) {
     console.log("Error:", error);

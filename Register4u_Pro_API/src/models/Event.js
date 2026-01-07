@@ -35,6 +35,37 @@ const eventSchema = new mongoose.Schema(
       enum: ["active", "inactive", "completed"],
       default: "active",
     },
+    // Additional event details
+    expectedVisitor: {
+      type: Number,
+    },
+    eventHeadName: {
+      type: String,
+    },
+    eventHeadEmail: {
+      type: String,
+    },
+    eventHeadMob: {
+      type: String,
+    },
+    venue: {
+      type: String,
+    },
+    city: {
+      type: String,
+    },
+    state: {
+      type: String,
+    },
+    pincode: {
+      type: String,
+    },
+    address: {
+      type: String,
+    },
+    locationUrl: {
+      type: String,
+    },
   },
   {
     timestamps: true,

@@ -20,6 +20,8 @@ const ImageInput = ({
   defaultPreview = null,
   aspectRatio = 3 / 4, // Default portrait for ID/Photo
 }) => {
+  console.log(`🔧 ImageInput [${label}]: aspectRatio=${aspectRatio}, freeAspect=${aspectRatio === null}`);
+  
   const [activeTab, setActiveTab] = useState("camera"); // 'camera' or 'upload'
   const [preview, setPreview] = useState(getImageUrl(defaultPreview));
   const [showCamera, setShowCamera] = useState(false);
@@ -206,7 +208,9 @@ const ImageInput = ({
           imageSrc={tempImage}
           onCrop={handleCrop}
           onCancel={() => setShowCropper(false)}
-          aspect={aspectRatio}
+          aspect={aspectRatio || 1}
+          freeAspect={aspectRatio === null}
+          title={`${label} - ${aspectRatio === null ? 'Free Crop' : 'Fixed Ratio'}`}
         />
       )}
     </div>

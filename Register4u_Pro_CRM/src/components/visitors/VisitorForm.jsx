@@ -382,6 +382,7 @@ const VisitorForm = ({
                 <ImageInput
                   label="Visitor Photo"
                   required={true}
+                  aspectRatio={null} // Allow free cropping for visitor photos
                   defaultPreview={
                     typeof watch("photo") === "string" && watch("photo")
                       ? getImageUrl(watch("photo"))

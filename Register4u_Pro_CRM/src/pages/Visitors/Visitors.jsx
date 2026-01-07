@@ -373,12 +373,29 @@ const Visitors = () => {
   };
 
   const handlePhotoClick = (visitor) => {
+    console.log(`🖼️ Photo click debug:`, {
+      visitorId: visitor.visitorId || visitor.id,
+      visitorPhoto: visitor.photo,
+      isCloudinaryUrl: visitor.photo && (visitor.photo.startsWith('http') || visitor.photo.startsWith('https')),
+      fileManagerKeys: Object.keys(fileManagerPhotos).slice(0, 5) // Show first 5 keys
+    });
+    
     // Get the best available photo URL
-    const photoUrl = 
-      fileManagerPhotos[visitor.photo] ||
-      fileManagerPhotos[visitor.photo?.replace(/\.[^/.]+$/, "")] ||
-      fileManagerPhotos[visitor.visitorId || visitor.id] ||
-      (visitor.photo ? getImageUrl(visitor.photo) : null);
+    let photoUrl = null;
+    
+    // First check if visitor.photo is already a valid URL (Cloudinary, etc.)
+    if (visitor.photo && (visitor.photo.startsWith('http') || visitor.photo.startsWith('https'))) {
+      photoUrl = visitor.photo;
+      console.log(`🖼️ Using direct URL: ${photoUrl}`);
+    } else {
+      // Then check file manager photos
+      photoUrl = 
+        fileManagerPhotos[visitor.photo] ||
+        fileManagerPhotos[visitor.photo?.replace(/\.[^/.]+$/, "")] ||
+        fileManagerPhotos[visitor.visitorId || visitor.id] ||
+        (visitor.photo ? getImageUrl(visitor.photo) : null);
+      console.log(`🖼️ Using processed URL: ${photoUrl}`);
+    }
     
     if (photoUrl) {
       setSelectedPhoto({
@@ -387,6 +404,9 @@ const Visitors = () => {
         visitorId: visitor.visitorId || visitor.id
       });
       setShowPhotoModal(true);
+    } else {
+      console.log(`🖼️ No photo URL found for visitor:`, visitor);
+      toast.error("Photo not found");
     }
   };
 
@@ -875,13 +895,18 @@ const Visitors = () => {
                                 name={visitor.name}
                                 visitorId={visitor.visitorId || visitor.id}
                                 fallbackSrc={
-                                  fileManagerPhotos[visitor.photo] ||
-                                  fileManagerPhotos[
-                                    visitor.photo?.replace(/\.[^/.]+$/, "")
-                                  ] ||
-                                  fileManagerPhotos[
-                                    visitor.visitorId || visitor.id
-                                  ]
+                                  // First check if photo is already a valid URL
+                                  (visitor.photo && (visitor.photo.startsWith('http') || visitor.photo.startsWith('https'))) 
+                                    ? visitor.photo 
+                                    : (
+                                      fileManagerPhotos[visitor.photo] ||
+                                      fileManagerPhotos[
+                                        visitor.photo?.replace(/\.[^/.]+$/, "")
+                                      ] ||
+                                      fileManagerPhotos[
+                                        visitor.visitorId || visitor.id
+                                      ]
+                                    )
                                 }
                                 className="w-full h-full object-cover rounded-full"
                               />

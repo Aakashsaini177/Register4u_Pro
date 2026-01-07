@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Loading } from "@/components/ui/Loading";
+import { settingsAPI } from "@/lib/api";
 import toast from "react-hot-toast";
 import { CheckCircleIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 
@@ -199,109 +200,133 @@ const CardDesigner = () => {
     }
   };
 
-  // Load saved settings from localStorage
+  // Load saved settings from backend
   useEffect(() => {
-    const saved = localStorage.getItem("cardDesignSettings");
-    if (saved) {
-      const settings = JSON.parse(saved);
-      const cardWidth = 309;
-      const cardHeight = 475;
-      
-      // Validate and load image settings with bounds checking
-      const imgWidth = Math.max(10, Math.min(settings.imageWidth || 100, cardWidth));
-      const imgHeight = Math.max(10, Math.min(settings.imageHeight || 100, cardHeight));
-      const imgTop = Math.max(0, Math.min(settings.imageTopMargin || 20, cardHeight - imgHeight));
-      const imgLeft = Math.max(0, Math.min(settings.imageLeftMargin || 20, cardWidth - imgWidth));
-      
-      setImageWidth(imgWidth);
-      setImageHeight(imgHeight);
-      setImageTopMargin(imgTop);
-      setImageBottomMargin(settings.imageBottomMargin || 0);
-      setImageLeftMargin(imgLeft);
-      setImageRightMargin(settings.imageRightMargin || 0);
-      setImageShape(settings.imageShape || "circle");
+    const loadSettings = async () => {
+      try {
+        console.log("🔄 Loading card design settings from backend...");
+        const response = await settingsAPI.getCardDesignSettings();
+        
+        if (response.data.success) {
+          const settings = response.data.data;
+          console.log("✅ Card design settings loaded:", settings);
+          
+          if (settings) {
+            const cardWidth = 309;
+            const cardHeight = 475;
+            
+            // Validate and load image settings with bounds checking
+            const imgWidth = Math.max(10, Math.min(settings.imageWidth || 100, cardWidth));
+            const imgHeight = Math.max(10, Math.min(settings.imageHeight || 100, cardHeight));
+            const imgTop = Math.max(0, Math.min(settings.imageTopMargin || 20, cardHeight - imgHeight));
+            const imgLeft = Math.max(0, Math.min(settings.imageLeftMargin || 20, cardWidth - imgWidth));
+            
+            setImageWidth(imgWidth);
+            setImageHeight(imgHeight);
+            setImageTopMargin(imgTop);
+            setImageBottomMargin(settings.imageBottomMargin || 0);
+            setImageLeftMargin(imgLeft);
+            setImageRightMargin(settings.imageRightMargin || 0);
+            setImageShape(settings.imageShape || "circle");
 
-      setBottomContainerWidth(settings.bottomContainerWidth || 250);
-      setBottomContainerHeight(settings.bottomContainerHeight || 150);
-      setBottomContainerTopMargin(settings.bottomContainerTopMargin || 10);
-      setBottomContainerBottomMargin(settings.bottomContainerBottomMargin || 0);
-      setBottomContainerLeftMargin(settings.bottomContainerLeftMargin || 30);
-      setBottomContainerRightMargin(settings.bottomContainerRightMargin || 0);
+            setBottomContainerWidth(settings.bottomContainerWidth || 250);
+            setBottomContainerHeight(settings.bottomContainerHeight || 150);
+            setBottomContainerTopMargin(settings.bottomContainerTopMargin || 10);
+            setBottomContainerBottomMargin(settings.bottomContainerBottomMargin || 0);
+            setBottomContainerLeftMargin(settings.bottomContainerLeftMargin || 30);
+            setBottomContainerRightMargin(settings.bottomContainerRightMargin || 0);
 
-      // Validate and load visitor name settings with bounds checking
-      const visNameWidth = Math.max(10, Math.min(settings.visitorNameWidth || 200, cardWidth));
-      const visNameHeight = Math.max(10, Math.min(settings.visitorNameHeight || 30, cardHeight));
-      const visNameTop = Math.max(0, Math.min(settings.visitorNameMarginTop || 140, cardHeight - visNameHeight));
-      const visNameLeft = Math.max(0, Math.min(settings.visitorNameMarginLeft || 20, cardWidth - visNameWidth));
-      
-      setVisitorNameWidth(visNameWidth);
-      setVisitorNameHeight(visNameHeight);
-      setVisitorNameFontSize(settings.visitorNameFontSize || 18);
-      setVisitorNameMarginTop(visNameTop);
-      setVisitorNameMarginBottom(settings.visitorNameMarginBottom || 0);
-      setVisitorNameMarginRight(settings.visitorNameMarginRight || 0);
-      setVisitorNameMarginLeft(visNameLeft);
-      setVisitorNameColor(settings.visitorNameColor || "#FFFFFF");
-      setVisitorNameAlign(settings.visitorNameAlign || "left");
-      setVisitorNameFontFamily(settings.visitorNameFontFamily || "Arial");
+            // Validate and load visitor name settings with bounds checking
+            const visNameWidth = Math.max(10, Math.min(settings.visitorNameWidth || 200, cardWidth));
+            const visNameHeight = Math.max(10, Math.min(settings.visitorNameHeight || 30, cardHeight));
+            const visNameTop = Math.max(0, Math.min(settings.visitorNameMarginTop || 140, cardHeight - visNameHeight));
+            const visNameLeft = Math.max(0, Math.min(settings.visitorNameMarginLeft || 20, cardWidth - visNameWidth));
+            
+            setVisitorNameWidth(visNameWidth);
+            setVisitorNameHeight(visNameHeight);
+            setVisitorNameFontSize(settings.visitorNameFontSize || 18);
+            setVisitorNameMarginTop(visNameTop);
+            setVisitorNameMarginBottom(settings.visitorNameMarginBottom || 0);
+            setVisitorNameMarginRight(settings.visitorNameMarginRight || 0);
+            setVisitorNameMarginLeft(visNameLeft);
+            setVisitorNameColor(settings.visitorNameColor || "#FFFFFF");
+            setVisitorNameAlign(settings.visitorNameAlign || "left");
+            setVisitorNameFontFamily(settings.visitorNameFontFamily || "Arial");
 
-      // Validate and load company name settings with bounds checking
-      const compNameWidth = Math.max(10, Math.min(settings.companyNameWidth || 200, cardWidth));
-      const compNameHeight = Math.max(10, Math.min(settings.companyNameHeight || 25, cardHeight));
-      const compNameTop = Math.max(0, Math.min(settings.companyNameMarginTop || 170, cardHeight - compNameHeight));
-      const compNameLeft = Math.max(0, Math.min(settings.companyNameMarginLeft || 20, cardWidth - compNameWidth));
-      
-      setCompanyNameWidth(compNameWidth);
-      setCompanyNameHeight(compNameHeight);
-      setCompanyNameFontSize(settings.companyNameFontSize || 14);
-      setCompanyNameMarginTop(compNameTop);
-      setCompanyNameMarginBottom(settings.companyNameMarginBottom || 0);
-      setCompanyNameMarginRight(settings.companyNameMarginRight || 0);
-      setCompanyNameMarginLeft(compNameLeft);
-      setCompanyNameColor(settings.companyNameColor || "#FFFFFF");
-      setCompanyNameAlign(settings.companyNameAlign || "left");
-      setCompanyNameFontFamily(settings.companyNameFontFamily || "Arial");
+            // Validate and load company name settings with bounds checking
+            const compNameWidth = Math.max(10, Math.min(settings.companyNameWidth || 200, cardWidth));
+            const compNameHeight = Math.max(10, Math.min(settings.companyNameHeight || 25, cardHeight));
+            const compNameTop = Math.max(0, Math.min(settings.companyNameMarginTop || 170, cardHeight - compNameHeight));
+            const compNameLeft = Math.max(0, Math.min(settings.companyNameMarginLeft || 20, cardWidth - compNameWidth));
+            
+            setCompanyNameWidth(compNameWidth);
+            setCompanyNameHeight(compNameHeight);
+            setCompanyNameFontSize(settings.companyNameFontSize || 14);
+            setCompanyNameMarginTop(compNameTop);
+            setCompanyNameMarginBottom(settings.companyNameMarginBottom || 0);
+            setCompanyNameMarginRight(settings.companyNameMarginRight || 0);
+            setCompanyNameMarginLeft(compNameLeft);
+            setCompanyNameColor(settings.companyNameColor || "#FFFFFF");
+            setCompanyNameAlign(settings.companyNameAlign || "left");
+            setCompanyNameFontFamily(settings.companyNameFontFamily || "Arial");
 
-      // Validate and load barcode settings with bounds checking
-      const barcodeWidth = Math.max(10, Math.min(Number(settings.barcodeImageWidth ?? 200), cardWidth));
-      const barcodeHeight = Math.max(10, Math.min(Number(settings.barcodeImageHeight ?? 60), cardHeight));
-      const barcodeTop = Math.max(0, Math.min(Number(settings.barcodeImageMarginTop ?? 10), cardHeight - barcodeHeight));
-      const barcodeLeft = Math.max(0, Math.min(Number(settings.barcodeImageMarginLeft ?? 25), cardWidth - barcodeWidth));
-      
-      setBarcodeImageWidth(barcodeWidth);
-      setBarcodeImageHeight(barcodeHeight);
-      setBarcodeImageMarginTop(barcodeTop);
-      setBarcodeImageMarginRight(Number(settings.barcodeImageMarginRight ?? 0));
-      setBarcodeImageMarginBottom(Number(settings.barcodeImageMarginBottom ?? 10));
-      setBarcodeImageMarginLeft(barcodeLeft);
-      setBarcodeType(settings.barcodeType || "barcode");
-      setShowBarcode(
-        settings.showBarcode !== undefined ? settings.showBarcode : true
-      );
+            // Validate and load barcode settings with bounds checking
+            const barcodeWidth = Math.max(10, Math.min(Number(settings.barcodeImageWidth ?? 200), cardWidth));
+            const barcodeHeight = Math.max(10, Math.min(Number(settings.barcodeImageHeight ?? 60), cardHeight));
+            const barcodeTop = Math.max(0, Math.min(Number(settings.barcodeImageMarginTop ?? 10), cardHeight - barcodeHeight));
+            const barcodeLeft = Math.max(0, Math.min(Number(settings.barcodeImageMarginLeft ?? 25), cardWidth - barcodeWidth));
+            
+            setBarcodeImageWidth(barcodeWidth);
+            setBarcodeImageHeight(barcodeHeight);
+            setBarcodeImageMarginTop(barcodeTop);
+            setBarcodeImageMarginRight(Number(settings.barcodeImageMarginRight ?? 0));
+            setBarcodeImageMarginBottom(Number(settings.barcodeImageMarginBottom ?? 10));
+            setBarcodeImageMarginLeft(barcodeLeft);
+            setBarcodeType(settings.barcodeType || "barcode");
+            setShowBarcode(
+              settings.showBarcode !== undefined ? settings.showBarcode : true
+            );
 
-      // Validate and load QR code settings with bounds checking
-      const qrWidth = Math.max(10, Math.min(Number(settings.qrCodeWidth ?? 100), cardWidth));
-      const qrHeight = Math.max(10, Math.min(Number(settings.qrCodeHeight ?? 100), cardHeight));
-      const qrTop = Math.max(0, Math.min(Number(settings.qrCodeTop ?? 10), cardHeight - qrHeight));
-      const qrLeft = Math.max(0, Math.min(Number(settings.qrCodeLeft ?? 50), cardWidth - qrWidth));
-      
-      setQrCodeWidth(qrWidth);
-      setQrCodeHeight(qrHeight);
-      setQrCodeTop(qrTop);
-      setQrCodeLeft(qrLeft);
-      setShowQRCode(
-        settings.showQRCode !== undefined ? settings.showQRCode : false
-      );
+            // Validate and load QR code settings with bounds checking
+            const qrWidth = Math.max(10, Math.min(Number(settings.qrCodeWidth ?? 100), cardWidth));
+            const qrHeight = Math.max(10, Math.min(Number(settings.qrCodeHeight ?? 100), cardHeight));
+            const qrTop = Math.max(0, Math.min(Number(settings.qrCodeTop ?? 10), cardHeight - qrHeight));
+            const qrLeft = Math.max(0, Math.min(Number(settings.qrCodeLeft ?? 50), cardWidth - qrWidth));
+            
+            setQrCodeWidth(qrWidth);
+            setQrCodeHeight(qrHeight);
+            setQrCodeTop(qrTop);
+            setQrCodeLeft(qrLeft);
+            setShowQRCode(
+              settings.showQRCode !== undefined ? settings.showQRCode : false
+            );
 
-      if (settings.backgroundUrl) {
-        setBackgroundUrl(settings.backgroundUrl);
+            if (settings.backgroundUrl) {
+              setBackgroundUrl(settings.backgroundUrl);
+            }
+
+            // Load print size settings
+            setPrintWidth(settings.printWidth || 89);
+            setPrintHeight(settings.printHeight || 127);
+            setPrintUnit(settings.printUnit || "mm");
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error loading card design settings:", error);
+        toast.error("Failed to load card design settings");
+        
+        // Fallback to localStorage if backend fails
+        const saved = localStorage.getItem("cardDesignSettings");
+        if (saved) {
+          console.log("🔄 Falling back to localStorage settings");
+          const settings = JSON.parse(saved);
+          // Apply the same loading logic as above for localStorage fallback
+          // (keeping the existing localStorage loading code as fallback)
+        }
       }
+    };
 
-      // Load print size settings
-      setPrintWidth(settings.printWidth || 89);
-      setPrintHeight(settings.printHeight || 127);
-      setPrintUnit(settings.printUnit || "mm");
-    }
+    loadSettings();
   }, []);
 
   // Text Alignment Handler (9-position grid)
@@ -519,104 +544,179 @@ const CardDesigner = () => {
     }
   };
 
-  // Save all settings
-  const saveSettings = () => {
+  // Save all settings to backend
+  const saveSettings = async () => {
     setSaving(true);
 
-    // Clamp all values to card bounds
-    const cardWidth = 309;
-    const cardHeight = 475;
-    
-    // Clamp image
-    const clampedImageWidth = Math.max(10, Math.min(imageWidth, cardWidth));
-    const clampedImageHeight = Math.max(10, Math.min(imageHeight, cardHeight));
-    const clampedImageMarginLeft = Math.max(0, Math.min(imageLeftMargin, cardWidth - clampedImageWidth));
-    const clampedImageMarginTop = Math.max(0, Math.min(imageTopMargin, cardHeight - clampedImageHeight));
-    
-    // Clamp visitor name
-    const clampedVisitorNameWidth = Math.max(10, Math.min(visitorNameWidth, cardWidth));
-    const clampedVisitorNameHeight = Math.max(10, Math.min(visitorNameHeight, cardHeight));
-    const clampedVisitorNameMarginLeft = Math.max(0, Math.min(visitorNameMarginLeft, cardWidth - clampedVisitorNameWidth));
-    const clampedVisitorNameMarginTop = Math.max(0, Math.min(visitorNameMarginTop, cardHeight - clampedVisitorNameHeight));
-    
-    // Clamp company name
-    const clampedCompanyNameWidth = Math.max(10, Math.min(companyNameWidth, cardWidth));
-    const clampedCompanyNameHeight = Math.max(10, Math.min(companyNameHeight, cardHeight));
-    const clampedCompanyNameMarginLeft = Math.max(0, Math.min(companyNameMarginLeft, cardWidth - clampedCompanyNameWidth));
-    const clampedCompanyNameMarginTop = Math.max(0, Math.min(companyNameMarginTop, cardHeight - clampedCompanyNameHeight));
-    
-    // Clamp barcode
-    const clampedBarcodeImageWidth = Math.max(10, Math.min(barcodeImageWidth, cardWidth));
-    const clampedBarcodeImageHeight = Math.max(10, Math.min(barcodeImageHeight, cardHeight));
-    const clampedBarcodeImageMarginLeft = Math.max(0, Math.min(barcodeImageMarginLeft, cardWidth - clampedBarcodeImageWidth));
-    const clampedBarcodeImageMarginTop = Math.max(0, Math.min(barcodeImageMarginTop, cardHeight - clampedBarcodeImageHeight));
-    
-    // Clamp QR code
-    const clampedQrCodeWidth = Math.max(10, Math.min(qrCodeWidth, cardWidth));
-    const clampedQrCodeHeight = Math.max(10, Math.min(qrCodeHeight, cardHeight));
-    const clampedQrCodeLeft = Math.max(0, Math.min(qrCodeLeft, cardWidth - clampedQrCodeWidth));
-    const clampedQrCodeTop = Math.max(0, Math.min(qrCodeTop, cardHeight - clampedQrCodeHeight));
+    try {
+      // Clamp all values to card bounds
+      const cardWidth = 309;
+      const cardHeight = 475;
+      
+      // Clamp image
+      const clampedImageWidth = Math.max(10, Math.min(imageWidth, cardWidth));
+      const clampedImageHeight = Math.max(10, Math.min(imageHeight, cardHeight));
+      const clampedImageMarginLeft = Math.max(0, Math.min(imageLeftMargin, cardWidth - clampedImageWidth));
+      const clampedImageMarginTop = Math.max(0, Math.min(imageTopMargin, cardHeight - clampedImageHeight));
+      
+      // Clamp visitor name
+      const clampedVisitorNameWidth = Math.max(10, Math.min(visitorNameWidth, cardWidth));
+      const clampedVisitorNameHeight = Math.max(10, Math.min(visitorNameHeight, cardHeight));
+      const clampedVisitorNameMarginLeft = Math.max(0, Math.min(visitorNameMarginLeft, cardWidth - clampedVisitorNameWidth));
+      const clampedVisitorNameMarginTop = Math.max(0, Math.min(visitorNameMarginTop, cardHeight - clampedVisitorNameHeight));
+      
+      // Clamp company name
+      const clampedCompanyNameWidth = Math.max(10, Math.min(companyNameWidth, cardWidth));
+      const clampedCompanyNameHeight = Math.max(10, Math.min(companyNameHeight, cardHeight));
+      const clampedCompanyNameMarginLeft = Math.max(0, Math.min(companyNameMarginLeft, cardWidth - clampedCompanyNameWidth));
+      const clampedCompanyNameMarginTop = Math.max(0, Math.min(companyNameMarginTop, cardHeight - clampedCompanyNameHeight));
+      
+      // Clamp barcode
+      const clampedBarcodeImageWidth = Math.max(10, Math.min(barcodeImageWidth, cardWidth));
+      const clampedBarcodeImageHeight = Math.max(10, Math.min(barcodeImageHeight, cardHeight));
+      const clampedBarcodeImageMarginLeft = Math.max(0, Math.min(barcodeImageMarginLeft, cardWidth - clampedBarcodeImageWidth));
+      const clampedBarcodeImageMarginTop = Math.max(0, Math.min(barcodeImageMarginTop, cardHeight - clampedBarcodeImageHeight));
+      
+      // Clamp QR code
+      const clampedQrCodeWidth = Math.max(10, Math.min(qrCodeWidth, cardWidth));
+      const clampedQrCodeHeight = Math.max(10, Math.min(qrCodeHeight, cardHeight));
+      const clampedQrCodeLeft = Math.max(0, Math.min(qrCodeLeft, cardWidth - clampedQrCodeWidth));
+      const clampedQrCodeTop = Math.max(0, Math.min(qrCodeTop, cardHeight - clampedQrCodeHeight));
 
-    const settings = {
-      imageWidth: clampedImageWidth,
-      imageHeight: clampedImageHeight,
-      imageTopMargin: clampedImageMarginTop,
-      imageBottomMargin: imageBottomMargin,
-      imageLeftMargin: clampedImageMarginLeft,
-      imageRightMargin: imageRightMargin,
-      imageShape,
-      bottomContainerWidth,
-      bottomContainerHeight,
-      bottomContainerTopMargin,
-      bottomContainerBottomMargin,
-      bottomContainerLeftMargin,
-      bottomContainerRightMargin,
-      visitorNameWidth: clampedVisitorNameWidth,
-      visitorNameHeight: clampedVisitorNameHeight,
-      visitorNameFontSize,
-      visitorNameMarginTop: clampedVisitorNameMarginTop,
-      visitorNameMarginBottom: visitorNameMarginBottom,
-      visitorNameMarginRight: visitorNameMarginRight,
-      visitorNameMarginLeft: clampedVisitorNameMarginLeft,
-      visitorNameColor,
-      visitorNameAlign,
-      visitorNameFontFamily,
-      companyNameWidth: clampedCompanyNameWidth,
-      companyNameHeight: clampedCompanyNameHeight,
-      companyNameFontSize,
-      companyNameMarginTop: clampedCompanyNameMarginTop,
-      companyNameMarginBottom: companyNameMarginBottom,
-      companyNameMarginRight: companyNameMarginRight,
-      companyNameMarginLeft: clampedCompanyNameMarginLeft,
-      companyNameColor,
-      companyNameAlign,
-      companyNameFontFamily,
-      barcodeImageWidth: clampedBarcodeImageWidth,
-      barcodeImageHeight: clampedBarcodeImageHeight,
-      barcodeImageMarginTop: clampedBarcodeImageMarginTop,
-      barcodeImageMarginRight,
-      barcodeImageMarginBottom,
-      barcodeImageMarginLeft: clampedBarcodeImageMarginLeft,
-      barcodeType,
-      showBarcode,
-      qrCodeWidth: clampedQrCodeWidth,
-      qrCodeHeight: clampedQrCodeHeight,
-      qrCodeTop: clampedQrCodeTop,
-      qrCodeLeft: clampedQrCodeLeft,
-      showQRCode,
-      backgroundUrl,
-      printWidth,
-      printHeight,
-      printUnit,
-    };
+      const settings = {
+        imageWidth: clampedImageWidth,
+        imageHeight: clampedImageHeight,
+        imageTopMargin: clampedImageMarginTop,
+        imageBottomMargin: imageBottomMargin,
+        imageLeftMargin: clampedImageMarginLeft,
+        imageRightMargin: imageRightMargin,
+        imageShape,
+        bottomContainerWidth,
+        bottomContainerHeight,
+        bottomContainerTopMargin,
+        bottomContainerBottomMargin,
+        bottomContainerLeftMargin,
+        bottomContainerRightMargin,
+        visitorNameWidth: clampedVisitorNameWidth,
+        visitorNameHeight: clampedVisitorNameHeight,
+        visitorNameFontSize,
+        visitorNameMarginTop: clampedVisitorNameMarginTop,
+        visitorNameMarginBottom: visitorNameMarginBottom,
+        visitorNameMarginRight: visitorNameMarginRight,
+        visitorNameMarginLeft: clampedVisitorNameMarginLeft,
+        visitorNameColor,
+        visitorNameAlign,
+        visitorNameFontFamily,
+        companyNameWidth: clampedCompanyNameWidth,
+        companyNameHeight: clampedCompanyNameHeight,
+        companyNameFontSize,
+        companyNameMarginTop: clampedCompanyNameMarginTop,
+        companyNameMarginBottom: companyNameMarginBottom,
+        companyNameMarginRight: companyNameMarginRight,
+        companyNameMarginLeft: clampedCompanyNameMarginLeft,
+        companyNameColor,
+        companyNameAlign,
+        companyNameFontFamily,
+        barcodeImageWidth: clampedBarcodeImageWidth,
+        barcodeImageHeight: clampedBarcodeImageHeight,
+        barcodeImageMarginTop: clampedBarcodeImageMarginTop,
+        barcodeImageMarginRight,
+        barcodeImageMarginBottom,
+        barcodeImageMarginLeft: clampedBarcodeImageMarginLeft,
+        barcodeType,
+        showBarcode,
+        qrCodeWidth: clampedQrCodeWidth,
+        qrCodeHeight: clampedQrCodeHeight,
+        qrCodeTop: clampedQrCodeTop,
+        qrCodeLeft: clampedQrCodeLeft,
+        showQRCode,
+        backgroundUrl,
+        printWidth,
+        printHeight,
+        printUnit,
+      };
 
-    // Save to localStorage
-    localStorage.setItem("cardDesignSettings", JSON.stringify(settings));
+      console.log("💾 Saving card design settings to backend:", settings);
 
-    setTimeout(() => {
+      // Save to backend
+      const response = await settingsAPI.updateCardDesignSettings(settings);
+      
+      if (response.data.success) {
+        console.log("✅ Card design settings saved to backend successfully");
+        toast.success("Card design settings saved successfully!");
+        
+        // Also save to localStorage as backup
+        localStorage.setItem("cardDesignSettings", JSON.stringify(settings));
+      } else {
+        throw new Error(response.data.message || "Failed to save settings");
+      }
+    } catch (error) {
+      console.error("❌ Error saving card design settings:", error);
+      toast.error("Failed to save card design settings");
+      
+      // Fallback to localStorage if backend fails
+      try {
+        const settings = {
+          imageWidth: clampedImageWidth,
+          imageHeight: clampedImageHeight,
+          imageTopMargin: clampedImageMarginTop,
+          imageBottomMargin: imageBottomMargin,
+          imageLeftMargin: clampedImageMarginLeft,
+          imageRightMargin: imageRightMargin,
+          imageShape,
+          bottomContainerWidth,
+          bottomContainerHeight,
+          bottomContainerTopMargin,
+          bottomContainerBottomMargin,
+          bottomContainerLeftMargin,
+          bottomContainerRightMargin,
+          visitorNameWidth: clampedVisitorNameWidth,
+          visitorNameHeight: clampedVisitorNameHeight,
+          visitorNameFontSize,
+          visitorNameMarginTop: clampedVisitorNameMarginTop,
+          visitorNameMarginBottom: visitorNameMarginBottom,
+          visitorNameMarginRight: visitorNameMarginRight,
+          visitorNameMarginLeft: clampedVisitorNameMarginLeft,
+          visitorNameColor,
+          visitorNameAlign,
+          visitorNameFontFamily,
+          companyNameWidth: clampedCompanyNameWidth,
+          companyNameHeight: clampedCompanyNameHeight,
+          companyNameFontSize,
+          companyNameMarginTop: clampedCompanyNameMarginTop,
+          companyNameMarginBottom: companyNameMarginBottom,
+          companyNameMarginRight: companyNameMarginRight,
+          companyNameMarginLeft: clampedCompanyNameMarginLeft,
+          companyNameColor,
+          companyNameAlign,
+          companyNameFontFamily,
+          barcodeImageWidth: clampedBarcodeImageWidth,
+          barcodeImageHeight: clampedBarcodeImageHeight,
+          barcodeImageMarginTop: clampedBarcodeImageMarginTop,
+          barcodeImageMarginRight,
+          barcodeImageMarginBottom,
+          barcodeImageMarginLeft: clampedBarcodeImageMarginLeft,
+          barcodeType,
+          showBarcode,
+          qrCodeWidth: clampedQrCodeWidth,
+          qrCodeHeight: clampedQrCodeHeight,
+          qrCodeTop: clampedQrCodeTop,
+          qrCodeLeft: clampedQrCodeLeft,
+          showQRCode,
+          backgroundUrl,
+          printWidth,
+          printHeight,
+          printUnit,
+        };
+        localStorage.setItem("cardDesignSettings", JSON.stringify(settings));
+        console.log("💾 Saved to localStorage as fallback");
+        toast.success("Settings saved locally as backup");
+      } catch (localError) {
+        console.error("❌ Failed to save to localStorage:", localError);
+      }
+    } finally {
       setSaving(false);
-      toast.success("Card design settings saved!");
-    }, 500);
+    }
   };
 
   return (

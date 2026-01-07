@@ -6,4 +6,8 @@ const settingsController = require("../controllers/settingsController");
 router.get("/portal", settingsController.getPortalSettings);
 router.put("/portal", settingsController.updatePortalSettings);
 
+// Card design settings
+router.get("/card-design", settingsController.getCardDesignSettings);
+router.put("/card-design", settingsController.updateCardDesignSettings);
+
 module.exports = router;
