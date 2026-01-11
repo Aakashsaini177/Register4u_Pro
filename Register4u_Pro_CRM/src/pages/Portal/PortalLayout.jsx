@@ -190,20 +190,34 @@ const PortalLayout = ({ title, children, onChangePassword }) => {
 
   const handleLogout = () => {
     logout();
-    navigate("/portal/login");
+    navigate("/login");
   };
 
   const role = user?.role || "hotel";
-  // Determine base path based on role.
-  // Note: For 'hotel', dashboard is '/portal/hotel'.
-  // For others, it might be different.
   const basePath = `/portal/${role}`;
 
-  const navigation = [
-    { name: "Dashboard", href: basePath, icon: HomeIcon },
-    { name: "Visitors", href: `${basePath}/visitors`, icon: UserGroupIcon },
-    { name: "Scan", href: `${basePath}/scan`, icon: QrCodeIcon },
-  ];
+  // Different navigation based on user role
+  const getNavigationByRole = (role) => {
+    switch (role) {
+      case 'hotel':
+        return [
+          { name: "Dashboard", href: basePath, icon: HomeIcon },
+          { name: "Rooms", href: `${basePath}/rooms`, icon: HomeIcon },
+          { name: "Profile", href: `${basePath}/profile`, icon: UserCircleIcon },
+        ];
+      
+      case 'driver':
+      case 'travel':
+      default:
+        // Driver and Travel get simplified navigation
+        return [
+          { name: "Dashboard", href: basePath, icon: HomeIcon },
+          { name: "Profile", href: `${basePath}/profile`, icon: UserCircleIcon },
+        ];
+    }
+  };
+
+  const navigation = getNavigationByRole(role);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">

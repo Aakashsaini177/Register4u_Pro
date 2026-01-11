@@ -73,6 +73,15 @@ export const portalDashboardAPI = {
   // Lists
   getHotelVisitors: () => portalApi.get("/hotel/visitors"),
   getHotelRooms: () => portalApi.get("/hotel/rooms"),
+  // Category Management
+  getHotelCategories: () => portalApi.get("/hotel/categories"),
+  addHotelCategory: (data) => portalApi.post("/hotel/categories", data),
+  updateHotelCategory: (id, data) => portalApi.put(`/hotel/categories/${id}`, data),
+  deleteHotelCategory: (id) => portalApi.delete(`/hotel/categories/${id}`),
+  // Room Management
+  addHotelRoom: (data) => portalApi.post("/hotel/rooms", data),
+  updateHotelRoom: (id, data) => portalApi.put(`/hotel/rooms/${id}`, data),
+  deleteHotelRoom: (id) => portalApi.delete(`/hotel/rooms/${id}`),
   // Actions
   scanVisitor: (visitorId) => portalApi.post("/scan", { visitorId }),
 };

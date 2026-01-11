@@ -89,6 +89,82 @@ router.get(
   portalController.getHotelRooms
 );
 
+// Hotel Category management endpoints
+router.get(
+  "/hotel/categories",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  portalController.getHotelCategories
+);
+
+router.post(
+  "/hotel/categories",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  [
+    body("categoryName").notEmpty().withMessage("Category name is required"),
+    body("occupancy").isInt({ min: 1, max: 10 }).withMessage("Occupancy must be between 1 and 10"),
+  ],
+  portalController.addHotelCategory
+);
+
+router.put(
+  "/hotel/categories/:id",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  [
+    body("categoryName").notEmpty().withMessage("Category name is required"),
+    body("occupancy").isInt({ min: 1, max: 10 }).withMessage("Occupancy must be between 1 and 10"),
+  ],
+  portalController.updateHotelCategory
+);
+
+router.delete(
+  "/hotel/categories/:id",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  portalController.deleteHotelCategory
+);
+
+// Room management endpoints
+router.post(
+  "/hotel/rooms",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  [
+    body("roomNumber").notEmpty().withMessage("Room number is required"),
+    body("categoryId").notEmpty().withMessage("Category is required"),
+    body("capacity").isInt({ min: 1, max: 10 }).withMessage("Capacity must be between 1 and 10"),
+  ],
+  portalController.addHotelRoom
+);
+
+router.put(
+  "/hotel/rooms/:id",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  [
+    body("roomNumber").notEmpty().withMessage("Room number is required"),
+    body("categoryId").notEmpty().withMessage("Category is required"),
+    body("capacity").isInt({ min: 1, max: 10 }).withMessage("Capacity must be between 1 and 10"),
+  ],
+  portalController.updateHotelRoom
+);
+
+router.delete(
+  "/hotel/rooms/:id",
+  authenticate,
+  ensurePortalUser,
+  allowPortalRoles("hotel"),
+  portalController.deleteHotelRoom
+);
+
 router.post(
   "/scan",
   authenticate,
