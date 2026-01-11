@@ -1,17 +1,19 @@
-import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import { usePortalAuthStore } from "./store/portalAuthStore";
 import ThemeProvider from "./components/ui/ThemeProvider";
 import Login from "./pages/Auth/Login";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
-import PortalLogin from "./pages/Portal/Login";
 import PortalHotelDashboard from "./pages/Portal/HotelDashboard";
 import PortalHotelVisitors from "./pages/Portal/PortalHotelVisitors";
 import PortalHotelRooms from "./pages/Portal/PortalHotelRooms";
 import PortalHotelScan from "./pages/Portal/PortalHotelScan";
+import HotelProfile from "./pages/Portal/HotelProfile";
+import HotelRoomManagement from "./pages/Portal/HotelRoomManagement";
 import PortalDriverDashboard from "./pages/Portal/DriverDashboard";
+import DriverProfile from "./pages/Portal/DriverProfile";
 import PortalTravelDashboard from "./pages/Portal/TravelDashboard";
+import TravelProfile from "./pages/Portal/TravelProfile";
 import Layout from "./components/Layout/Layout";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import DashboardRouter from "./components/DashboardRouter";
@@ -117,7 +119,7 @@ const PortalProtectedRoute = ({ children, allowedRoles }) => {
   const user = usePortalAuthStore((state) => state.user);
 
   if (!isAuthenticated) {
-    return <Navigate to="/portal/login" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
@@ -127,21 +129,10 @@ const PortalProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
-const PortalPublicRoute = ({ children }) => {
-  const isAuthenticated = usePortalAuthStore((state) => state.isAuthenticated);
-  const user = usePortalAuthStore((state) => state.user);
-
-  if (isAuthenticated && user?.role) {
-    return <Navigate to={`/portal/${user.role}`} replace />;
-  }
-
-  return children;
-};
-
 const PortalHome = () => {
   const user = usePortalAuthStore((state) => state.user);
   if (!user?.role) {
-    return <Navigate to="/portal/login" replace />;
+    return <Navigate to="/login" replace />;
   }
   return <Navigate to={`/portal/${user.role}`} replace />;
 };
@@ -173,14 +164,6 @@ function App() {
             <PublicRoute>
               <ForgotPassword />
             </PublicRoute>
-          }
-        />
-        <Route
-          path="/portal/login"
-          element={
-            <PortalPublicRoute>
-              <PortalLogin />
-            </PortalPublicRoute>
           }
         />
         {/* Protected Routes */}
@@ -669,6 +652,14 @@ function App() {
           }
         />
         <Route
+          path="/portal/hotel/profile"
+          element={
+            <PortalProtectedRoute allowedRoles={["hotel"]}>
+              <HotelProfile />
+            </PortalProtectedRoute>
+          }
+        />
+        <Route
           path="/portal/hotel/visitors"
           element={
             <PortalProtectedRoute allowedRoles={["hotel"]}>
@@ -680,7 +671,7 @@ function App() {
           path="/portal/hotel/rooms"
           element={
             <PortalProtectedRoute allowedRoles={["hotel"]}>
-              <PortalHotelRooms />
+              <HotelRoomManagement />
             </PortalProtectedRoute>
           }
         />
@@ -701,10 +692,26 @@ function App() {
           }
         />
         <Route
+          path="/portal/driver/profile"
+          element={
+            <PortalProtectedRoute allowedRoles={["driver"]}>
+              <DriverProfile />
+            </PortalProtectedRoute>
+          }
+        />
+        <Route
           path="/portal/travel"
           element={
             <PortalProtectedRoute allowedRoles={["travel"]}>
               <PortalTravelDashboard />
+            </PortalProtectedRoute>
+          }
+        />
+        <Route
+          path="/portal/travel/profile"
+          element={
+            <PortalProtectedRoute allowedRoles={["travel"]}>
+              <TravelProfile />
             </PortalProtectedRoute>
           }
         />

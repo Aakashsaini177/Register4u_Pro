@@ -532,18 +532,25 @@ const getHotelVisitors = asyncHandler(async (req, res) => {
 
 const getHotelRooms = asyncHandler(async (req, res) => {
   const hotelId = req.user.entityId;
-  const HotelRoom = require("../models/HotelRoom");
-  const HotelCategory = require("../models/HotelCategory");
+  const PortalRoom = require("../models/PortalRoom");
 
-  const rooms = await HotelRoom.find({ hotelId })
-    .populate("categoryId", "categoryName")
+  const rooms = await PortalRoom.find({ hotelId })
+    .populate("categoryId", "categoryName occupancy")
     .sort({ roomNumber: 1 });
 
   const data = rooms.map((r) => ({
     id: r._id,
     roomNumber: r.roomNumber,
-    status: r.status,
+    categoryId: r.categoryId._id,
     categoryName: r.categoryId?.categoryName,
+    occupancy: r.categoryId?.occupancy,
+    capacity: r.capacity,
+    price: r.price,
+    amenities: r.amenities,
+    status: r.status,
+    currentGuest: r.currentGuest,
+    checkIn: r.checkIn,
+    checkOut: r.checkOut,
   }));
 
   res.json({
@@ -573,6 +580,265 @@ const scanVisitor = asyncHandler(async (req, res) => {
   });
 });
 
+// Hotel Category Management Functions
+const getHotelCategories = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const HotelCategory = require("../models/HotelCategory");
+
+  const categories = await HotelCategory.find({ hotelId })
+    .sort({ categoryName: 1 });
+
+  const data = categories.map((c) => ({
+    id: c._id,
+    categoryName: c.categoryName,
+    occupancy: c.occupancy,
+    numberOfRooms: c.numberOfRooms,
+  }));
+
+  res.json({
+    success: true,
+    data,
+  });
+});
+
+const addHotelCategory = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const HotelCategory = require("../models/HotelCategory");
+  const { categoryName, occupancy } = req.body;
+
+  // Check if category name already exists for this hotel
+  const existingCategory = await HotelCategory.findOne({ hotelId, categoryName });
+  if (existingCategory) {
+    return res.status(400).json({
+      success: false,
+      message: "Category name already exists",
+    });
+  }
+
+  const category = new HotelCategory({
+    hotelId,
+    categoryName,
+    occupancy: occupancy || 1,
+    numberOfRooms: 0,
+  });
+
+  await category.save();
+
+  res.status(201).json({
+    success: true,
+    message: "Category added successfully",
+    data: category,
+  });
+});
+
+const updateHotelCategory = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const categoryId = req.params.id;
+  const HotelCategory = require("../models/HotelCategory");
+  const { categoryName, occupancy } = req.body;
+
+  const category = await HotelCategory.findOne({ _id: categoryId, hotelId });
+  if (!category) {
+    return res.status(404).json({
+      success: false,
+      message: "Category not found",
+    });
+  }
+
+  // Check if category name is being changed and if it conflicts
+  if (categoryName !== category.categoryName) {
+    const existingCategory = await HotelCategory.findOne({ hotelId, categoryName });
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category name already exists",
+      });
+    }
+  }
+
+  category.categoryName = categoryName;
+  category.occupancy = occupancy || 1;
+
+  await category.save();
+
+  res.json({
+    success: true,
+    message: "Category updated successfully",
+    data: category,
+  });
+});
+
+const deleteHotelCategory = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const categoryId = req.params.id;
+  const HotelCategory = require("../models/HotelCategory");
+  const PortalRoom = require("../models/PortalRoom");
+
+  const category = await HotelCategory.findOne({ _id: categoryId, hotelId });
+  if (!category) {
+    return res.status(404).json({
+      success: false,
+      message: "Category not found",
+    });
+  }
+
+  // Check if category has rooms
+  const roomsCount = await PortalRoom.countDocuments({ categoryId });
+  if (roomsCount > 0) {
+    return res.status(400).json({
+      success: false,
+      message: `Cannot delete category. It has ${roomsCount} rooms assigned.`,
+    });
+  }
+
+  await HotelCategory.findByIdAndDelete(categoryId);
+
+  res.json({
+    success: true,
+    message: "Category deleted successfully",
+  });
+});
+
+const addHotelRoom = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const PortalRoom = require("../models/PortalRoom");
+  const HotelCategory = require("../models/HotelCategory");
+  const { roomNumber, categoryId, capacity, price, amenities, status } = req.body;
+
+  // Verify category belongs to this hotel
+  const category = await HotelCategory.findOne({ _id: categoryId, hotelId });
+  if (!category) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid category selected",
+    });
+  }
+
+  // Check if room number already exists for this hotel
+  const existingRoom = await PortalRoom.findOne({ hotelId, roomNumber });
+  if (existingRoom) {
+    return res.status(400).json({
+      success: false,
+      message: "Room number already exists",
+    });
+  }
+
+  const room = new PortalRoom({
+    hotelId,
+    categoryId,
+    roomNumber,
+    capacity,
+    price: price || 0,
+    amenities: amenities || "",
+    status: status || "available",
+  });
+
+  await room.save();
+
+  // Update category room count
+  await HotelCategory.findByIdAndUpdate(categoryId, {
+    $inc: { numberOfRooms: 1 }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Room added successfully",
+    data: room,
+  });
+});
+
+const updateHotelRoom = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const roomId = req.params.id;
+  const PortalRoom = require("../models/PortalRoom");
+  const HotelCategory = require("../models/HotelCategory");
+  const { roomNumber, categoryId, capacity, price, amenities, status, currentGuest, checkIn, checkOut } = req.body;
+
+  const room = await PortalRoom.findOne({ _id: roomId, hotelId });
+  if (!room) {
+    return res.status(404).json({
+      success: false,
+      message: "Room not found",
+    });
+  }
+
+  // Verify new category belongs to this hotel
+  const category = await HotelCategory.findOne({ _id: categoryId, hotelId });
+  if (!category) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid category selected",
+    });
+  }
+
+  // Check if room number is being changed and if it conflicts
+  if (roomNumber !== room.roomNumber) {
+    const existingRoom = await PortalRoom.findOne({ hotelId, roomNumber });
+    if (existingRoom) {
+      return res.status(400).json({
+        success: false,
+        message: "Room number already exists",
+      });
+    }
+  }
+
+  // Update category room counts if category changed
+  if (categoryId !== room.categoryId.toString()) {
+    await HotelCategory.findByIdAndUpdate(room.categoryId, {
+      $inc: { numberOfRooms: -1 }
+    });
+    await HotelCategory.findByIdAndUpdate(categoryId, {
+      $inc: { numberOfRooms: 1 }
+    });
+  }
+
+  // Update room fields
+  room.roomNumber = roomNumber;
+  room.categoryId = categoryId;
+  room.capacity = capacity;
+  room.price = price || 0;
+  room.amenities = amenities || "";
+  room.status = status || "available";
+  room.currentGuest = currentGuest || null;
+  room.checkIn = checkIn || null;
+  room.checkOut = checkOut || null;
+
+  await room.save();
+
+  res.json({
+    success: true,
+    message: "Room updated successfully",
+    data: room,
+  });
+});
+
+const deleteHotelRoom = asyncHandler(async (req, res) => {
+  const hotelId = req.user.entityId;
+  const roomId = req.params.id;
+  const PortalRoom = require("../models/PortalRoom");
+  const HotelCategory = require("../models/HotelCategory");
+
+  const room = await PortalRoom.findOne({ _id: roomId, hotelId });
+  if (!room) {
+    return res.status(404).json({
+      success: false,
+      message: "Room not found",
+    });
+  }
+
+  // Update category room count
+  await HotelCategory.findByIdAndUpdate(room.categoryId, {
+    $inc: { numberOfRooms: -1 }
+  });
+
+  await PortalRoom.findByIdAndDelete(roomId);
+
+  res.json({
+    success: true,
+    message: "Room deleted successfully",
+  });
+});
+
 module.exports = {
   login,
   getProfile,
@@ -584,5 +850,12 @@ module.exports = {
   getTravelDashboardStats,
   getHotelVisitors,
   getHotelRooms,
+  getHotelCategories,
+  addHotelCategory,
+  updateHotelCategory,
+  deleteHotelCategory,
+  addHotelRoom,
+  updateHotelRoom,
+  deleteHotelRoom,
   scanVisitor,
 };
