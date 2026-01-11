@@ -40,6 +40,7 @@ const authRoutes = require("./auth"); // Employee authentication routes
 const employeeRoutes = require("./employeeRoutes"); // Employee management routes
 const requirementRoutes = require("./requirementRoutes");
 const dashboardRoutes = require("./dashboardRoutes"); // Dashboard routes
+const placeRoutes = require("./placeRoutes"); // Place management routes
 
 // ==================== AUTH ROUTES ====================
 // Get current user
@@ -181,8 +182,11 @@ router.get(
 );
 
 // ==================== BARCODE/VISITOR CARD ROUTES ====================
+// Public barcode for display (no logging)
 router.get("/barcode/:visitorId", barcodeController.generateBarcode);
-router.get("/visitorcard/:visitorId", barcodeController.getVisitorCard);
+// Authenticated barcode with logging
+router.get("/barcode-auth/:visitorId", authenticate, barcodeController.generateBarcodeWithLogging);
+router.get("/visitorcard/:visitorId", authenticate, barcodeController.getVisitorCard);
 
 // ==================== DASHBOARD ROUTES ====================
 // Removed single route, now using dashboard routes file
@@ -199,6 +203,7 @@ router.use("/activity-logs", activityLogRoutes);
 router.use("/invites", inviteRoutes);
 router.use("/requirements", requirementRoutes);
 router.use("/dashboard", dashboardRoutes); // Dashboard routes with sub-routes
+router.use("/places", placeRoutes); // Place management routes
 const reportRoutes = require("./reportRoutes");
 router.use("/events", reportRoutes);
 

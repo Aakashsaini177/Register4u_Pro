@@ -22,6 +22,11 @@ const employeeSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    code_id: {
+      type: String,
+      unique: true,
+      sparse: true, // Allow null values but enforce uniqueness when present
+    },
     role: {
       type: String,
       default: "employee",
@@ -142,6 +147,7 @@ employeeSchema.virtual("name").get(function () {
 
 // Indexes for better search performance
 employeeSchema.index({ emp_code: 1 });
+employeeSchema.index({ code_id: 1 });
 employeeSchema.index({ fullName: 1 });
 employeeSchema.index({ email: 1 }); // Already unique, but good for search
 employeeSchema.index({ contact: 1 });
@@ -158,13 +164,14 @@ employeeSchema.index({
   fullName: 'text', 
   email: 'text', 
   emp_code: 'text',
+  code_id: 'text',
   department: 'text',
   designation: 'text'
 }, {
   name: 'employee_search_text_index'
 });
 
-// Pre-save middleware to set contact field and generate emp_code
+// Pre-save middleware to set contact field and generate emp_code and code_id
 employeeSchema.pre("save", async function (next) {
   // Set contact from phone if missing
   if (this.phone && !this.contact) {
@@ -176,7 +183,6 @@ employeeSchema.pre("save", async function (next) {
     let isUnique = false;
     while (!isUnique) {
       // Generate random 5 digit number
-      // Generate random 5 digit number
       const randomNum = Math.floor(10000 + Math.random() * 90000);
       const code = `EMP${randomNum}`;
 
@@ -186,6 +192,28 @@ employeeSchema.pre("save", async function (next) {
       });
       if (!existing) {
         this.emp_code = code;
+        isUnique = true;
+      }
+    }
+  }
+
+  // Generate unique code_id if not set
+  if (!this.code_id) {
+    let isUnique = false;
+    while (!isUnique) {
+      // Generate random 6 character alphanumeric code
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Check if code_id exists
+      const existing = await mongoose.models.Employee.findOne({
+        code_id: code,
+      });
+      if (!existing) {
+        this.code_id = code;
         isUnique = true;
       }
     }

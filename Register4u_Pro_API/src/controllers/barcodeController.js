@@ -42,17 +42,73 @@ exports.generateBarcode = async (req, res) => {
           });
         }
 
+        res.setHeader("Content-Type", "image/png");
+        res.status(200).send(png);
+      }
+    );
+  } catch (error) {
+    console.error("Internal Server Error:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      success: false,
+    });
+  }
+};
+
+// Generate barcode with employee activity logging
+exports.generateBarcodeWithLogging = async (req, res) => {
+  try {
+    const visitorId = req.params.visitorId;
+
+    if (!visitorId) {
+      return res.status(400).json({
+        error: "VisitorId parameter is missing or undefined",
+        success: false,
+      });
+    }
+
+    const visitor = await Visitor.findOne({
+      visitorId: visitorId,
+    });
+
+    if (!visitor) {
+      return res.status(404).json({
+        error: "Visitor not found",
+        success: false,
+      });
+    }
+
+    // Generate barcode using bwip-js
+    bwipjs.toBuffer(
+      {
+        bcid: "code128", // Barcode type
+        text: visitor.visitorId, // Visitor ID (e.g., CO1001)
+        scale: 3,
+        height: 10,
+        includetext: true, // Show text below barcode
+      },
+      async (err, png) => {
+        if (err) {
+          console.error("Barcode generation error:", err);
+          return res.status(500).json({
+            error: "Error generating barcode",
+            success: false,
+          });
+        }
+
         // Log the barcode request (non-blocking)
         try {
+          const userName = req.user ? req.user.name || req.user.fullName : "System";
           await ActivityLog.create({
             user: req.user ? req.user.id : null,
+            userModel: req.user ? 'Employee' : 'Admin', // Specify user type
             action: "REQUEST_BARCODE",
             module: "VISITOR",
-            details: `Generated barcode for ${visitor.visitorId}`,
+            details: `Generated barcode for ${visitor.visitorId} by ${userName}`,
             ipAddress: req.ip,
             metadata: {
               visitorId: visitor.visitorId,
-              requestedBy: req.user ? req.user.name : "public",
+              requestedBy: userName,
             },
           });
         } catch (logErr) {

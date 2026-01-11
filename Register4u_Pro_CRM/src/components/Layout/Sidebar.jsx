@@ -21,6 +21,7 @@ import {
   TicketIcon,
   PrinterIcon,
   UserCircleIcon,
+  BuildingStorefrontIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -35,6 +36,12 @@ const navigation = [
     name: "Companies",
     href: "/company",
     icon: BuildingOfficeIcon,
+    roles: ["admin"],
+  },
+  {
+    name: "Places",
+    href: "/places",
+    icon: BuildingStorefrontIcon,
     roles: ["admin"],
   },
   { name: "Events", href: "/event", icon: CalendarIcon, roles: ["admin"] },
@@ -71,9 +78,9 @@ const navigation = [
   },
   {
     name: "Print Kiosk",
-    href: "/print-scanner",
+    href: "/print-kiosk",
     icon: PrinterIcon,
-    roles: ["admin", "permanent_employee"],
+    roles: ["admin", "permanent_employee", "volunteer"],
   },
   { name: "Invites", href: "/invites", icon: TicketIcon, roles: ["admin"] },
   {
@@ -101,7 +108,13 @@ const navigation = [
     name: "Profile",
     href: "/profile",
     icon: UserCircleIcon,
-    roles: ["admin", "permanent_employee", "volunteer"],
+    roles: ["admin"],
+  },
+  {
+    name: "My Profile",
+    href: "/employee/profile",
+    icon: UserCircleIcon,
+    roles: ["permanent_employee", "volunteer"],
   },
   {
     name: "Settings",

@@ -32,6 +32,7 @@ const EventHotel = require("./EventHotel");
 const HotelRoomInventory = require("./HotelRoomInventory");
 const RoomBooking = require("./RoomBooking");
 const AccommodationRequirement = require("./AccommodationRequirement");
+const Place = require("./Place");
 
 // Export models
 module.exports = {
@@ -67,4 +68,5 @@ module.exports = {
   HotelRoomInventory,
   RoomBooking,
   AccommodationRequirement,
+  Place,
 };

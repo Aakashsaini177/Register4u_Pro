@@ -197,17 +197,20 @@ class AuthController {
         });
       }
 
-      // Find employee by username (email)
+      // Find employee by username (email), code_id, or emp_code
       const employee = await Employee.findOne({
-        where: {
-          username: username.toLowerCase(),
-          login_enabled: true,
-        },
+        $or: [
+          { username: username.toLowerCase() },
+          { email: username.toLowerCase() },
+          { code_id: username.toUpperCase() },
+          { emp_code: username.toUpperCase() }
+        ],
+        login_enabled: true,
       });
 
       if (!employee) {
-        // Log failed attempt
-        await this.logFailedLogin(username, req.ip, req.get("User-Agent"));
+        // Log failed attempt (simplified)
+        console.log(`Failed login attempt: ${username} from ${req.ip}`);
 
         return res.status(401).json({
           success: false,
@@ -223,11 +226,11 @@ class AuthController {
 
       if (!isValidPassword) {
         // Increment failed login attempts
-        await employee.update({
+        await employee.updateOne({
           login_attempts: employee.login_attempts + 1,
         });
 
-        await this.logFailedLogin(username, req.ip, req.get("User-Agent"));
+        console.log(`Failed login attempt: ${username} from ${req.ip}`);
 
         return res.status(401).json({
           success: false,
@@ -242,8 +245,9 @@ class AuthController {
       // Generate JWT token
       const token = jwt.sign(
         {
-          id: employee.id,
+          id: employee._id,
           email: employee.email,
+          code_id: employee.code_id,
           role: role,
           type: "employee",
         },
@@ -252,27 +256,22 @@ class AuthController {
       );
 
       // Update last login and reset failed attempts
-      await employee.update({
+      await employee.updateOne({
         last_login: new Date(),
         login_attempts: 0,
       });
 
-      // Create session record
-      await this.createSession(
-        employee.id,
-        token,
-        role,
-        req.ip,
-        req.get("User-Agent")
-      );
+      // Skip session creation for now (MongoDB implementation needed)
 
       // Prepare response data
       const responseData = {
         token,
         employee: {
-          id: employee.id,
+          id: employee._id,
           name: employee.fullName,
           email: employee.email,
+          code_id: employee.code_id,
+          emp_code: employee.emp_code,
           role: role,
           emp_type: employee.emp_type,
           firstLogin: employee.first_login,
@@ -317,7 +316,7 @@ class AuthController {
       }
 
       // Find employee
-      const employee = await Employee.findByPk(employeeId);
+      const employee = await Employee.findById(employeeId);
       if (!employee) {
         return res.status(404).json({
           success: false,
@@ -347,7 +346,7 @@ class AuthController {
       const oldPasswordHash = employee.password;
 
       // Update employee password
-      await employee.update({
+      await employee.updateOne({
         password: passwordData.hashedPassword,
         password_plain: passwordData.encryptedPassword,
         password_changed_at: new Date(),
@@ -384,17 +383,34 @@ class AuthController {
     try {
       const employeeId = req.user.id;
 
-      const employee = await Employee.findByPk(employeeId, {
-        attributes: [
-          "id",
-          "fullName",
-          "email",
-          "contact",
-          "emp_type",
-          "last_login",
-          "password_changed_at",
-          "first_login",
-        ],
+      const employee = await Employee.findById(employeeId, {
+        fullName: 1,
+        email: 1,
+        contact: 1,
+        phone: 1,
+        code_id: 1,
+        emp_code: 1,
+        emp_type: 1,
+        department: 1,
+        designation: 1,
+        address: 1,
+        status: 1,
+        login_enabled: 1,
+        last_login: 1,
+        password_changed_at: 1,
+        first_login: 1,
+        dob: 1,
+        gender: 1,
+        city: 1,
+        state: 1,
+        pincode: 1,
+        location: 1,
+        pan_card: 1,
+        adhar_card: 1,
+        joining_date: 1,
+        ending_date: 1,
+        createdAt: 1,
+        updatedAt: 1,
       });
 
       if (!employee) {
@@ -408,14 +424,34 @@ class AuthController {
         success: true,
         data: {
           employee: {
-            id: employee.id,
+            id: employee._id,
             name: employee.fullName,
             email: employee.email,
-            contact: employee.contact,
+            contact: employee.contact || employee.phone,
+            phone: employee.phone,
+            code_id: employee.code_id,
+            emp_code: employee.emp_code,
             type: employee.emp_type,
+            department: employee.department,
+            designation: employee.designation,
+            address: employee.address,
+            status: employee.status,
+            login_enabled: employee.login_enabled,
             lastLogin: employee.last_login,
             passwordChangedAt: employee.password_changed_at,
             firstLogin: employee.first_login,
+            dob: employee.dob,
+            gender: employee.gender,
+            city: employee.city,
+            state: employee.state,
+            pincode: employee.pincode,
+            location: employee.location,
+            pan_card: employee.pan_card,
+            adhar_card: employee.adhar_card,
+            joining_date: employee.joining_date,
+            ending_date: employee.ending_date,
+            createdAt: employee.createdAt,
+            updatedAt: employee.updatedAt,
           },
         },
       });

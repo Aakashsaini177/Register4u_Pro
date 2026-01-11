@@ -37,14 +37,27 @@ router.get(
   visitorController.getEmployeeDashboardStats
 );
 
+// Get employee scan history
+router.get(
+  "/scan/history",
+  authenticate,
+  visitorController.getEmployeeScanHistory
+);
+
 // Get all visitors (with pagination)
 router.post("/", authenticate, visitorController.getAllVisitors);
 
 // Get visitor by ID
 router.get("/:id", authenticate, visitorController.getVisitorById);
 
+// Log visitor view
+router.post("/:id/view", authenticate, visitorController.logVisitorView);
+
 // Get visitor history (activity logs related to this visitor)
 router.get("/:id/history", authenticate, visitorController.getVisitorHistory);
+
+// Get visitor activity history (employee interactions)
+router.get("/:id/activity", authenticate, visitorController.getVisitorActivityHistory);
 
 // Create visitor (with photo upload)
 router.post(

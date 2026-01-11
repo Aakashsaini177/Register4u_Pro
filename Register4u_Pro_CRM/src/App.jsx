@@ -20,6 +20,7 @@ import AddEmployee from "./pages/Employee/AddEmployee";
 import EditEmployee from "./pages/Employee/EditEmployee";
 import ViewEmployee from "./pages/Employee/ViewEmployee";
 import EmployeeDashboard from "./pages/Employee/Dashboard";
+import EmployeeProfile from "./pages/Employee/Profile";
 import ChangePassword from "./pages/Employee/ChangePassword";
 import Company from "./pages/Company/Company";
 import AddCompany from "./pages/Company/AddCompany";
@@ -80,6 +81,9 @@ import ContactSummary from "./pages/Event/Reports/ContactSummary";
 
 import PublicVisitorRegistration from "./pages/Public/PublicVisitorRegistration";
 import PublicVisitorSuccess from "./pages/Public/PublicVisitorSuccess";
+
+// Place Management
+import PlaceManagement from "./pages/Place/PlaceManagement";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -198,6 +202,14 @@ function App() {
           }
         />
         <Route
+          path="/employee/profile"
+          element={
+            <ProtectedRoute>
+              <EmployeeProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/employee/change-password"
           element={
             <ProtectedRoute>
@@ -270,6 +282,17 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
+        {/* Place Management Routes */}
+        <Route
+          path="/places"
+          element={
+            <ProtectedRoute>
+              <PlaceManagement />
+            </ProtectedRoute>
+          }
+        />
+        
         {/* Event Routes */}
         <Route
           path="/event"
@@ -364,6 +387,14 @@ function App() {
         />
         <Route
           path="/print-scanner"
+          element={
+            <ProtectedRoute>
+              <PrintScanner />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/print-kiosk"
           element={
             <ProtectedRoute>
               <PrintScanner />
