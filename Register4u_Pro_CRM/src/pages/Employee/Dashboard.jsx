@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
-import { dashboardAPI, visitorAPI } from "@/lib/api";
+import { visitorAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
@@ -11,13 +11,12 @@ import {
   PrinterIcon,
   UserIcon,
   ClockIcon,
-  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
-  const { employee, role, isPermanentEmployee, isVolunteer } = useAuthStore();
+  const { employee, isPermanentEmployee, isVolunteer, updateEmployee } = useAuthStore();
   const [stats, setStats] = useState({
     totalVisitors: 0,
     todayScans: 0,
@@ -27,7 +26,21 @@ const EmployeeDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchEmployeeProfile();
   }, []);
+
+  const fetchEmployeeProfile = async () => {
+    try {
+      const { authAPI } = await import("@/lib/api");
+      const response = await authAPI.getProfile();
+      if (response.data.success) {
+        updateEmployee(response.data.data.employee);
+      }
+    } catch (error) {
+      console.error("Failed to fetch employee profile:", error);
+      // Don't show error toast as this is background fetch
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -74,17 +87,48 @@ const EmployeeDashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
+      {/* Enhanced Welcome Header with Profile Details */}
       <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {getGreeting()}, {employee?.name || "Employee"}!
-            </h1>
-            <p className="text-primary-100 mt-1">
-              {getRoleDisplayName()} • Ready to help visitors today
-            </p>
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            {/* Profile Picture Placeholder */}
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+              <UserIcon className="h-8 w-8 text-white" />
+            </div>
+            
+            {/* Employee Details */}
+            <div>
+              <h1 className="text-2xl font-bold">
+                {getGreeting()}, {employee?.name || "Employee"}!
+              </h1>
+              <p className="text-primary-100 mt-1">
+                {getRoleDisplayName()} • Ready to help visitors today
+              </p>
+              
+              {/* Additional Employee Info */}
+              <div className="flex items-center gap-4 mt-2 text-sm text-primary-100">
+                {employee?.emp_code && (
+                  <span className="flex items-center gap-1">
+                    <UserIcon className="h-3 w-3" />
+                    {employee.emp_code}
+                  </span>
+                )}
+                {employee?.department && (
+                  <span className="flex items-center gap-1">
+                    <UserGroupIcon className="h-3 w-3" />
+                    {employee.department}
+                  </span>
+                )}
+                {employee?.contact && (
+                  <span className="flex items-center gap-1">
+                    <ClockIcon className="h-3 w-3" />
+                    {employee.contact}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
+          
           <div className="text-right">
             <p className="text-primary-100 text-sm">Today's Date</p>
             <p className="text-lg font-semibold">
@@ -95,6 +139,14 @@ const EmployeeDashboard = () => {
                 day: "numeric",
               })}
             </p>
+            
+            {/* Status Badge */}
+            <div className="mt-2">
+              <div className="inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                Online
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -106,17 +158,17 @@ const EmployeeDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-muted-foreground">
                   {isPermanentEmployee() ? "Total Visitors" : "Visitors Today"}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-foreground">
                   {isPermanentEmployee()
                     ? stats.totalVisitors
                     : Math.floor(stats.totalVisitors / 10)}
                 </p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <UserGroupIcon className="h-6 w-6 text-blue-600" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                <UserGroupIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </CardContent>
@@ -127,15 +179,15 @@ const EmployeeDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-muted-foreground">
                   My Scans Today
                 </p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-foreground">
                   {stats.todayScans}
                 </p>
               </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <QrCodeIcon className="h-6 w-6 text-green-600" />
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                <QrCodeIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </CardContent>
@@ -146,16 +198,16 @@ const EmployeeDashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-muted-foreground">
                   Last Activity
                 </p>
                 <div className="mt-1">
                   {stats.recentActivities.length > 0 ? (
                     <div>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-lg font-bold text-foreground">
                         {stats.recentActivities[0].time}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         {stats.recentActivities[0].date ===
                         new Date().toLocaleDateString()
                           ? "Today"
@@ -163,12 +215,12 @@ const EmployeeDashboard = () => {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-lg font-bold text-gray-400">--:--</p>
+                    <p className="text-lg font-bold text-muted-foreground">--:--</p>
                   )}
                 </div>
               </div>
-              <div className="p-3 bg-purple-100 rounded-full">
-                <ClockIcon className="h-6 w-6 text-purple-600" />
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                <ClockIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </CardContent>
@@ -236,32 +288,32 @@ const EmployeeDashboard = () => {
             {stats.recentActivities.map((activity) => (
               <div
                 key={activity.id}
-                className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg"
               >
                 <div
                   className={`p-2 rounded-full ${
                     activity.type === "scan"
-                      ? "bg-green-100"
+                      ? "bg-green-100 dark:bg-green-900/30"
                       : activity.type === "print"
-                      ? "bg-blue-100"
-                      : "bg-purple-100"
+                      ? "bg-blue-100 dark:bg-blue-900/30"
+                      : "bg-purple-100 dark:bg-purple-900/30"
                   }`}
                 >
                   {activity.type === "scan" && (
-                    <QrCodeIcon className="h-4 w-4 text-green-600" />
+                    <QrCodeIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
                   {activity.type === "print" && (
-                    <PrinterIcon className="h-4 w-4 text-blue-600" />
+                    <PrinterIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   )}
                   {activity.type === "register" && (
-                    <UserIcon className="h-4 w-4 text-purple-600" />
+                    <UserIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">{activity.action}</p>
-                  <p className="text-sm text-gray-600">{activity.details}</p>
+                  <p className="font-medium text-foreground">{activity.action}</p>
+                  <p className="text-sm text-muted-foreground">{activity.details}</p>
                 </div>
-                <div className="text-sm text-gray-500">{activity.time}</div>
+                <div className="text-sm text-muted-foreground">{activity.time}</div>
               </div>
             ))}
           </div>
@@ -270,17 +322,17 @@ const EmployeeDashboard = () => {
 
       {/* Role-specific Information */}
       {isVolunteer() && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
           <CardContent className="p-6">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-amber-100 rounded-full">
-                <UserIcon className="h-5 w-5 text-amber-600" />
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-full">
+                <UserIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-amber-800">
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200">
                   Volunteer Access
                 </h3>
-                <p className="text-sm text-amber-700 mt-1">
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                   You have volunteer-level access. You can scan visitors and
                   help with basic registration, but cannot delete visitor
                   records or access administrative features.

@@ -589,13 +589,30 @@ const Visitors = () => {
 
   return (
     <div className="space-y-6">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">
+              Visitors Management
+            </h1>
+            <p className="text-green-100 mt-1">
+              Manage and view all registered visitors
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-green-100 text-sm">Total Visitors</p>
+            <p className="text-2xl font-bold">
+              {visitors.length}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Visitors
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Manage your visitors
+          <p className="text-gray-600 dark:text-gray-400">
+            Search, filter, and manage visitor records
           </p>
         </div>
         <div className="flex gap-2">

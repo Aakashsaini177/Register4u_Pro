@@ -456,15 +456,20 @@ exports.createVisitor = async (req, res) => {
     console.log("✅ Visitor created:", visitor.visitorId);
     console.log("📸 Photo saved as:", visitor.photo);
 
-    // Log Activty
+    // Log Activity
     try {
+      const userName = req.user ? req.user.name || req.user.fullName : "System";
       await ActivityLog.create({
-        user: req.user ? req.user.id : null, // Might be null if public (though this route seems protected? No, createVisitor is. createPublicVisitor is not)
-        // Wait, createVisitor IS protected.
+        user: req.user ? req.user.id : null,
+        userModel: req.user ? 'Employee' : 'Admin', // Specify user type
         action: "CREATE_VISITOR",
         module: "VISITOR",
-        details: `Created visitor ${visitor.name} (${visitor.visitorId})`,
+        details: `Created visitor ${visitor.name} (${visitor.visitorId}) by ${userName}`,
         ipAddress: req.ip,
+        metadata: {
+          visitorId: visitor.visitorId,
+          createdBy: userName,
+        },
       });
     } catch (err) {
       console.error("Failed to log activity:", err);
@@ -1130,6 +1135,7 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       if (printedNow) {
         await ActivityLog.create({
           user: req.user ? req.user.id : null,
+          userModel: req.user ? 'Employee' : 'Admin', // Dynamic based on user type
           action: "PRINT_VISITOR_CARD",
           module: "VISITOR",
           details: `Printed card for ${updatedVisitor.name} (${updatedVisitor.visitorId})`,
@@ -1140,8 +1146,25 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
           },
         });
       }
+
+      // Log general update activity
+      if (req.user) {
+        await ActivityLog.create({
+          user: req.user.id,
+          userModel: 'Employee', // Specify that this is an Employee
+          action: "UPDATE_VISITOR",
+          module: "VISITOR",
+          details: `Updated visitor ${updatedVisitor.name} (${updatedVisitor.visitorId})`,
+          ipAddress: req.ip,
+          metadata: {
+            visitorId: updatedVisitor.visitorId,
+            updatedBy: req.user.name,
+            updatedFields: Object.keys(req.body),
+          },
+        });
+      }
     } catch (logErr) {
-      console.error("Failed to log print action:", logErr.message || logErr);
+      console.error("Failed to log activity:", logErr.message || logErr);
     }
 
     console.log("✅ UPDATE COMPLETE!");
@@ -1466,11 +1489,11 @@ exports.markCheckIn = asyncHandler(async (req, res) => {
 // Scan Visitor (Logs activity and returns visitor)
 exports.scanVisitor = asyncHandler(async (req, res) => {
   try {
-    const { visitorId } = req.body;
+    const { visitorId, placeId } = req.body;
     
     // SAFEGUARDS
     const userName = req.user ? req.user.name : "Unknown User";
-    console.log(`📷 Scan request by ${userName} for: ${visitorId}`);
+    console.log(`📷 Scan request by ${userName} for: ${visitorId} at place: ${placeId || 'No place specified'}`);
 
     if (!visitorId) {
       return res.status(400).json({
@@ -1494,20 +1517,49 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
       });
     }
 
+    // Validate place if provided
+    let place = null;
+    if (placeId) {
+      const { Place } = require("../models");
+      place = await Place.findById(placeId);
+      if (!place) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid place selected",
+        });
+      }
+
+      // Check if employee is assigned to this place
+      if (!place.assignedEmployees.includes(req.user.id)) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not assigned to scan at this place",
+        });
+      }
+    }
+
     // Log Scan Activity
     if (req.user) {
         try {
-            await ActivityLog.create({
+            const activityData = {
               user: req.user.id,
+              userModel: 'Employee', // Specify that this is an Employee
               action: "SCAN_VISITOR",
               module: "SCANNER",
-              details: `Scanned visitor ${visitor.name} (${visitor.visitorId})`,
+              details: `Scanned visitor ${visitor.name} (${visitor.visitorId})${place ? ` at ${place.name}` : ''}`,
               ipAddress: req.ip,
               metadata: {
                 visitorId: visitor.visitorId,
                 scannedBy: userName,
+                ...(place && {
+                  placeId: place._id,
+                  placeName: place.name,
+                  placeCode: place.placeCode,
+                }),
               },
-            });
+            };
+
+            await ActivityLog.create(activityData);
         } catch (logLimitError) {
             console.error("Failed to log scan activity:", logLimitError.message);
             // Non-blocking error
@@ -1517,7 +1569,14 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Visitor scanned successfully",
-      data: visitor,
+      data: {
+        ...visitor.toObject(),
+        scannedAt: place ? {
+          id: place._id,
+          name: place.name,
+          code: place.placeCode,
+        } : null,
+      },
     });
   } catch (error) {
     console.error("❌ Scan Error:", error);
@@ -1557,11 +1616,29 @@ exports.getVisitorHistory = asyncHandler(async (req, res) => {
         { "metadata.visitorObjectId": visitor._id },
       ],
     })
+      .populate("user", "fullName emp_code emp_type") // Populate employee details
       .sort({ timestamp: -1 })
       .limit(500)
       .lean();
 
-    return res.status(200).json({ success: true, message: "Visitor history fetched", data: logs });
+    // Format the logs with employee and place information
+    const formattedLogs = logs.map((log) => ({
+      ...log,
+      employeeName: log.user?.fullName || "System",
+      employeeCode: log.user?.emp_code || null,
+      employeeType: log.user?.emp_type || null,
+      placeName: log.metadata?.placeName || null,
+      placeCode: log.metadata?.placeCode || null,
+      actionType: log.action === "SCAN_VISITOR" ? "scan" : 
+                  log.action === "UPDATE_VISITOR" ? "update" :
+                  log.action === "PRINT_VISITOR_CARD" ? "print" : "other",
+    }));
+
+    return res.status(200).json({ 
+      success: true, 
+      message: "Visitor history fetched", 
+      data: formattedLogs 
+    });
   } catch (error) {
     console.error("❌ Get Visitor History Error:", error);
     return res.status(500).json({ success: false, message: "Internal Server Error" });
@@ -1572,24 +1649,68 @@ exports.getVisitorHistory = asyncHandler(async (req, res) => {
 exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const userName = req.user.name || req.user.fullName || "Unknown";
+    
+    // Get today's date in local timezone (India)
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    console.log(`📊 Dashboard Stats Request for Employee: ${userName} (${userId})`);
+    console.log(`📅 Today's date range: ${today} to ${tomorrow}`);
 
     // 1. Count Total Visitors
     const totalVisitors = await Visitor.countDocuments({});
 
-    // 2. Count My Scans Today
+    // 2. Count My Scans Today (with fallback for old logs without userModel)
     const todayScans = await ActivityLog.countDocuments({
       user: userId,
+      $or: [
+        { userModel: 'Employee' }, // New logs with userModel
+        { userModel: { $exists: false } } // Old logs without userModel (fallback)
+      ],
       action: "SCAN_VISITOR",
-      createdAt: { $gte: today },
+      timestamp: { 
+        $gte: today,
+        $lt: tomorrow
+      },
     });
+    
+    console.log(`🔍 Today's scans for ${userName}: ${todayScans}`);
+    
+    // Debug: Get all scan activities for this user today
+    const debugScans = await ActivityLog.find({
+      user: userId,
+      $or: [
+        { userModel: 'Employee' },
+        { userModel: { $exists: false } }
+      ],
+      action: "SCAN_VISITOR",
+      timestamp: { 
+        $gte: today,
+        $lt: tomorrow
+      },
+    }).select('timestamp details action userModel');
+    
+    console.log(`🔍 Debug - All scans today:`, debugScans.map(s => ({
+      time: s.timestamp,
+      details: s.details,
+      action: s.action,
+      userModel: s.userModel || 'legacy'
+    })));
 
-    // 3. Get Recent Activities
-    const recentActivities = await ActivityLog.find({ user: userId })
-      .sort({ timestamp: -1 })
+    // 3. Get Recent Activities (with fallback for old logs)
+    const recentActivities = await ActivityLog.find({ 
+      user: userId,
+      $or: [
+        { userModel: 'Employee' }, // New logs with userModel
+        { userModel: { $exists: false } } // Old logs without userModel (fallback)
+      ]
+    })
+      .sort({ timestamp: -1 }) // Use timestamp for sorting
       .limit(10)
-      .populate("user", "name");
+      .populate("user", "fullName name emp_code"); // Populate employee details
 
     // Format activities for frontend
     const formattedActivities = recentActivities.map((log) => ({
@@ -1599,8 +1720,13 @@ exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      type: log.action === "SCAN_VISITOR" ? "scan" : "other",
+      type: log.action === "SCAN_VISITOR" ? "scan" : 
+            log.action === "UPDATE_VISITOR" ? "update" :
+            log.action === "PRINT_VISITOR_CARD" ? "print" :
+            log.action === "VIEW_VISITOR" ? "view" :
+            log.action === "CREATE_VISITOR" ? "register" : "other",
       date: new Date(log.timestamp).toLocaleDateString(),
+      details: log.details || `${log.action} performed`,
     }));
 
     res.status(200).json({
@@ -1616,6 +1742,163 @@ exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching stats",
+      error: error.message,
+    });
+  }
+});
+// Get visitor activity history
+exports.getVisitorActivityHistory = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find visitor first to get visitorId
+    let query = { _id: id };
+    if (id.match(/^[A-Z0-9]+$/)) {
+      query = { visitorId: id };
+    }
+    
+    const visitor = await Visitor.findOne(query);
+    if (!visitor) {
+      return res.status(404).json({
+        success: false,
+        message: "Visitor not found",
+      });
+    }
+
+    // Get activity logs for this visitor
+    const activities = await ActivityLog.find({
+      $or: [
+        { "metadata.visitorId": visitor.visitorId },
+        { details: { $regex: visitor.visitorId, $options: "i" } }
+      ]
+    })
+    .populate("user", "fullName emp_code")
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+    const formattedActivities = activities.map((log) => ({
+      id: log._id,
+      action: log.details,
+      type: log.action === "SCAN_VISITOR" ? "scan" : 
+            log.action === "UPDATE_VISITOR" ? "update" : "view",
+      employeeName: log.user?.fullName || "System",
+      employeeCode: log.user?.emp_code,
+      timestamp: log.createdAt,
+      ipAddress: log.ipAddress,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedActivities,
+    });
+  } catch (error) {
+    console.error("❌ Activity History Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching activity history",
+      error: error.message,
+    });
+  }
+});
+
+// Get employee scan history
+exports.getEmployeeScanHistory = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get recent scans by this employee
+    const scanLogs = await ActivityLog.find({
+      user: userId,
+      action: "SCAN_VISITOR"
+    })
+    .sort({ createdAt: -1 })
+    .limit(10);
+
+    const scanHistory = await Promise.all(
+      scanLogs.map(async (log) => {
+        const visitorId = log.metadata?.visitorId;
+        if (!visitorId) return null;
+        
+        const visitor = await Visitor.findOne({ visitorId }).select(
+          "name visitorId companyName photo"
+        );
+        
+        return {
+          scannedAt: log.createdAt,
+          visitor: visitor || { 
+            name: "Unknown Visitor", 
+            visitorId: visitorId,
+            companyName: "Unknown Company"
+          }
+        };
+      })
+    );
+
+    // Filter out null entries
+    const validHistory = scanHistory.filter(item => item !== null);
+
+    res.status(200).json({
+      success: true,
+      data: validHistory,
+    });
+  } catch (error) {
+    console.error("❌ Scan History Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching scan history",
+      error: error.message,
+    });
+  }
+});
+// Log visitor view activity
+exports.logVisitorView = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find visitor first
+    let query = { _id: id };
+    if (id.match(/^[A-Z0-9]+$/)) {
+      query = { visitorId: id };
+    }
+    
+    const visitor = await Visitor.findOne(query);
+    if (!visitor) {
+      return res.status(404).json({
+        success: false,
+        message: "Visitor not found",
+      });
+    }
+
+    // Log view activity
+    if (req.user) {
+      try {
+        await ActivityLog.create({
+          user: req.user.id,
+          userModel: 'Employee', // Specify that this is an Employee
+          action: "VIEW_VISITOR",
+          module: "VISITOR",
+          details: `Viewed visitor ${visitor.name} (${visitor.visitorId})`,
+          ipAddress: req.ip,
+          metadata: {
+            visitorId: visitor.visitorId,
+            viewedBy: req.user.name,
+          },
+        });
+      } catch (logError) {
+        console.error("Failed to log view activity:", logError.message);
+        // Non-blocking error
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "View logged successfully",
+    });
+  } catch (error) {
+    console.error("❌ Log View Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error logging view",
       error: error.message,
     });
   }

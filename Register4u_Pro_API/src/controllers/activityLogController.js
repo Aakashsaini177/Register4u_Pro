@@ -25,7 +25,11 @@ exports.getLogs = asyncHandler(async (req, res) => {
 
   const total = await ActivityLog.countDocuments(query);
   const logs = await ActivityLog.find(query)
-    .populate("user", "username email role")
+    .populate({
+      path: 'user',
+      select: 'username email role fullName emp_code emp_type name',
+      // This will automatically use the correct model based on userModel field
+    })
     .sort({ timestamp: -1 })
     .skip(startIndex)
     .limit(limit);
@@ -46,12 +50,17 @@ exports.getLogs = asyncHandler(async (req, res) => {
 exports.createLog = asyncHandler(async (req, res) => {
   const { action, module, details, metadata } = req.body;
 
+  const userName = req.user ? req.user.name || req.user.fullName : "System";
   const log = await ActivityLog.create({
     user: req.user.id,
+    userModel: req.user ? 'Employee' : 'Admin', // Specify user type
     action,
     module,
-    details,
-    metadata,
+    details: `${details} by ${userName}`,
+    metadata: {
+      ...metadata,
+      createdBy: userName,
+    },
     ipAddress: req.ip,
   });
 

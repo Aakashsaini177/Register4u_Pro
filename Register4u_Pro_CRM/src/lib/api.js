@@ -3,16 +3,16 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 
 // API Configuration from Environment Variables
-  // export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
-  // export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
-  // export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
-  // export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
+  export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
+  export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
+  export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
+  export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
 
 // Production URLs (Render.com) - Commented for local development
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
-export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
-export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
-export const PORTAL_API_BASE_URL = import.meta.env.VITE_PORTAL_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1/portal";
+// export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
+// export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
+// export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
+// export const PORTAL_API_BASE_URL = import.meta.env.VITE_PORTAL_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1/portal";
 
 // External Services URLs
 export const QR_CODE_API =
@@ -269,9 +269,17 @@ export const visitorAPI = {
       headers: { "Content-Type": "multipart/form-data" },
     }),
   // New methods
-  scan: (visitorId) => api.post("/visitors/scan", { visitorId }),
+  scan: (visitorId, placeId = null) => {
+    const data = { visitorId };
+    if (placeId) data.placeId = placeId;
+    return api.post("/visitors/scan", data);
+  },
   getDashboardStats: () => api.get("/visitors/dashboard/stats"),
   getHistory: (id) => api.get(`/visitors/${id}/history`),
+  getActivityHistory: (id) => api.get(`/visitors/${id}/activity`),
+  getScanHistory: () => api.get("/visitors/scan/history"),
+  logView: (id) => api.post(`/visitors/${id}/view`),
+  requestBarcodeWithLogging: (visitorId) => api.get(`/barcode-auth/${visitorId}`),
 };
 
 export const categoryAPI = {

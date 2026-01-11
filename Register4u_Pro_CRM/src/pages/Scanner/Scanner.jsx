@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { visitorAPI, getImageUrl, authAPI } from "@/lib/api";
+import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -27,10 +28,12 @@ import {
   HomeModernIcon,
   VideoCameraIcon,
   XMarkIcon,
+  ClockIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
 const Scanner = () => {
-  const { token } = useAuthStore();
+  const { token, employee, isEmployee } = useAuthStore();
   const [visitorId, setVisitorId] = useState("");
   const [loading, setLoading] = useState(false);
   const [visitor, setVisitor] = useState(null);
@@ -38,6 +41,10 @@ const Scanner = () => {
   const [lastScannedCode, setLastScannedCode] = useState("");
   const [codeReader, setCodeReader] = useState(null);
   const [fileManagerPhotos, setFileManagerPhotos] = useState({}); // Add file manager photos
+  const [scanHistory, setScanHistory] = useState([]);
+  const [places, setPlaces] = useState([]);
+  const [selectedPlace, setSelectedPlace] = useState("");
+  const [loadingPlaces, setLoadingPlaces] = useState(false);
   const videoRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -74,6 +81,8 @@ const Scanner = () => {
 
     // Fetch file manager photos on component mount
     fetchFileManagerPhotos();
+    fetchScanHistory();
+    fetchMyPlaces();
 
     return () => {
       if (reader) {
@@ -81,6 +90,33 @@ const Scanner = () => {
       }
     };
   }, []);
+
+  const fetchMyPlaces = async () => {
+    try {
+      setLoadingPlaces(true);
+      const response = await api.get('/places/my-places');
+      if (response.data.success) {
+        const placesData = response.data.data || [];
+        setPlaces(placesData);
+        
+        // Auto-select place logic - ALWAYS auto-select if employee has places
+        if (placesData.length === 1) {
+          // Auto-select if only one place
+          setSelectedPlace(placesData[0]._id);
+          console.log(`Auto-selected place: ${placesData[0].name}`);
+        } else if (placesData.length > 1) {
+          // Auto-select first place if multiple (employee can change if needed)
+          setSelectedPlace(placesData[0]._id);
+          console.log(`Auto-selected first place: ${placesData[0].name} (employee can change if needed)`);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching places:', error);
+      // Don't show error toast as this might not be available for all employees
+    } finally {
+      setLoadingPlaces(false);
+    }
+  };
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -90,6 +126,19 @@ const Scanner = () => {
       }
     };
   }, [codeReader]);
+
+  const fetchScanHistory = async () => {
+    try {
+      // Fetch recent scan history for current employee
+      const response = await visitorAPI.getScanHistory();
+      if (response.data.success) {
+        setScanHistory(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching scan history:", error);
+      // Don't show error toast as this is optional data
+    }
+  };
 
   // Auto-focus for gun scanner
   useEffect(() => {
@@ -121,13 +170,27 @@ const Scanner = () => {
 
     try {
       // Use the new Scan API which logs the activity
-      const response = await visitorAPI.scan(id);
+      const scanData = { visitorId: id };
+      if (selectedPlace) {
+        scanData.placeId = selectedPlace;
+      }
+      
+      const response = await api.post("/visitors/scan", scanData);
 
       if (response.data.success) {
         const foundVisitor = response.data.data;
         setVisitor(foundVisitor);
-        toast.success(`Visitor found: ${foundVisitor.name}`);
+        
+        const selectedPlaceName = places.find(p => p._id === selectedPlace);
+        const successMessage = selectedPlaceName 
+          ? `Visitor found: ${foundVisitor.name} at ${selectedPlaceName.name}`
+          : `Visitor found: ${foundVisitor.name}`;
+        
+        toast.success(successMessage);
         setVisitorId("");
+        
+        // Update scan history
+        fetchScanHistory();
       } else {
         toast.error("Visitor not found");
       }
@@ -136,6 +199,8 @@ const Scanner = () => {
       // Handle 404 specifically
       if (error.response && error.response.status === 404) {
         toast.error("Visitor not found");
+      } else if (error.response && error.response.status === 403) {
+        toast.error("You are not assigned to scan at the selected place");
       } else {
         toast.error("Error scanning visitor");
       }
@@ -332,15 +397,50 @@ const Scanner = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Visitor Scanner
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Find visitor details by scanning or typing ID
-          </p>
+      {/* Enhanced Header with Employee Info */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Scanner Icon */}
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+              <MagnifyingGlassIcon className="h-8 w-8 text-white" />
+            </div>
+            
+            <div>
+              <h1 className="text-3xl font-bold">
+                Visitor Scanner
+              </h1>
+              <p className="text-blue-100 mt-1">
+                Find visitor details by scanning or typing ID
+              </p>
+              
+              {/* Employee Info */}
+              {isEmployee() && employee && (
+                <div className="flex items-center gap-2 mt-2 text-sm text-blue-100">
+                  <ShieldCheckIcon className="h-3 w-3" />
+                  <span>Operator: {employee.name}</span>
+                  {employee.emp_code && (
+                    <span className="ml-2">({employee.emp_code})</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="text-right">
+            <p className="text-blue-100 text-sm">Scanner Status</p>
+            <p className="text-lg font-semibold">
+              {isCameraOpen ? "Camera Active" : "Ready"}
+            </p>
+            <div className="mt-2">
+              <div className={`inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs ${
+                token ? 'text-green-200' : 'text-red-200'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${token ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                {token ? 'Authenticated' : 'Guest Mode'}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -433,7 +533,49 @@ const Scanner = () => {
               </div>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
+            {/* Place Selection */}
+            {places.length > 0 ? (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg">
+                <Label htmlFor="placeSelect" className="text-green-700 dark:text-green-300 font-medium">
+                  📍 Scanning Location (Auto-Selected)
+                </Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <MapPinIcon className="h-5 w-5 text-green-500" />
+                  <select
+                    id="placeSelect"
+                    value={selectedPlace}
+                    onChange={(e) => setSelectedPlace(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-foreground rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    disabled={loadingPlaces}
+                  >
+                    {places.map((place) => (
+                      <option key={place._id} value={place._id}>
+                        {place.name} ({place.placeCode})
+                        {place.location && ` - ${place.location}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                  ✅ All scans will be automatically logged for: {places.find(p => p._id === selectedPlace)?.name}
+                  {places.length > 1 && (
+                    <span className="text-green-500 dark:text-green-400 ml-2">(You can change if needed)</span>
+                  )}
+                </p>
+              </div>
+            ) : !loadingPlaces && (
+              <div className="border-2 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+                  <MapPinIcon className="h-5 w-5" />
+                  <span className="font-medium">No Places Assigned</span>
+                </div>
+                <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                  You are not assigned to any places. Scans will be logged without location tracking. Contact admin to assign you to a place.
+                </p>
+              </div>
+            )}
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-800 dark:text-blue-200">
               <strong>Instructions:</strong>
               <ul className="list-disc pl-5 mt-1 space-y-1">
                 <li>
@@ -478,7 +620,7 @@ const Scanner = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left: Photo & Basics */}
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-48 h-48 rounded-full border-4 border-white shadow-xl overflow-hidden mb-4 bg-gray-100 relative">
+                  <div className="w-48 h-48 rounded-full border-4 border-white shadow-xl overflow-hidden mb-4 bg-muted relative">
                     <VisitorAvatar
                       photo={visitor.photo}
                       name={visitor.name}
@@ -495,7 +637,7 @@ const Scanner = () => {
                       className="w-full h-full"
                     />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <h2 className="text-2xl font-bold text-foreground">
                     {visitor.name}
                   </h2>
                   <Badge
@@ -504,7 +646,7 @@ const Scanner = () => {
                   >
                     {visitor.visitorId}
                   </Badge>
-                  <span className="mt-2 text-sm font-semibold text-gray-500 uppercase tracking-widest">
+                  <span className="mt-2 text-sm font-semibold text-muted-foreground uppercase tracking-widest">
                     {visitor.category || "General"}
                   </span>
                 </div>
@@ -512,56 +654,56 @@ const Scanner = () => {
                 {/* Middle: Detailed Info */}
                 <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                      <BuildingOfficeIcon className="h-5 w-5 text-gray-500 mt-1" />
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
+                      <BuildingOfficeIcon className="h-5 w-5 text-muted-foreground mt-1" />
                       <div>
-                        <p className="text-xs text-gray-500 uppercase font-semibold">
+                        <p className="text-xs text-muted-foreground uppercase font-semibold">
                           Company
                         </p>
-                        <p className="text-gray-900 font-medium">
+                        <p className="text-foreground font-medium">
                           {visitor.companyName || "N/A"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                      <PhoneIcon className="h-5 w-5 text-gray-500 mt-1" />
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
+                      <PhoneIcon className="h-5 w-5 text-muted-foreground mt-1" />
                       <div>
-                        <p className="text-xs text-gray-500 uppercase font-semibold">
+                        <p className="text-xs text-muted-foreground uppercase font-semibold">
                           Contact
                         </p>
-                        <p className="text-gray-900">{visitor.contact}</p>
+                        <p className="text-foreground">{visitor.contact}</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                      <MapPinIcon className="h-5 w-5 text-gray-500 mt-1" />
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
+                      <MapPinIcon className="h-5 w-5 text-muted-foreground mt-1" />
                       <div>
-                        <p className="text-xs text-gray-500 uppercase font-semibold">
+                        <p className="text-xs text-muted-foreground uppercase font-semibold">
                           City
                         </p>
-                        <p className="text-gray-900">{visitor.city || "N/A"}</p>
+                        <p className="text-foreground">{visitor.city || "N/A"}</p>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                      <TicketIcon className="h-5 w-5 text-gray-500 mt-1" />
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
+                      <TicketIcon className="h-5 w-5 text-muted-foreground mt-1" />
                       <div>
-                        <p className="text-xs text-gray-500 uppercase font-semibold">
+                        <p className="text-xs text-muted-foreground uppercase font-semibold">
                           Designation/Prof
                         </p>
-                        <p className="text-gray-900">
+                        <p className="text-foreground">
                           {visitor.professions || "N/A"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
-                      <EnvelopeIcon className="h-5 w-5 text-gray-500 mt-1" />
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
+                      <EnvelopeIcon className="h-5 w-5 text-muted-foreground mt-1" />
                       <div>
-                        <p className="text-xs text-gray-500 uppercase font-semibold">
+                        <p className="text-xs text-muted-foreground uppercase font-semibold">
                           Email
                         </p>
                         <p
-                          className="text-gray-900 text-sm truncate max-w-[150px]"
+                          className="text-foreground text-sm truncate max-w-[150px]"
                           title={visitor.email}
                         >
                           {visitor.email || "N/A"}
@@ -616,18 +758,18 @@ const Scanner = () => {
                     {/* Hotel Info */}
                     {travel.hotelAllotments &&
                       travel.hotelAllotments.length > 0 && (
-                        <div className="bg-purple-50 p-3 rounded-md">
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-md">
                           <div className="flex items-center gap-2 mb-1">
-                            <HomeModernIcon className="h-4 w-4 text-purple-600" />
-                            <p className="text-xs font-bold text-purple-800 uppercase">
+                            <HomeModernIcon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                            <p className="text-xs font-bold text-purple-800 dark:text-purple-200 uppercase">
                               Hotel Stay
                             </p>
                           </div>
-                          <p className="text-sm text-gray-900 font-medium">
+                          <p className="text-sm text-foreground font-medium">
                             {travel.hotelAllotments[0].hotelId?.hotelName ||
                               "Unknown Hotel"}
                           </p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-muted-foreground">
                             Room:{" "}
                             {travel.hotelAllotments[0].roomId?.roomNumber ||
                               "Not Assigned"}
@@ -638,18 +780,18 @@ const Scanner = () => {
                     {/* Driver Info */}
                     {travel.driverAllotments &&
                       travel.driverAllotments.length > 0 && (
-                        <div className="bg-orange-50 p-3 rounded-md border border-orange-100">
+                        <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-md border border-orange-100 dark:border-orange-800">
                           <div className="flex items-center gap-2 mb-1">
-                            <TruckIcon className="h-4 w-4 text-orange-600" />
-                            <p className="text-xs font-bold text-orange-800 uppercase">
+                            <TruckIcon className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                            <p className="text-xs font-bold text-orange-800 dark:text-orange-200 uppercase">
                               Driver Assigned
                             </p>
                           </div>
-                          <p className="text-sm text-gray-900 font-medium">
+                          <p className="text-sm text-foreground font-medium">
                             {travel.driverAllotments[0].driverId?.driverName ||
                               "Unknown Driver"}
                           </p>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-muted-foreground">
                             Vehicle:{" "}
                             {travel.driverAllotments[0].driverId?.vehicleNumber}
                           </p>
@@ -661,6 +803,53 @@ const Scanner = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Recent Scan History */}
+      {isEmployee() && scanHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClockIcon className="h-5 w-5" />
+              My Recent Scans
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {scanHistory.slice(0, 5).map((scan, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-4 p-3 bg-secondary rounded-lg"
+                >
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
+                    <VisitorAvatar
+                      photo={scan.visitor?.photo}
+                      name={scan.visitor?.name}
+                      visitorId={scan.visitor?.visitorId}
+                      className="w-full h-full"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">
+                      {scan.visitor?.name || 'Unknown Visitor'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      ID: {scan.visitor?.visitorId} • {scan.visitor?.companyName || 'No Company'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(scan.scannedAt).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(scan.scannedAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

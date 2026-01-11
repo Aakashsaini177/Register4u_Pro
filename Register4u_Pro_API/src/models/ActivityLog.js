@@ -3,9 +3,13 @@ const mongoose = require("mongoose");
 const activityLogSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Admin", // Assuming all users are in Admin collection for now, based on authController
-    // Not always present (public requests or system actions)
+    refPath: 'userModel', // Dynamic reference based on userModel field
     required: false,
+  },
+  userModel: {
+    type: String,
+    enum: ['Admin', 'Employee'],
+    default: 'Admin',
   },
   action: {
     type: String, // e.g., "LOGIN", "CREATE_VISITOR", "DELETE_EMPLOYEE"
