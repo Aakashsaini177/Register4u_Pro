@@ -505,7 +505,7 @@ const VisitorCard = () => {
             justify-content: center !important;
           }
           
-          /* Scale the inner card content */
+          /* Remove background from card - only white */
           #visitor-card > div {
             width: 309px !important;
             height: 475px !important;
@@ -513,19 +513,18 @@ const VisitorCard = () => {
             transform-origin: center center !important;
             margin: 0 !important;
             padding: 0 !important;
-            background-image: none !important;
             background: white !important;
+            background-image: none !important;
           }
           
-          /* Remove backgrounds */
-          .id-card-bg {
-            background-image: none !important;
-            background: white !important;
+          /* Make text black for visibility on white background */
+          #visitor-card div[style*="color"] {
+            color: #000000 !important;
+            text-shadow: none !important;
           }
           
-          /* Ensure colors print */
+          /* Ensure colors print correctly */
           * {
-            background-image: none !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color-adjust: exact !important;
