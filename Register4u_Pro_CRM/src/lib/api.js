@@ -3,23 +3,23 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 
 // API Configuration from Environment Variables local  
-export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
-export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
-export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
-export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
+// export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
+// export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
+// export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
+// export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
 
 // Production URLs (Render.com) - Commented for local development
-// export const API_BASE_URL =
-//   import.meta.env.VITE_API_BASE_URL ||
-//   "https://register4u-pro.onrender.com/api/v1";
-// export const UPLOADS_BASE_URL =
-//   import.meta.env.VITE_UPLOADS_BASE_URL ||
-//   "https://register4u-pro.onrender.com/uploads";
-// export const SERVER_BASE_URL =
-//   import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
-// export const PORTAL_API_BASE_URL =
-//   import.meta.env.VITE_PORTAL_API_BASE_URL ||
-//   "https://register4u-pro.onrender.com/api/v1/portal";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://register4u-pro.onrender.com/api/v1";
+export const UPLOADS_BASE_URL =
+  import.meta.env.VITE_UPLOADS_BASE_URL ||
+  "https://register4u-pro.onrender.com/uploads";
+export const SERVER_BASE_URL =
+  import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
+export const PORTAL_API_BASE_URL =
+  import.meta.env.VITE_PORTAL_API_BASE_URL ||
+  "https://register4u-pro.onrender.com/api/v1/portal";
 
 // External Services URLs
 export const QR_CODE_API =
