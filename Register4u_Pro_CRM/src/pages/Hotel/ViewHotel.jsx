@@ -21,11 +21,13 @@ import { Badge } from "../../components/ui/Badge";
 import { SERVER_BASE_URL } from "@/lib/api";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
+import { useConfirm } from "../../hooks/useConfirm";
 
 const ViewHotel = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuthStore();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [hotel, setHotel] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +63,14 @@ const ViewHotel = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this hotel?")) return;
+    const confirmed = await confirm({
+      title: "Delete Hotel",
+      message: "Are you sure you want to delete this hotel? This will remove all rooms, categories, and bookings associated with this hotel.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`${SERVER_BASE_URL}/api/v1/hotels/${id}`, {
@@ -85,8 +94,14 @@ const ViewHotel = () => {
   };
 
   const handleStatusUpdate = async (allotmentId, status) => {
-    if (!window.confirm(`Are you sure you want to mark this as ${status}?`))
-      return;
+    const confirmed = await confirm({
+      title: "Update Status",
+      message: `Are you sure you want to mark this room as ${status}?`,
+      confirmText: "Confirm",
+      variant: "primary",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch(
@@ -134,7 +149,9 @@ const ViewHotel = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <ConfirmDialog />
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
@@ -420,6 +437,7 @@ const ViewHotel = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 

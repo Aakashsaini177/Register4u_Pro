@@ -17,6 +17,7 @@ import { PageLoading, TableSkeleton } from "@/components/ui/Loading";
 import { useMinimumLoading } from "@/hooks/useMinimumLoading";
 import { highlightText } from "@/lib/highlightUtils";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -28,6 +29,7 @@ import {
 import { formatDate } from "@/lib/utils";
 
 const Employee = () => {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [employees, setEmployees] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]); // Store all employees for client-side filtering
   const [loading, withMinimumLoading] = useMinimumLoading(600);
@@ -100,9 +102,14 @@ const Employee = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this employee?")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete Employee",
+      message: "Are you sure you want to delete this employee? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await employeeAPI.delete(id);
@@ -130,7 +137,9 @@ const Employee = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <ConfirmDialog />
+      <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -341,6 +350,7 @@ const Employee = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 

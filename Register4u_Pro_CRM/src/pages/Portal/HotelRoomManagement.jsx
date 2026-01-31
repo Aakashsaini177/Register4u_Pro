@@ -19,6 +19,7 @@ import {
   TagIcon,
   BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // Category Modal Component
 const CategoryModal = ({ isOpen, onClose, onSuccess, editCategory = null }) => {
@@ -57,7 +58,8 @@ const CategoryModal = ({ isOpen, onClose, onSuccess, editCategory = null }) => {
       onSuccess();
       onClose();
     } catch (error) {
-      const message = error.response?.data?.message || "Failed to save category";
+      const message =
+        error.response?.data?.message || "Failed to save category";
       toast.error(message);
     } finally {
       setLoading(false);
@@ -87,7 +89,9 @@ const CategoryModal = ({ isOpen, onClose, onSuccess, editCategory = null }) => {
             <Input
               id="categoryName"
               value={formData.categoryName}
-              onChange={(e) => setFormData({ ...formData, categoryName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, categoryName: e.target.value })
+              }
               placeholder="e.g., Deluxe, Suite, Standard"
               required
             />
@@ -101,17 +105,31 @@ const CategoryModal = ({ isOpen, onClose, onSuccess, editCategory = null }) => {
               min="1"
               max="10"
               value={formData.occupancy}
-              onChange={(e) => setFormData({ ...formData, occupancy: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  occupancy: parseInt(e.target.value),
+                })
+              }
               required
             />
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? "Saving..." : editCategory ? "Update Category" : "Add Category"}
+              {loading
+                ? "Saving..."
+                : editCategory
+                ? "Update Category"
+                : "Add Category"}
             </Button>
           </div>
         </form>
@@ -121,7 +139,13 @@ const CategoryModal = ({ isOpen, onClose, onSuccess, editCategory = null }) => {
 };
 
 // Room Modal Component
-const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [] }) => {
+const RoomModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  editRoom = null,
+  categories = [],
+}) => {
   const [formData, setFormData] = useState({
     roomNumber: "",
     categoryId: "",
@@ -199,7 +223,9 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
             <Input
               id="roomNumber"
               value={formData.roomNumber}
-              onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, roomNumber: e.target.value })
+              }
               placeholder="e.g., 101, A-201"
               required
             />
@@ -210,7 +236,9 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
             <select
               id="categoryId"
               value={formData.categoryId}
-              onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, categoryId: e.target.value })
+              }
               className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
               required
             >
@@ -231,7 +259,9 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
               min="1"
               max="10"
               value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({ ...formData, capacity: parseInt(e.target.value) })
+              }
               required
             />
           </div>
@@ -243,7 +273,9 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
               type="number"
               min="0"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
               placeholder="e.g., 2500"
             />
           </div>
@@ -253,7 +285,9 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
             <Input
               id="amenities"
               value={formData.amenities}
-              onChange={(e) => setFormData({ ...formData, amenities: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, amenities: e.target.value })
+              }
               placeholder="e.g., AC, TV, WiFi, Balcony"
             />
           </div>
@@ -263,7 +297,9 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
             <select
               id="status"
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
               className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
             >
               <option value="available">Available</option>
@@ -274,7 +310,12 @@ const RoomModal = ({ isOpen, onClose, onSuccess, editRoom = null, categories = [
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="flex-1">
@@ -297,6 +338,7 @@ const HotelRoomManagement = () => {
   const [editCategory, setEditCategory] = useState(null);
   const [editRoom, setEditRoom] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchData();
@@ -330,13 +372,21 @@ const HotelRoomManagement = () => {
   };
 
   const handleDeleteCategory = async (categoryId) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
+    const confirmed = await confirm({
+      title: "Delete Category",
+      message: "Are you sure you want to delete this category?",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (confirmed) {
       try {
         await portalDashboardAPI.deleteHotelCategory(categoryId);
         toast.success("Category deleted successfully!");
         fetchData();
       } catch (error) {
-        const message = error.response?.data?.message || "Failed to delete category";
+        const message =
+          error.response?.data?.message || "Failed to delete category";
         toast.error(message);
       }
     }
@@ -357,13 +407,21 @@ const HotelRoomManagement = () => {
   };
 
   const handleDeleteRoom = async (roomId) => {
-    if (window.confirm("Are you sure you want to delete this room?")) {
+    const confirmed = await confirm({
+      title: "Delete Room",
+      message: "Are you sure you want to delete this room?",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (confirmed) {
       try {
         await portalDashboardAPI.deleteHotelRoom(roomId);
         toast.success("Room deleted successfully!");
         fetchData();
       } catch (error) {
-        const message = error.response?.data?.message || "Failed to delete room";
+        const message =
+          error.response?.data?.message || "Failed to delete room";
         toast.error(message);
       }
     }
@@ -388,21 +446,22 @@ const HotelRoomManagement = () => {
     }
   };
 
-  const filteredRooms = rooms.filter(room =>
-    room.roomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    room.categoryName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    room.status.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRooms = rooms.filter(
+    (room) =>
+      room.roomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      room.categoryName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      room.status.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredCategories = categories.filter(category =>
+  const filteredCategories = categories.filter((category) =>
     category.categoryName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const roomStats = {
     total: rooms.length,
-    available: rooms.filter(r => r.status === "available").length,
-    occupied: rooms.filter(r => r.status === "occupied").length,
-    maintenance: rooms.filter(r => r.status === "maintenance").length,
+    available: rooms.filter((r) => r.status === "available").length,
+    occupied: rooms.filter((r) => r.status === "occupied").length,
+    maintenance: rooms.filter((r) => r.status === "maintenance").length,
   };
 
   if (loading) {
@@ -417,12 +476,17 @@ const HotelRoomManagement = () => {
 
   return (
     <PortalLayout title="Room Management">
+      <ConfirmDialog />
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Room Management</h1>
-            <p className="text-muted-foreground">Manage your hotel categories and rooms</p>
+            <h1 className="text-2xl font-bold text-foreground">
+              Room Management
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your hotel categories and rooms
+            </p>
           </div>
         </div>
 
@@ -432,8 +496,12 @@ const HotelRoomManagement = () => {
             <div className="flex items-center gap-3">
               <TagIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               <div>
-                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Categories</p>
-                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{categories.length}</p>
+                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                  Categories
+                </p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                  {categories.length}
+                </p>
               </div>
             </div>
           </Card>
@@ -442,8 +510,12 @@ const HotelRoomManagement = () => {
             <div className="flex items-center gap-3">
               <HomeIcon className="h-8 w-8 text-purple-600 dark:text-purple-400" />
               <div>
-                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Total Rooms</p>
-                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{roomStats.total}</p>
+                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                  Total Rooms
+                </p>
+                <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                  {roomStats.total}
+                </p>
               </div>
             </div>
           </Card>
@@ -452,8 +524,12 @@ const HotelRoomManagement = () => {
             <div className="flex items-center gap-3">
               <HomeIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
               <div>
-                <p className="text-sm text-green-600 dark:text-green-400 font-medium">Available</p>
-                <p className="text-2xl font-bold text-green-700 dark:text-green-300">{roomStats.available}</p>
+                <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                  Available
+                </p>
+                <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                  {roomStats.available}
+                </p>
               </div>
             </div>
           </Card>
@@ -462,8 +538,12 @@ const HotelRoomManagement = () => {
             <div className="flex items-center gap-3">
               <UserIcon className="h-8 w-8 text-orange-600 dark:text-orange-400" />
               <div>
-                <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Occupied</p>
-                <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{roomStats.occupied}</p>
+                <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                  Occupied
+                </p>
+                <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                  {roomStats.occupied}
+                </p>
               </div>
             </div>
           </Card>
@@ -504,7 +584,9 @@ const HotelRoomManagement = () => {
               />
             </div>
             <Button
-              onClick={activeTab === "categories" ? handleAddCategory : handleAddRoom}
+              onClick={
+                activeTab === "categories" ? handleAddCategory : handleAddRoom
+              }
               className="flex items-center gap-2"
             >
               <PlusIcon className="h-5 w-5" />
@@ -523,9 +605,13 @@ const HotelRoomManagement = () => {
               {filteredCategories.length === 0 ? (
                 <div className="text-center py-8">
                   <TagIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No categories found</h3>
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    No categories found
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    {searchTerm ? "Try adjusting your search terms" : "Get started by adding your first category"}
+                    {searchTerm
+                      ? "Try adjusting your search terms"
+                      : "Get started by adding your first category"}
                   </p>
                   <Button onClick={handleAddCategory}>
                     <PlusIcon className="h-4 w-4 mr-2" />
@@ -545,7 +631,8 @@ const HotelRoomManagement = () => {
                             {category.categoryName}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            Max {category.occupancy} person{category.occupancy > 1 ? 's' : ''}
+                            Max {category.occupancy} person
+                            {category.occupancy > 1 ? "s" : ""}
                           </p>
                         </div>
                         <Badge variant="outline">
@@ -587,9 +674,15 @@ const HotelRoomManagement = () => {
               {filteredRooms.length === 0 ? (
                 <div className="text-center py-8">
                   <HomeIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">No rooms found</h3>
+                  <h3 className="text-lg font-medium text-foreground mb-2">
+                    No rooms found
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    {searchTerm ? "Try adjusting your search terms" : categories.length === 0 ? "Please add categories first" : "Get started by adding your first room"}
+                    {searchTerm
+                      ? "Try adjusting your search terms"
+                      : categories.length === 0
+                      ? "Please add categories first"
+                      : "Get started by adding your first room"}
                   </p>
                   {categories.length > 0 && (
                     <Button onClick={handleAddRoom}>
@@ -611,7 +704,8 @@ const HotelRoomManagement = () => {
                             Room {room.roomNumber}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {room.categoryName} • {room.capacity} person{room.capacity > 1 ? 's' : ''}
+                            {room.categoryName} • {room.capacity} person
+                            {room.capacity > 1 ? "s" : ""}
                           </p>
                         </div>
                         <Badge className={getStatusColor(room.status)}>
@@ -622,18 +716,21 @@ const HotelRoomManagement = () => {
                       <div className="space-y-2 mb-4">
                         {room.price && (
                           <p className="text-sm text-foreground">
-                            <span className="font-medium">Price:</span> ₹{room.price}/night
+                            <span className="font-medium">Price:</span> ₹
+                            {room.price}/night
                           </p>
                         )}
                         {room.amenities && (
                           <p className="text-sm text-muted-foreground">
-                            <span className="font-medium">Amenities:</span> {room.amenities}
+                            <span className="font-medium">Amenities:</span>{" "}
+                            {room.amenities}
                           </p>
                         )}
                         {room.currentGuest && (
                           <div className="text-sm">
                             <p className="text-foreground">
-                              <span className="font-medium">Guest:</span> {room.currentGuest}
+                              <span className="font-medium">Guest:</span>{" "}
+                              {room.currentGuest}
                             </p>
                             <p className="text-muted-foreground flex items-center gap-1">
                               <CalendarIcon className="h-3 w-3" />

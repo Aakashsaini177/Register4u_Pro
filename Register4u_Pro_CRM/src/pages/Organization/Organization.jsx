@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { organizationAPI } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { organizationAPI } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
 import {
   Table,
   TableBody,
@@ -12,82 +12,94 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/Table'
-import { PageLoading, TableSkeleton } from '@/components/ui/Loading'
-import { useMinimumLoading } from '@/hooks/useMinimumLoading'
-import toast from 'react-hot-toast'
+} from "@/components/ui/Table";
+import { PageLoading, TableSkeleton } from "@/components/ui/Loading";
+import { useMinimumLoading } from "@/hooks/useMinimumLoading";
+import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   PlusIcon,
   MagnifyingGlassIcon,
   PencilIcon,
   TrashIcon,
   EyeIcon,
-} from '@heroicons/react/24/outline'
-import { formatDate } from '@/lib/utils'
+} from "@heroicons/react/24/outline";
+import { formatDate } from "@/lib/utils";
 
 const Organization = () => {
-  const [organizations, setOrganizations] = useState([])
-  const [loading, withMinimumLoading] = useMinimumLoading(600)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [initialLoad, setInitialLoad] = useState(true)
-  
+  const [organizations, setOrganizations] = useState([]);
+  const [loading, withMinimumLoading] = useMinimumLoading(600);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [initialLoad, setInitialLoad] = useState(true);
+  const { confirm, ConfirmDialog } = useConfirm();
+
   useEffect(() => {
-    fetchOrganizations()
-  }, [searchTerm])
-  
+    fetchOrganizations();
+  }, [searchTerm]);
+
   const fetchOrganizations = async () => {
     await withMinimumLoading(async () => {
-      const response = await organizationAPI.getAll()
-      console.log('Organizations Response:', response.data)
-      
+      const response = await organizationAPI.getAll();
+      console.log("Organizations Response:", response.data);
+
       if (response.data.success) {
-        let data = response.data.data || []
+        let data = response.data.data || [];
         if (searchTerm) {
-          data = data.filter(org =>
-            org.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            org.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            org.GSIJN?.toLowerCase().includes(searchTerm.toLowerCase())
-          )
+          data = data.filter(
+            (org) =>
+              org.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              org.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              org.GSIJN?.toLowerCase().includes(searchTerm.toLowerCase())
+          );
         }
-        setOrganizations(data)
-        setInitialLoad(false)
+        setOrganizations(data);
+        setInitialLoad(false);
       }
-    }).catch(error => {
-      console.error('Organizations Error:', error)
-      toast.error('Failed to fetch organizations')
-      setInitialLoad(false)
-    })
-  }
-  
+    }).catch((error) => {
+      console.error("Organizations Error:", error);
+      toast.error("Failed to fetch organizations");
+      setInitialLoad(false);
+    });
+  };
+
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this organization?')) {
-      return
-    }
-    
+    const confirmed = await confirm({
+      title: "Delete Organization",
+      message:
+        "Are you sure you want to delete this organization? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
     try {
-      const response = await organizationAPI.delete(id)
+      const response = await organizationAPI.delete(id);
       if (response.data.success) {
-        toast.success('Organization deleted successfully')
-        fetchOrganizations()
+        toast.success("Organization deleted successfully");
+        fetchOrganizations();
       } else {
-        toast.error('Failed to delete organization')
+        toast.error("Failed to delete organization");
       }
     } catch (error) {
-      toast.error('Failed to delete organization')
+      toast.error("Failed to delete organization");
     }
-  }
-  
+  };
+
   // Show full page loader on initial load
   if (loading && initialLoad) {
-    return <PageLoading />
+    return <PageLoading />;
   }
-  
+
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100"></h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage your companies</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage your companies
+          </p>
         </div>
         <Link to="/organization/add">
           <Button className="flex items-center gap-2">
@@ -96,7 +108,7 @@ const Organization = () => {
           </Button>
         </Link>
       </div>
-      
+
       <Card>
         <CardContent className="p-6">
           <div className="relative">
@@ -111,7 +123,7 @@ const Organization = () => {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Organization List</CardTitle>
@@ -144,11 +156,13 @@ const Organization = () => {
                     <TableRow key={org.id}>
                       <TableCell className="font-medium">#{org.id}</TableCell>
                       <TableCell>
-                        <p className="font-medium">{org.name || 'N/A'}</p>
-                        <p className="text-sm text-gray-500">{org.city || ''}</p>
+                        <p className="font-medium">{org.name || "N/A"}</p>
+                        <p className="text-sm text-gray-500">
+                          {org.city || ""}
+                        </p>
                       </TableCell>
-                      <TableCell>{org.GSIJN || 'N/A'}</TableCell>
-                      <TableCell>{org.org_type || 'N/A'}</TableCell>
+                      <TableCell>{org.GSIJN || "N/A"}</TableCell>
+                      <TableCell>{org.org_type || "N/A"}</TableCell>
                       <TableCell>{formatDate(org.createdAt)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-2">
@@ -180,8 +194,7 @@ const Organization = () => {
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
 
-export default Organization
-
+export default Organization;

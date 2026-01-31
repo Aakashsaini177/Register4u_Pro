@@ -24,6 +24,7 @@ import {
 import { TableSkeleton, PageLoading } from "@/components/ui/Loading";
 import { useMinimumLoading } from "@/hooks/useMinimumLoading";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -59,8 +60,10 @@ import {
   SelectItem,
 } from "@/components/ui/Select";
 import ImportVisitorsModal from "@/components/visitors/ImportVisitorsModal";
+import SearchInput from "@/components/ui/SearchInput";
 
 const Visitors = () => {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [visitors, setVisitors] = useState([]);
   const [categories, setCategories] = useState({}); // Store as map for easy lookup
   const [loading, withMinimumLoading] = useMinimumLoading(600);
@@ -320,7 +323,7 @@ const Visitors = () => {
         setFileManagerPhotos(photoMap);
         console.log(
           `📸 Total photos mapped: ${Object.keys(photoMap).length / 2}`,
-          photoMap
+          photoMap,
         );
       } else {
         console.log("📸 No photos found in file manager photo folder");
@@ -354,7 +357,15 @@ const Visitors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure?")) return;
+    const confirmed = await confirm({
+      title: "Delete Visitor",
+      message:
+        "Are you sure you want to delete this visitor? All associated data will be removed.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
+
     try {
       const response = await visitorAPI.delete(id);
       if (response.data.success) {
@@ -369,39 +380,44 @@ const Visitors = () => {
   const handlePrintCard = (visitor) => {
     // Open ID card page in new tab for printing
     const cardUrl = `/visitors/card/${visitor.visitorId || visitor.id || visitor._id}`;
-    window.open(cardUrl, '_blank');
+    window.open(cardUrl, "_blank");
   };
 
   const handlePhotoClick = (visitor) => {
     console.log(`🖼️ Photo click debug:`, {
       visitorId: visitor.visitorId || visitor.id,
       visitorPhoto: visitor.photo,
-      isCloudinaryUrl: visitor.photo && (visitor.photo.startsWith('http') || visitor.photo.startsWith('https')),
-      fileManagerKeys: Object.keys(fileManagerPhotos).slice(0, 5) // Show first 5 keys
+      isCloudinaryUrl:
+        visitor.photo &&
+        (visitor.photo.startsWith("http") || visitor.photo.startsWith("https")),
+      fileManagerKeys: Object.keys(fileManagerPhotos).slice(0, 5), // Show first 5 keys
     });
-    
+
     // Get the best available photo URL
     let photoUrl = null;
-    
+
     // First check if visitor.photo is already a valid URL (Cloudinary, etc.)
-    if (visitor.photo && (visitor.photo.startsWith('http') || visitor.photo.startsWith('https'))) {
+    if (
+      visitor.photo &&
+      (visitor.photo.startsWith("http") || visitor.photo.startsWith("https"))
+    ) {
       photoUrl = visitor.photo;
       console.log(`🖼️ Using direct URL: ${photoUrl}`);
     } else {
       // Then check file manager photos
-      photoUrl = 
+      photoUrl =
         fileManagerPhotos[visitor.photo] ||
         fileManagerPhotos[visitor.photo?.replace(/\.[^/.]+$/, "")] ||
         fileManagerPhotos[visitor.visitorId || visitor.id] ||
         (visitor.photo ? getImageUrl(visitor.photo) : null);
       console.log(`🖼️ Using processed URL: ${photoUrl}`);
     }
-    
+
     if (photoUrl) {
       setSelectedPhoto({
         url: photoUrl,
         name: visitor.name,
-        visitorId: visitor.visitorId || visitor.id
+        visitorId: visitor.visitorId || visitor.id,
       });
       setShowPhotoModal(true);
     } else {
@@ -412,7 +428,14 @@ const Visitors = () => {
 
   const handleBulkDelete = async () => {
     if (selectedVisitors.length === 0) return;
-    if (!window.confirm(`Delete ${selectedVisitors.length} visitors?`)) return;
+
+    const confirmed = await confirm({
+      title: "Delete Multiple Visitors",
+      message: `Are you sure you want to delete ${selectedVisitors.length} visitors? This action cannot be undone.`,
+      confirmText: "Delete All",
+      variant: "danger",
+    });
+    if (!confirmed) return;
 
     let successCount = 0;
     try {
@@ -435,7 +458,7 @@ const Visitors = () => {
 
       if (successCount < selectedVisitors.length) {
         toast.error(
-          `Failed to delete ${selectedVisitors.length - successCount} visitors`
+          `Failed to delete ${selectedVisitors.length - successCount} visitors`,
         );
       }
     } catch (error) {
@@ -451,7 +474,7 @@ const Visitors = () => {
           ? visitors
           : visitors.slice(
               (currentPage - 1) * itemsPerPage,
-              currentPage * itemsPerPage
+              currentPage * itemsPerPage,
             )
       ).map((v) => v._id || v.id);
       setSelectedVisitors((prev) => [...new Set([...prev, ...visibleIds])]);
@@ -464,7 +487,7 @@ const Visitors = () => {
 
   const toggleSelectOne = (id, checked) => {
     setSelectedVisitors((prev) =>
-      checked ? [...prev, id] : prev.filter((vid) => vid !== id)
+      checked ? [...prev, id] : prev.filter((vid) => vid !== id),
     );
   };
 
@@ -588,463 +611,461 @@ const Visitors = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Enhanced Header */}
-      <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
+    <>
+      <ConfirmDialog />
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">
-              Visitors Management
-            </h1>
-            <p className="text-green-100 mt-1">
-              Manage and view all registered visitors
+            <p className="text-gray-600 dark:text-gray-400">
+              Search, filter, and manage visitor records
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-green-100 text-sm">Total Visitors</p>
-            <p className="text-2xl font-bold">
-              {visitors.length}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Search, filter, and manage visitor records
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <ArrowUpTrayIcon className="h-5 w-5" />
-            Import
-          </Button>
-
-          {selectedVisitors.length > 0 && (
+          <div className="flex gap-2">
             <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
+              variant="outline"
+              onClick={() => setIsImportModalOpen(true)}
               className="flex items-center gap-2"
             >
-              <TrashIcon className="h-5 w-5" />
-              Delete ({selectedVisitors.length})
+              <ArrowUpTrayIcon className="h-5 w-5" />
+              Import
             </Button>
-          )}
 
-          <Link to="/visitors/add">
-            <Button className="flex items-center gap-2">
-              <PlusIcon className="h-5 w-5" />
-              Add Visitor
-            </Button>
-          </Link>
-        </div>
-      </div>
+            {selectedVisitors.length > 0 && (
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2"
+              >
+                <TrashIcon className="h-5 w-5" />
+                Delete ({selectedVisitors.length})
+              </Button>
+            )}
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search visitors..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Link to="/visitors/add">
+              <Button className="flex items-center gap-2">
+                <PlusIcon className="h-5 w-5" />
+                Add Visitor
+              </Button>
+            </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Visitor List</CardTitle>
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-1">
-                <button
-                  onClick={handleZoomOut}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300"
-                >
-                  <MagnifyingGlassMinusIcon className="h-4 w-4" />
-                </button>
-                <span
-                  className="text-xs font-mono w-10 text-center"
-                  onClick={handleResetZoom}
-                  title="Reset Zoom"
-                  style={{ cursor: "pointer" }}
-                >
-                  {Math.round(zoomLevel * 100)}%
-                </span>
-                <button
-                  onClick={handleZoomIn}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300"
-                >
-                  <MagnifyingGlassPlusIcon className="h-4 w-4" />
-                </button>
-              </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="">
+              <SearchInput
+                placeholder="Search visitors..."
+                onSearch={setSearchTerm}
+                debounce={500}
+                className="w-full"
+                autoFocus
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Column Toggle Button */}
-              <div className="relative" ref={columnMenuRef}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 h-8"
-                  onClick={() => setShowColumnMenu(!showColumnMenu)}
-                >
-                  <AdjustmentsHorizontalIcon className="h-4 w-4" />
-                  Columns
-                </Button>
-                {showColumnMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 p-2">
-                    <div className="mb-2 px-2 py-1 text-sm font-semibold text-gray-500">
-                      Visible Columns
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle>Visitor List</CardTitle>
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-1">
+                  <button
+                    onClick={handleZoomOut}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300"
+                  >
+                    <MagnifyingGlassMinusIcon className="h-4 w-4" />
+                  </button>
+                  <span
+                    className="text-xs font-mono w-10 text-center"
+                    onClick={handleResetZoom}
+                    title="Reset Zoom"
+                    style={{ cursor: "pointer" }}
+                  >
+                    {Math.round(zoomLevel * 100)}%
+                  </span>
+                  <button
+                    onClick={handleZoomIn}
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300"
+                  >
+                    <MagnifyingGlassPlusIcon className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Column Toggle Button */}
+                <div className="relative" ref={columnMenuRef}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 h-8"
+                    onClick={() => setShowColumnMenu(!showColumnMenu)}
+                  >
+                    <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                    Columns
+                  </Button>
+                  {showColumnMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 p-2">
+                      <div className="mb-2 px-2 py-1 text-sm font-semibold text-gray-500">
+                        Visible Columns
+                      </div>
+                      <div className="space-y-1">
+                        {availableColumns.map((col) => (
+                          <div
+                            key={col.key}
+                            className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
+                            onClick={() => toggleColumn(col.key)}
+                          >
+                            <Checkbox
+                              checked={visibleColumns[col.key]}
+                              onCheckedChange={() => toggleColumn(col.key)}
+                            />
+                            <span className="text-sm">{col.label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      {availableColumns.map((col) => (
-                        <div
-                          key={col.key}
-                          className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded cursor-pointer"
-                          onClick={() => toggleColumn(col.key)}
-                        >
-                          <Checkbox
-                            checked={visibleColumns[col.key]}
-                            onCheckedChange={() => toggleColumn(col.key)}
-                          />
-                          <span className="text-sm">{col.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {/* Zoom Container Wrapper */}
-          <div
-            ref={tableContainerRef}
-            className="w-full overflow-auto" // Removed touch-none to allow default gesture handling
-            style={{ height: "calc(100vh - 300px)" }} // Fixed height to prevent layout shifts
-          >
-            {loading ? (
-              <TableSkeleton rows={5} columns={8} />
-            ) : visitors.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-gray-400">
-                  No visitors found
-                </p>
-                <Link to="/visitors/add">
-                  <Button className="mt-4">Add your first visitor</Button>
-                </Link>
-              </div>
-            ) : (
-              <div
-                style={{
-                  zoom: zoomLevel,
-                  transition: "zoom 0.1s ease-out", // Faster transition
-                  minWidth: "100%", // Ensure it fills width
-                }}
-                className="origin-top-left"
-              >
-                <Table wrapperClassName="overflow-visible">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
-                        <Checkbox
-                          checked={
-                            visitors.length > 0 &&
-                            (showAll
-                              ? visitors
-                              : visitors.slice(
-                                  (currentPage - 1) * itemsPerPage,
-                                  currentPage * itemsPerPage
-                                )
-                            ).every((v) =>
-                              selectedVisitors.includes(v._id || v.id)
-                            )
-                          }
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </TableHead>
-
-                      {/* Requested Sequence: S.No, Photo, ID, Payment, Name, Company, Contact, Email, Category, City, Source, Action */}
-
-                      {shouldShow("sNo") && (
-                        <TableHead className="whitespace-nowrap w-10 h-8 px-1 text-[11px]">
-                          S.No
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* Zoom Container Wrapper */}
+            <div
+              ref={tableContainerRef}
+              className="w-full overflow-auto" // Removed touch-none to allow default gesture handling
+              style={{ height: "calc(100vh - 300px)" }} // Fixed height to prevent layout shifts
+            >
+              {loading ? (
+                <TableSkeleton rows={5} columns={8} />
+              ) : visitors.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No visitors found
+                  </p>
+                  <Link to="/visitors/add">
+                    <Button className="mt-4">Add your first visitor</Button>
+                  </Link>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    zoom: zoomLevel,
+                    transition: "zoom 0.1s ease-out", // Faster transition
+                    minWidth: "100%", // Ensure it fills width
+                  }}
+                  className="origin-top-left"
+                >
+                  <Table wrapperClassName="overflow-visible">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={
+                              visitors.length > 0 &&
+                              (showAll
+                                ? visitors
+                                : visitors.slice(
+                                    (currentPage - 1) * itemsPerPage,
+                                    currentPage * itemsPerPage,
+                                  )
+                              ).every((v) =>
+                                selectedVisitors.includes(v._id || v.id),
+                              )
+                            }
+                            onCheckedChange={toggleSelectAll}
+                          />
                         </TableHead>
-                      )}
 
-                      {shouldShow("photo") && (
-                        <TableHead className="whitespace-nowrap w-10 text-center h-8 px-1 text-[11px]">
-                          Photo
-                        </TableHead>
-                      )}
+                        {/* Requested Sequence: S.No, Photo, ID, Payment, Name, Company, Contact, Email, Category, City, Source, Action */}
 
-                      {shouldShow("visitorId") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          ID
-                        </TableHead>
-                      )}
+                        {shouldShow("sNo") && (
+                          <TableHead className="whitespace-nowrap w-10 h-8 px-1 text-[11px]">
+                            S.No
+                          </TableHead>
+                        )}
 
-                      {shouldShow("payment") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          Payment
-                        </TableHead>
-                      )}
+                        {shouldShow("photo") && (
+                          <TableHead className="whitespace-nowrap w-10 text-center h-8 px-1 text-[11px]">
+                            Photo
+                          </TableHead>
+                        )}
 
-                      {shouldShow("name") && (
-                        <TableHead className="min-w-[120px] h-8 px-1 text-[11px]">
-                          Name
-                        </TableHead>
-                      )}
+                        {shouldShow("visitorId") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            ID
+                          </TableHead>
+                        )}
 
-                      {shouldShow("company") && (
-                        <TableHead className="min-w-[120px] h-8 px-1 text-[11px]">
-                          Company Name
-                        </TableHead>
-                      )}
+                        {shouldShow("payment") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            Payment
+                          </TableHead>
+                        )}
 
-                      {shouldShow("contact") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          Contact
-                        </TableHead>
-                      )}
+                        {shouldShow("name") && (
+                          <TableHead className="min-w-[120px] h-8 px-1 text-[11px]">
+                            Name
+                          </TableHead>
+                        )}
 
-                      {shouldShow("email") && (
-                        <TableHead className="h-8 px-1 text-[11px]">
-                          Email
-                        </TableHead>
-                      )}
+                        {shouldShow("company") && (
+                          <TableHead className="min-w-[120px] h-8 px-1 text-[11px]">
+                            Company Name
+                          </TableHead>
+                        )}
 
-                      {shouldShow("category") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          Category
-                        </TableHead>
-                      )}
+                        {shouldShow("contact") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            Contact
+                          </TableHead>
+                        )}
 
-                      {shouldShow("city") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          City
-                        </TableHead>
-                      )}
+                        {shouldShow("email") && (
+                          <TableHead className="h-8 px-1 text-[11px]">
+                            Email
+                          </TableHead>
+                        )}
 
-                      {/* Additional columns available but not in main sequence by default */}
+                        {shouldShow("category") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            Category
+                          </TableHead>
+                        )}
 
-                      {shouldShow("gender") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          Gender
-                        </TableHead>
-                      )}
+                        {shouldShow("city") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            City
+                          </TableHead>
+                        )}
 
-                      {shouldShow("profession") && (
-                        <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
-                          Profession
-                        </TableHead>
-                      )}
+                        {/* Additional columns available but not in main sequence by default */}
 
-                      {/* Source column hidden - kept in backend for history tracking */}
-                      {/* 
+                        {shouldShow("gender") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            Gender
+                          </TableHead>
+                        )}
+
+                        {shouldShow("profession") && (
+                          <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
+                            Profession
+                          </TableHead>
+                        )}
+
+                        {/* Source column hidden - kept in backend for history tracking */}
+                        {/* 
                       <TableHead className="whitespace-nowrap h-8 px-1 text-[11px]">
                         Source
                       </TableHead>
                       */}
 
-                      <TableHead className="text-center whitespace-nowrap h-8 px-1 text-[11px]">
-                        Action
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(showAll
-                      ? visitors
-                      : visitors.slice(
-                          (currentPage - 1) * itemsPerPage,
-                          currentPage * itemsPerPage
-                        )
-                    ).map((visitor, index) => (
-                      <TableRow
-                        key={visitor._id || visitor.id}
-                        className={
-                          selectedVisitors.includes(visitor.id)
-                            ? "bg-blue-50/50"
-                            : ""
-                        }
-                      >
-                        <TableCell className="p-1">
-                          <Checkbox
-                            checked={selectedVisitors.includes(
-                              visitor.id || visitor._id
-                            )}
-                            onCheckedChange={(checked) =>
-                              toggleSelectOne(
-                                visitor.id || visitor._id,
-                                checked
-                              )
-                            }
-                          />
-                        </TableCell>
-
-                        {/* S.No */}
-                        {shouldShow("sNo") && (
-                          <TableCell className="whitespace-nowrap text-[11px] p-1">
-                            {(currentPage - 1) * itemsPerPage + index + 1}
-                          </TableCell>
-                        )}
-
-                        {/* Photo */}
-                        {shouldShow("photo") && (
+                        <TableHead className="text-center whitespace-nowrap h-8 px-1 text-[11px]">
+                          Action
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(showAll
+                        ? visitors
+                        : visitors.slice(
+                            (currentPage - 1) * itemsPerPage,
+                            currentPage * itemsPerPage,
+                          )
+                      ).map((visitor, index) => (
+                        <TableRow
+                          key={visitor._id || visitor.id}
+                          className={
+                            selectedVisitors.includes(visitor.id)
+                              ? "bg-blue-50/50"
+                              : ""
+                          }
+                        >
                           <TableCell className="p-1">
-                            <div 
-                              className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all duration-200"
-                              onClick={() => handlePhotoClick(visitor)}
-                              title="Click to view full image"
-                            >
-                              <VisitorAvatar
-                                photo={visitor.photo}
-                                name={visitor.name}
-                                visitorId={visitor.visitorId || visitor.id}
-                                fallbackSrc={
-                                  // First check if photo is already a valid URL
-                                  (visitor.photo && (visitor.photo.startsWith('http') || visitor.photo.startsWith('https'))) 
-                                    ? visitor.photo 
-                                    : (
-                                      fileManagerPhotos[visitor.photo] ||
-                                      fileManagerPhotos[
-                                        visitor.photo?.replace(/\.[^/.]+$/, "")
-                                      ] ||
-                                      fileManagerPhotos[
-                                        visitor.visitorId || visitor.id
-                                      ]
-                                    )
-                                }
-                                className="w-full h-full object-cover rounded-full"
-                              />
-                            </div>
+                            <Checkbox
+                              checked={selectedVisitors.includes(
+                                visitor.id || visitor._id,
+                              )}
+                              onCheckedChange={(checked) =>
+                                toggleSelectOne(
+                                  visitor.id || visitor._id,
+                                  checked,
+                                )
+                              }
+                            />
                           </TableCell>
-                        )}
 
-                        {/* Visitor ID */}
-                        {shouldShow("visitorId") && (
-                          <TableCell className="whitespace-nowrap text-[11px] p-1">
-                            <span className="font-mono font-semibold text-primary-600 dark:text-primary-400">
-                              #{highlightText(visitor.visitorId || visitor.id, searchTerm)}
-                            </span>
-                          </TableCell>
-                        )}
+                          {/* S.No */}
+                          {shouldShow("sNo") && (
+                            <TableCell className="whitespace-nowrap text-[11px] p-1">
+                              {(currentPage - 1) * itemsPerPage + index + 1}
+                            </TableCell>
+                          )}
 
-                        {/* Payment */}
-                        {shouldShow("payment") && (
-                          <TableCell className="text-[11px] p-1">
-                            {visitor.paymentDetails &&
-                            visitor.paymentDetails.amount > 0 ? (
-                              <div className="relative group flex items-center">
-                                <BanknotesIcon className="h-4 w-4 text-green-600 cursor-pointer" />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max hidden group-hover:block bg-gray-900 text-white text-[10px] rounded py-1 px-2 z-10 shadow-lg">
-                                  <div className="font-semibold">
-                                    Amount: ₹{visitor.paymentDetails.amount}
-                                  </div>
-                                  <div className="text-gray-300">
-                                    Receipt: #
-                                    {visitor.paymentDetails.receiptNo || "N/A"}
-                                  </div>
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                </div>
+                          {/* Photo */}
+                          {shouldShow("photo") && (
+                            <TableCell className="p-1">
+                              <div
+                                className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-blue-500 hover:ring-offset-1 transition-all duration-200"
+                                onClick={() => handlePhotoClick(visitor)}
+                                title="Click to view full image"
+                              >
+                                <VisitorAvatar
+                                  photo={visitor.photo}
+                                  name={visitor.name}
+                                  visitorId={visitor.visitorId || visitor.id}
+                                  fallbackSrc={
+                                    // First check if photo is already a valid URL
+                                    visitor.photo &&
+                                    (visitor.photo.startsWith("http") ||
+                                      visitor.photo.startsWith("https"))
+                                      ? visitor.photo
+                                      : fileManagerPhotos[visitor.photo] ||
+                                        fileManagerPhotos[
+                                          visitor.photo?.replace(
+                                            /\.[^/.]+$/,
+                                            "",
+                                          )
+                                        ] ||
+                                        fileManagerPhotos[
+                                          visitor.visitorId || visitor.id
+                                        ]
+                                  }
+                                  className="w-full h-full object-cover rounded-full"
+                                />
                               </div>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </TableCell>
-                        )}
+                            </TableCell>
+                          )}
 
-                        {/* Name - Full Show */}
-                        {shouldShow("name") && (
-                          <TableCell className="font-medium text-[11px] p-1">
-                            <span title={visitor.name}>
-                              {highlightText(visitor.name || "N/A", searchTerm)}
-                            </span>
-                          </TableCell>
-                        )}
+                          {/* Visitor ID */}
+                          {shouldShow("visitorId") && (
+                            <TableCell className="whitespace-nowrap text-[11px] p-1">
+                              <span className="font-mono font-semibold text-primary-600 dark:text-primary-400">
+                                #
+                                {highlightText(
+                                  visitor.visitorId || visitor.id,
+                                  searchTerm,
+                                )}
+                              </span>
+                            </TableCell>
+                          )}
 
-                        {/* Company Name */}
-                        {shouldShow("company") && (
-                          <TableCell
-                            className="text-[11px] text-gray-600 dark:text-gray-400 p-1"
-                            title={visitor.companyName}
-                          >
-                            {highlightText(visitor.companyName || "N/A", searchTerm)}
-                          </TableCell>
-                        )}
+                          {/* Payment */}
+                          {shouldShow("payment") && (
+                            <TableCell className="text-[11px] p-1">
+                              {visitor.paymentDetails &&
+                              visitor.paymentDetails.amount > 0 ? (
+                                <div className="relative group flex items-center">
+                                  <BanknotesIcon className="h-4 w-4 text-green-600 cursor-pointer" />
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max hidden group-hover:block bg-gray-900 text-white text-[10px] rounded py-1 px-2 z-10 shadow-lg">
+                                    <div className="font-semibold">
+                                      Amount: ₹{visitor.paymentDetails.amount}
+                                    </div>
+                                    <div className="text-gray-300">
+                                      Receipt: #
+                                      {visitor.paymentDetails.receiptNo ||
+                                        "N/A"}
+                                    </div>
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                          )}
 
-                        {/* Contact */}
-                        {shouldShow("contact") && (
-                          <TableCell className="text-[11px] whitespace-nowrap p-1">
-                            {highlightText(visitor.contact || "N/A", searchTerm)}
-                          </TableCell>
-                        )}
+                          {/* Name - Full Show */}
+                          {shouldShow("name") && (
+                            <TableCell className="font-medium text-[11px] p-1">
+                              <span title={visitor.name}>
+                                {highlightText(
+                                  visitor.name || "N/A",
+                                  searchTerm,
+                                )}
+                              </span>
+                            </TableCell>
+                          )}
 
-                        {/* Email */}
-                        {shouldShow("email") && (
-                          <TableCell
-                            className="text-[11px] break-all p-1"
-                            title={visitor.email}
-                          >
-                            {highlightText(visitor.email || "-", searchTerm)}
-                          </TableCell>
-                        )}
-
-                        {/* Category */}
-                        {shouldShow("category") && (
-                          <TableCell className="whitespace-nowrap p-1">
-                            <Badge
-                              variant="success"
-                              className="text-[10px] px-1 py-0 h-5"
+                          {/* Company Name */}
+                          {shouldShow("company") && (
+                            <TableCell
+                              className="text-[11px] text-gray-600 dark:text-gray-400 p-1"
+                              title={visitor.companyName}
                             >
                               {highlightText(
-                                categories[visitor.category] ||
-                                visitor.category ||
-                                "N/A",
-                                searchTerm
+                                visitor.companyName || "N/A",
+                                searchTerm,
                               )}
-                            </Badge>
-                          </TableCell>
-                        )}
+                            </TableCell>
+                          )}
 
-                        {/* City */}
-                        {shouldShow("city") && (
-                          <TableCell
-                            className="text-[11px] p-1"
-                            title={visitor.city}
-                          >
-                            {highlightText(visitor.city || "-", searchTerm)}
-                          </TableCell>
-                        )}
+                          {/* Contact */}
+                          {shouldShow("contact") && (
+                            <TableCell className="text-[11px] whitespace-nowrap p-1">
+                              {highlightText(
+                                visitor.contact || "N/A",
+                                searchTerm,
+                              )}
+                            </TableCell>
+                          )}
 
-                        {/* Gender */}
-                        {shouldShow("gender") && (
-                          <TableCell className="whitespace-nowrap text-[11px] p-1">
-                            {visitor.gender || "-"}
-                          </TableCell>
-                        )}
+                          {/* Email */}
+                          {shouldShow("email") && (
+                            <TableCell
+                              className="text-[11px] break-all p-1"
+                              title={visitor.email}
+                            >
+                              {highlightText(visitor.email || "-", searchTerm)}
+                            </TableCell>
+                          )}
 
-                        {/* Profession */}
-                        {shouldShow("profession") && (
-                          <TableCell
-                            className="text-[11px] p-1"
-                            title={visitor.professions}
-                          >
-                            {visitor.professions || "-"}
-                          </TableCell>
-                        )}
+                          {/* Category */}
+                          {shouldShow("category") && (
+                            <TableCell className="whitespace-nowrap p-1">
+                              <Badge
+                                variant="success"
+                                className="text-[10px] px-1 py-0 h-5"
+                              >
+                                {highlightText(
+                                  categories[visitor.category] ||
+                                    visitor.category ||
+                                    "N/A",
+                                  searchTerm,
+                                )}
+                              </Badge>
+                            </TableCell>
+                          )}
 
-                        {/* Source column hidden - data kept in backend for history tracking 
+                          {/* City */}
+                          {shouldShow("city") && (
+                            <TableCell
+                              className="text-[11px] p-1"
+                              title={visitor.city}
+                            >
+                              {highlightText(visitor.city || "-", searchTerm)}
+                            </TableCell>
+                          )}
+
+                          {/* Gender */}
+                          {shouldShow("gender") && (
+                            <TableCell className="whitespace-nowrap text-[11px] p-1">
+                              {visitor.gender || "-"}
+                            </TableCell>
+                          )}
+
+                          {/* Profession */}
+                          {shouldShow("profession") && (
+                            <TableCell
+                              className="text-[11px] p-1"
+                              title={visitor.professions}
+                            >
+                              {visitor.professions || "-"}
+                            </TableCell>
+                          )}
+
+                          {/* Source column hidden - data kept in backend for history tracking 
                         <TableCell className="p-1">
                           <div className="relative group flex items-center w-full max-w-[100px] cursor-help">
                             <span className="text-[11px] text-gray-500 border-b border-dotted border-gray-400 truncate w-full block">
@@ -1076,208 +1097,221 @@ const Visitors = () => {
                         </TableCell>
                         */}
 
-                        <TableCell className="p-1">
-                          <div className="flex items-center justify-center gap-1">
-                            <Link
-                              to={`/visitors/view/${visitor._id || visitor.id}`}
-                              title="View Visitor Details"
-                            >
+                          <TableCell className="p-1">
+                            <div className="flex items-center justify-center gap-1">
+                              <Link
+                                to={`/visitors/view/${visitor._id || visitor.id}`}
+                                title="View Visitor Details"
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                >
+                                  <EyeIcon className="h-3 w-3" />
+                                </Button>
+                              </Link>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
+                                onClick={() => handlePrintCard(visitor)}
+                                title="Print ID Card"
                               >
-                                <EyeIcon className="h-3 w-3" />
+                                <PrinterIcon className="h-3 w-3 text-blue-600" />
                               </Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handlePrintCard(visitor)}
-                              title="Print ID Card"
-                            >
-                              <PrinterIcon className="h-3 w-3 text-blue-600" />
-                            </Button>
-                            <Link
-                              to={`/visitors/edit/${visitor._id || visitor.id}`}
-                              title="Edit Visitor"
-                            >
+                              <Link
+                                to={`/visitors/edit/${visitor._id || visitor.id}`}
+                                title="Edit Visitor"
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                >
+                                  <PencilIcon className="h-3 w-3" />
+                                </Button>
+                              </Link>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
+                                onClick={() =>
+                                  handleDelete(visitor._id || visitor.id)
+                                }
+                                title="Delete Visitor"
                               >
-                                <PencilIcon className="h-3 w-3" />
+                                <TrashIcon className="h-3 w-3 text-red-600" />
                               </Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() =>
-                                handleDelete(visitor._id || visitor.id)
-                              }
-                              title="Delete Visitor"
-                            >
-                              <TrashIcon className="h-3 w-3 text-red-600" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-
-          {/* Pagination & Export Controls (Fixed at bottom) */}
-          {!loading && visitors.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 py-4 border-t bg-white dark:bg-gray-800 relative">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div className="text-sm text-gray-500">
-                  Showing {showAll ? 1 : (currentPage - 1) * itemsPerPage + 1}{" "}
-                  to{" "}
-                  {showAll
-                    ? visitors.length
-                    : Math.min(
-                        currentPage * itemsPerPage,
-                        visitors.length
-                      )}{" "}
-                  of {visitors.length} entries
-                  {showAll && (
-                    <span className="text-green-600 ml-2 font-medium">
-                      (All)
-                    </span>
-                  )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+              )}
+            </div>
 
-                {/* Items per page selector */}
-                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-                    Show:
-                  </span>
-                  <div className="relative z-50">
-                    <Select
-                      value={showAll ? "all" : itemsPerPage.toString()}
-                      onValueChange={handleItemsPerPageChange}
+            {/* Pagination & Export Controls (Fixed at bottom) */}
+            {!loading && visitors.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 py-4 border-t bg-white dark:bg-gray-800 relative">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="text-sm text-gray-500">
+                    Showing {showAll ? 1 : (currentPage - 1) * itemsPerPage + 1}{" "}
+                    to{" "}
+                    {showAll
+                      ? visitors.length
+                      : Math.min(
+                          currentPage * itemsPerPage,
+                          visitors.length,
+                        )}{" "}
+                    of {visitors.length} entries
+                    {showAll && (
+                      <span className="text-green-600 ml-2 font-medium">
+                        (All)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Items per page selector */}
+                  <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                      Show:
+                    </span>
+                    <div className="relative z-50">
+                      <Select
+                        value={showAll ? "all" : itemsPerPage.toString()}
+                        onValueChange={handleItemsPerPageChange}
+                      >
+                        <SelectTrigger className="w-16 h-8 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 font-medium">
+                          <SelectValue>
+                            {showAll ? "All" : itemsPerPage}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="min-w-16 z-[9999] shadow-xl">
+                          <SelectItem value="10" className="text-sm">
+                            10
+                          </SelectItem>
+                          <SelectItem value="20" className="text-sm">
+                            20
+                          </SelectItem>
+                          <SelectItem value="50" className="text-sm">
+                            50
+                          </SelectItem>
+                          <SelectItem value="all" className="text-sm">
+                            All
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-center">
+                  {/* Pagination Controls only if needed */}
+                  {!showAll && visitors.length > itemsPerPage && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => p - 1)}
+                      >
+                        <ChevronLeftIcon className="h-4 w-4" /> Previous
+                      </Button>
+                      <span className="text-sm text-gray-500 px-2">
+                        Page {currentPage} of{" "}
+                        {Math.ceil(visitors.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentPage * itemsPerPage >= visitors.length}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                      >
+                        Next <ChevronRightIcon className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Export Button (Always visible) */}
+                  <div className="ml-2 pl-2 border-l border-gray-300 dark:border-gray-700">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExport}
+                      className="flex items-center gap-2"
                     >
-                      <SelectTrigger className="w-16 h-8 text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 font-medium">
-                        <SelectValue>
-                          {showAll ? "All" : itemsPerPage}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="min-w-16 z-[9999] shadow-xl">
-                        <SelectItem value="10" className="text-sm">
-                          10
-                        </SelectItem>
-                        <SelectItem value="20" className="text-sm">
-                          20
-                        </SelectItem>
-                        <SelectItem value="50" className="text-sm">
-                          50
-                        </SelectItem>
-                        <SelectItem value="all" className="text-sm">
-                          All
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <ArrowDownTrayIcon className="h-4 w-4" />
+                      Export
+                    </Button>
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 items-center">
-                {/* Pagination Controls only if needed */}
-                {!showAll && visitors.length > itemsPerPage && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
-                    >
-                      <ChevronLeftIcon className="h-4 w-4" /> Previous
-                    </Button>
-                    <span className="text-sm text-gray-500 px-2">
-                      Page {currentPage} of{" "}
-                      {Math.ceil(visitors.length / itemsPerPage)}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage * itemsPerPage >= visitors.length}
-                      onClick={() => setCurrentPage((p) => p + 1)}
-                    >
-                      Next <ChevronRightIcon className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
+            )}
+          </CardContent>
+        </Card>
 
-                {/* Export Button (Always visible) */}
-                <div className="ml-2 pl-2 border-l border-gray-300 dark:border-gray-700">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExport}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowDownTrayIcon className="h-4 w-4" />
-                    Export
-                  </Button>
-                </div>
+        {/* Import Modal */}
+        <ImportVisitorsModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            setIsImportModalOpen(false);
+            fetchVisitors(); // Refresh the visitor list
+          }}
+        />
+
+        {/* Photo Modal */}
+        {showPhotoModal && selectedPhoto && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+            onClick={() => setShowPhotoModal(false)}
+          >
+            <div
+              className="relative max-w-4xl max-h-[90vh] p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowPhotoModal(false)}
+                className="absolute -top-2 -right-2 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 z-10"
+                title="Close"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+
+              {/* Photo */}
+              <img
+                src={selectedPhoto.url}
+                alt={selectedPhoto.name}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+
+              {/* Photo Info */}
+              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 rounded-b-lg">
+                <h3 className="text-lg font-semibold">{selectedPhoto.name}</h3>
+                <p className="text-sm text-gray-300">
+                  Visitor ID: {selectedPhoto.visitorId}
+                </p>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Import Modal */}
-      <ImportVisitorsModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={() => {
-          setIsImportModalOpen(false);
-          fetchVisitors(); // Refresh the visitor list
-        }}
-      />
-
-      {/* Photo Modal */}
-      {showPhotoModal && selectedPhoto && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
-          onClick={() => setShowPhotoModal(false)}
-        >
-          <div 
-            className="relative max-w-4xl max-h-[90vh] p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
-              onClick={() => setShowPhotoModal(false)}
-              className="absolute -top-2 -right-2 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 z-10"
-              title="Close"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            
-            {/* Photo */}
-            <img
-              src={selectedPhoto.url}
-              alt={selectedPhoto.name}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            />
-            
-            {/* Photo Info */}
-            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 rounded-b-lg">
-              <h3 className="text-lg font-semibold">{selectedPhoto.name}</h3>
-              <p className="text-sm text-gray-300">Visitor ID: {selectedPhoto.visitorId}</p>
-            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 };
 export default Visitors;

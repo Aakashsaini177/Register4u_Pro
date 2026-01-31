@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const { Employee } = require("../models");
 const passwordManager = require("../utils/passwordManager");
 const db = require("../config/database");
+const { JWT_EXPIRES_IN } = require("../config/jwt");
 
 class AuthController {
   /**
@@ -32,7 +33,7 @@ class AuthController {
             type: "admin",
           },
           process.env.JWT_SECRET || "register4u-secret-key",
-          { expiresIn: "7d" }
+          { expiresIn: JWT_EXPIRES_IN },
         );
 
         return res.json({
@@ -203,7 +204,7 @@ class AuthController {
           { username: username.toLowerCase() },
           { email: username.toLowerCase() },
           { code_id: username.toUpperCase() },
-          { emp_code: username.toUpperCase() }
+          { emp_code: username.toUpperCase() },
         ],
         login_enabled: true,
       });
@@ -221,7 +222,7 @@ class AuthController {
       // Verify password
       const isValidPassword = await passwordManager.verifyPassword(
         password,
-        employee.password
+        employee.password,
       );
 
       if (!isValidPassword) {
@@ -252,7 +253,7 @@ class AuthController {
           type: "employee",
         },
         process.env.JWT_SECRET || "register4u-secret-key",
-        { expiresIn: "24h" }
+        { expiresIn: JWT_EXPIRES_IN },
       );
 
       // Update last login and reset failed attempts
@@ -327,7 +328,7 @@ class AuthController {
       // Verify current password
       const isValidCurrentPassword = await passwordManager.verifyPassword(
         currentPassword,
-        employee.password
+        employee.password,
       );
 
       if (!isValidCurrentPassword) {
@@ -338,9 +339,8 @@ class AuthController {
       }
 
       // Prepare new password data
-      const passwordData = await passwordManager.preparePasswordData(
-        newPassword
-      );
+      const passwordData =
+        await passwordManager.preparePasswordData(newPassword);
 
       // Store old password for history
       const oldPasswordHash = employee.password;
@@ -360,7 +360,7 @@ class AuthController {
         passwordData.hashedPassword,
         "employee",
         req.ip,
-        req.get("User-Agent")
+        req.get("User-Agent"),
       );
 
       res.json({
@@ -475,7 +475,7 @@ class AuthController {
         // Mark session as inactive
         await db.query(
           "UPDATE user_sessions SET is_active = FALSE, logout_time = NOW() WHERE session_token = ?",
-          [token]
+          [token],
         );
       }
 
@@ -503,7 +503,7 @@ class AuthController {
         `INSERT INTO user_sessions 
          (employee_id, session_token, role, ip_address, user_agent, expires_at) 
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [employeeId, token, role, ipAddress, userAgent, expiresAt]
+        [employeeId, token, role, ipAddress, userAgent, expiresAt],
       );
     } catch (error) {
       console.error("Failed to create session:", error);
@@ -525,7 +525,7 @@ class AuthController {
     newPasswordHash,
     changedBy,
     ipAddress,
-    userAgent
+    userAgent,
   ) {
     try {
       await db.query(
@@ -539,7 +539,7 @@ class AuthController {
           changedBy,
           ipAddress,
           userAgent,
-        ]
+        ],
       );
     } catch (error) {
       console.error("Failed to log password change:", error);

@@ -29,6 +29,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const Invites = () => {
   const navigate = useNavigate();
@@ -40,6 +41,7 @@ const Invites = () => {
   const [viewVisitorsOpen, setViewVisitorsOpen] = useState(false);
   const [selectedInviteVisitors, setSelectedInviteVisitors] = useState([]);
   const [loadingVisitors, setLoadingVisitors] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchInvites();
@@ -90,7 +92,16 @@ const Invites = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this invite?")) return;
+    const confirmed = await confirm({
+      title: "Delete Invite",
+      message:
+        "Are you sure you want to delete this invite? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
     try {
       await inviteAPI.delete(id);
       toast.success("Invite deleted");
@@ -117,6 +128,7 @@ const Invites = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Header / Breadcrumbs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="text-sm text-gray-500">

@@ -30,6 +30,7 @@ const VisitorForm = ({
   onSubmit,
   loading,
   isPublic = false,
+  isEditMode = false,
   defaultValues = {},
   existingDocuments = {}, // { aadharFront: 'url', ... }
 }) => {
@@ -200,7 +201,8 @@ const VisitorForm = ({
                   <Label htmlFor="gender">Gender</Label>
                   <select
                     id="gender"
-                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    disabled={isEditMode}
+                    className={`mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white ${isEditMode ? "bg-gray-100 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 opacity-70" : ""}`}
                     {...register("gender")}
                   >
                     <option value="">Select Gender</option>
@@ -222,7 +224,7 @@ const VisitorForm = ({
                     <Label htmlFor="category" required>
                       Category
                     </Label>
-                    {!isPublic && (
+                    {!isPublic && !isEditMode && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -241,7 +243,8 @@ const VisitorForm = ({
                   ) : (
                     <select
                       id="category"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      disabled={isEditMode}
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white ${isEditMode ? "bg-gray-100 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 opacity-70" : ""}`}
                       {...register("category", {
                         required: "Category is required",
                       })}
@@ -265,7 +268,7 @@ const VisitorForm = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <Label htmlFor="companyName">Company Name</Label>
-                    {!isPublic && (
+                    {!isPublic && !isEditMode && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -292,7 +295,8 @@ const VisitorForm = ({
                         setValue("companyName", val, { shouldValidate: true })
                       }
                       placeholder="Select or type company..."
-                      freeSolo={true}
+                      freeSolo={!isEditMode}
+                      disabled={isEditMode}
                     />
                   )}
                 </div>
@@ -304,6 +308,7 @@ const VisitorForm = ({
                     type="text"
                     placeholder="Enter profession"
                     className="mt-1"
+                    disabled={isEditMode}
                     {...register("professions")}
                   />
                 </div>
@@ -314,6 +319,7 @@ const VisitorForm = ({
                     type="text"
                     placeholder="Enter city"
                     className="mt-1"
+                    disabled={isEditMode}
                     {...register("city")}
                   />
                 </div>
@@ -358,6 +364,7 @@ const VisitorForm = ({
                     type="text"
                     placeholder="Enter receipt no"
                     className="mt-1"
+                    disabled={isEditMode}
                     {...register("receiptNo")}
                   />
                 </div>
@@ -368,112 +375,126 @@ const VisitorForm = ({
                     type="number"
                     placeholder="Enter amount"
                     className="mt-1"
+                    disabled={isEditMode}
                     {...register("amount")}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Photo Selection */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Visitor Photo</h3>
+            {/* Photo Selection - Hidden in Edit Mode */}
+            {!isEditMode && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Visitor Photo</h3>
 
-              <div className="space-y-2">
-                <ImageInput
-                  label="Visitor Photo"
-                  required={true}
-                  aspectRatio={null} // Allow free cropping for visitor photos
-                  defaultPreview={
-                    typeof watch("photo") === "string" && watch("photo")
-                      ? getImageUrl(watch("photo"))
-                      : null
-                  }
-                  error={errors.photo?.message}
-                  onChange={(file) => {
-                    if (file) {
-                      setValue("photo", [file], { shouldValidate: true });
-                    } else {
-                      setValue("photo", null, { shouldValidate: true });
+                <div className="space-y-2">
+                  <ImageInput
+                    label="Visitor Photo"
+                    required={true}
+                    aspectRatio={null} // Allow free cropping for visitor photos
+                    defaultPreview={
+                      typeof watch("photo") === "string" && watch("photo")
+                        ? getImageUrl(watch("photo"))
+                        : null
                     }
-                  }}
-                />
-                {/* Hidden input for validation */}
-                <input
-                  type="hidden"
-                  {...register("photo", {
-                    required: "Visitor photo is required",
-                    validate: (value) => {
-                      if (!value) return "Visitor photo is required";
-                      if (Array.isArray(value) && value.length === 0)
-                        return "Visitor photo is required";
-                      return true;
-                    },
-                  })}
-                />
-              </div>
-            </div>
-
-            {/* ID Proof Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">
-                ID Proofs (Optional)
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                {/* Aadhar Front */}
-                <div>
-                  <ImageInput
-                    label="Aadhar Card (Front)"
-                    required={false}
-                    defaultPreview={getImageUrl(existingDocuments.aadharFront)}
-                    error={errors.aadharFront?.message}
-                    aspectRatio={1.6} // ID Card aspect ratio
+                    error={errors.photo?.message}
                     onChange={(file) => {
-                      if (file)
-                        setValue("aadharFront", [file], {
-                          shouldValidate: true,
-                        });
-                      else
-                        setValue("aadharFront", null, { shouldValidate: true });
+                      if (file) {
+                        setValue("photo", [file], { shouldValidate: true });
+                      } else {
+                        setValue("photo", null, { shouldValidate: true });
+                      }
                     }}
                   />
-                </div>
-
-                {/* Aadhar Back */}
-                <div>
-                  <ImageInput
-                    label="Aadhar Card (Back)"
-                    required={false}
-                    defaultPreview={getImageUrl(existingDocuments.aadharBack)}
-                    error={errors.aadharBack?.message}
-                    aspectRatio={1.6}
-                    onChange={(file) => {
-                      if (file)
-                        setValue("aadharBack", [file], {
-                          shouldValidate: true,
-                        });
-                      else
-                        setValue("aadharBack", null, { shouldValidate: true });
-                    }}
-                  />
-                </div>
-
-                {/* PAN Front */}
-                <div>
-                  <ImageInput
-                    label="PAN Card (Front)"
-                    required={false}
-                    defaultPreview={getImageUrl(existingDocuments.panFront)}
-                    error={errors.panFront?.message}
-                    aspectRatio={1.6}
-                    onChange={(file) => {
-                      if (file)
-                        setValue("panFront", [file], { shouldValidate: true });
-                      else setValue("panFront", null, { shouldValidate: true });
-                    }}
+                  {/* Hidden input for validation */}
+                  <input
+                    type="hidden"
+                    {...register("photo", {
+                      required: "Visitor photo is required",
+                      validate: (value) => {
+                        if (!value) return "Visitor photo is required";
+                        if (Array.isArray(value) && value.length === 0)
+                          return "Visitor photo is required";
+                        return true;
+                      },
+                    })}
                   />
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* ID Proof Section - Hidden in Edit Mode */}
+            {!isEditMode && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">
+                  ID Proofs (Optional)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 dark:bg-gray-800/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                  {/* Aadhar Front */}
+                  <div>
+                    <ImageInput
+                      label="Aadhar Card (Front)"
+                      required={false}
+                      defaultPreview={getImageUrl(
+                        existingDocuments.aadharFront,
+                      )}
+                      error={errors.aadharFront?.message}
+                      aspectRatio={1.6} // ID Card aspect ratio
+                      onChange={(file) => {
+                        if (file)
+                          setValue("aadharFront", [file], {
+                            shouldValidate: true,
+                          });
+                        else
+                          setValue("aadharFront", null, {
+                            shouldValidate: true,
+                          });
+                      }}
+                    />
+                  </div>
+
+                  {/* Aadhar Back */}
+                  <div>
+                    <ImageInput
+                      label="Aadhar Card (Back)"
+                      required={false}
+                      defaultPreview={getImageUrl(existingDocuments.aadharBack)}
+                      error={errors.aadharBack?.message}
+                      aspectRatio={1.6}
+                      onChange={(file) => {
+                        if (file)
+                          setValue("aadharBack", [file], {
+                            shouldValidate: true,
+                          });
+                        else
+                          setValue("aadharBack", null, {
+                            shouldValidate: true,
+                          });
+                      }}
+                    />
+                  </div>
+
+                  {/* PAN Front */}
+                  <div>
+                    <ImageInput
+                      label="PAN Card (Front)"
+                      required={false}
+                      defaultPreview={getImageUrl(existingDocuments.panFront)}
+                      error={errors.panFront?.message}
+                      aspectRatio={1.6}
+                      onChange={(file) => {
+                        if (file)
+                          setValue("panFront", [file], {
+                            shouldValidate: true,
+                          });
+                        else
+                          setValue("panFront", null, { shouldValidate: true });
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-4 pt-4 border-t">
               {!isPublic && (

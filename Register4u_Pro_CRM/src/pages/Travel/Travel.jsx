@@ -28,6 +28,7 @@ import { useAuthStore } from "../../store/authStore";
 import { SERVER_BASE_URL } from "@/lib/api";
 import TravelAllotmentModal from "./TravelAllotmentModal";
 import { travelAPI } from "../../lib/api";
+import { useConfirm } from "../../hooks/useConfirm";
 
 const Travel = () => {
   const [travelDetails, setTravelDetails] = useState([]);
@@ -41,6 +42,7 @@ const Travel = () => {
   });
   const navigate = useNavigate();
   const { token } = useAuthStore();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchTravelDetails();
@@ -70,20 +72,24 @@ const Travel = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this travel detail?"))
-      return;
+    const confirmed = await confirm({
+      title: "Delete Travel Detail",
+      message:
+        "Are you sure you want to delete this travel detail? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
-      const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/travel/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         toast.success("Travel detail deleted successfully");
@@ -165,6 +171,7 @@ const Travel = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

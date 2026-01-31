@@ -26,4 +26,7 @@ const hotelRoomSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+// Compound unique index: Same hotel + same category = unique room number
+hotelRoomSchema.index({ hotelId: 1, categoryId: 1, roomNumber: 1 }, { unique: true });
+
 module.exports = mongoose.model('HotelRoom', hotelRoomSchema);

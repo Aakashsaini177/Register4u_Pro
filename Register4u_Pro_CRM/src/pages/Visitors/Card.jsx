@@ -26,6 +26,7 @@ const VisitorCard = () => {
   const [cardSettings, setCardSettings] = useState(null);
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState(null);
   const [fileManagerPhotos, setFileManagerPhotos] = useState({}); // Add file manager photos
+  const [printMode, setPrintMode] = useState("card"); // 'card' or 'a4'
   const cardRef = useRef(null);
 
   useEffect(() => {
@@ -63,11 +64,21 @@ const VisitorCard = () => {
 
   const loadCardSettings = () => {
     const saved = localStorage.getItem("cardDesignSettings");
-    console.log("🔍 [Card.jsx] Loading card settings:", saved ? "Found" : "Not found");
+    console.log(
+      "🔍 [Card.jsx] Loading card settings:",
+      saved ? "Found" : "Not found",
+    );
     if (saved) {
       const parsedSettings = JSON.parse(saved);
-      console.log("🔍 [Card.jsx] showQRCode setting:", parsedSettings.showQRCode);
-      console.log("🔍 [Card.jsx] QR position:", parsedSettings.qrCodeTop, parsedSettings.qrCodeLeft);
+      console.log(
+        "🔍 [Card.jsx] showQRCode setting:",
+        parsedSettings.showQRCode,
+      );
+      console.log(
+        "🔍 [Card.jsx] QR position:",
+        parsedSettings.qrCodeTop,
+        parsedSettings.qrCodeLeft,
+      );
       setCardSettings(parsedSettings);
     } else {
       // Default settings
@@ -136,7 +147,7 @@ const VisitorCard = () => {
         setFileManagerPhotos(photoMap);
         console.log(
           `📸 [Card] Total photos mapped: ${Object.keys(photoMap).length / 2}`,
-          photoMap
+          photoMap,
         );
       } else {
         console.log("📸 [Card] No photos found in file manager photo folder");
@@ -164,9 +175,30 @@ const VisitorCard = () => {
     }
   };
 
-  const handlePrint = async () => {
-    // Use current page print without opening new window
-    window.print();
+  const handlePrint = async (mode = "card") => {
+    // Set print mode before printing
+    setPrintMode(mode);
+
+    // Show instruction toast
+    if (mode === "a4") {
+      toast.success('Print dialog mein "A4" paper size select karein', {
+        duration: 4000,
+        icon: "📄",
+      });
+    } else {
+      toast.success(
+        'Print dialog mein custom size "89mm x 127mm" select karein',
+        {
+          duration: 4000,
+          icon: "🎴",
+        },
+      );
+    }
+
+    // Wait a bit for state to update
+    setTimeout(() => {
+      window.print();
+    }, 500);
 
     // Mark as printed in background
     if (!visitor.isCardPrinted) {
@@ -175,7 +207,6 @@ const VisitorCard = () => {
           isCardPrinted: true,
         });
         setVisitor((prev) => ({ ...prev, isCardPrinted: true }));
-        toast.success('Card printed successfully!');
       } catch (error) {
         console.error("Failed to update print status:", error);
       }
@@ -189,20 +220,20 @@ const VisitorCard = () => {
   // Calculate print scale based on custom print size
   const calculatePrintScale = () => {
     if (!cardSettings) return 0.288; // Default scale for 89x127mm
-    
+
     const printWidth = cardSettings.printWidth || 89;
     const printHeight = cardSettings.printHeight || 127;
     const printUnit = cardSettings.printUnit || "mm";
-    
+
     // Convert to mm if needed
     const widthMm = printUnit === "inches" ? printWidth * 25.4 : printWidth;
     const heightMm = printUnit === "inches" ? printHeight * 25.4 : printHeight;
-    
+
     // Original card design is 309x475px, standard print is 89x127mm
     // Calculate scale to fit custom size
-    const scaleX = widthMm / 89 * 0.288;  // 0.288 is the base scale for 89mm
-    const scaleY = heightMm / 127 * 0.288; // 0.288 is the base scale for 127mm
-    
+    const scaleX = (widthMm / 89) * 0.288; // 0.288 is the base scale for 89mm
+    const scaleY = (heightMm / 127) * 0.288; // 0.288 is the base scale for 127mm
+
     // Use the smaller scale to ensure card fits within print area
     return Math.min(scaleX, scaleY);
   };
@@ -277,20 +308,29 @@ const VisitorCard = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Link to="/card-designer">
+          {/* <Link to="/card-designer">
             <Button variant="outline">Edit Card Design</Button>
-          </Link>
-          <Button onClick={handlePrint}>
+          </Link> */}
+          <Button onClick={() => handlePrint("card")} variant="outline">
             <PrinterIcon className="h-5 w-5 mr-2" />
-            {visitor.isCardPrinted ? "Re-Print Card" : "Print Card"}
+            Print Card Size (89x127mm)
+          </Button>
+          <Button onClick={() => handlePrint("a4")}>
+            <PrinterIcon className="h-5 w-5 mr-2" />
+            Print A4
           </Button>
         </div>
-        
+
         {/* Print Instructions - Removed as requested */}
       </div>
 
       {/* ID Card - Uses Card Designer Settings */}
-      <div ref={cardRef} id="visitor-card" className="max-w-sm mx-auto">
+      <div
+        ref={cardRef}
+        id="visitor-card"
+        className="max-w-sm mx-auto"
+        data-print-mode={printMode}
+      >
         <div
           className="border-2 border-gray-300 shadow-xl mx-auto print:border-0 print:shadow-none id-card-bg print:bg-white"
           style={{
@@ -317,8 +357,8 @@ const VisitorCard = () => {
                 cardSettings.imageShape === "circle"
                   ? "50%"
                   : cardSettings.imageShape === "rounded"
-                  ? "12px"
-                  : "0",
+                    ? "12px"
+                    : "0",
               overflow: "hidden",
               border: "3px solid white",
               backgroundColor: "#fff",
@@ -330,12 +370,8 @@ const VisitorCard = () => {
               visitorId={visitor.visitorId || visitor.id}
               fallbackSrc={
                 fileManagerPhotos[visitor.photo] ||
-                fileManagerPhotos[
-                  visitor.photo?.replace(/\.[^/.]+$/, "")
-                ] ||
-                fileManagerPhotos[
-                  visitor.visitorId || visitor.id
-                ]
+                fileManagerPhotos[visitor.photo?.replace(/\.[^/.]+$/, "")] ||
+                fileManagerPhotos[visitor.visitorId || visitor.id]
               }
               className="w-full h-full"
             />
@@ -400,16 +436,22 @@ const VisitorCard = () => {
 
           {/* QR Code - Positioned by settings */}
           {(() => {
-            const qrLeft = Math.min(cardSettings.qrCodeLeft || 50, 309 - (cardSettings.qrCodeWidth || 100));
-            const qrTop = Math.min(cardSettings.qrCodeTop || 10, 475 - (cardSettings.qrCodeHeight || 100));
-            
+            const qrLeft = Math.min(
+              cardSettings.qrCodeLeft || 50,
+              309 - (cardSettings.qrCodeWidth || 100),
+            );
+            const qrTop = Math.min(
+              cardSettings.qrCodeTop || 10,
+              475 - (cardSettings.qrCodeHeight || 100),
+            );
+
             console.log("🔍 [Card.jsx] QR Code check:", {
               visitorId: visitor.visitorId,
               showQRCode: cardSettings.showQRCode,
               shouldShow: visitor.visitorId && cardSettings.showQRCode,
               originalPosition: `${cardSettings.qrCodeTop}px, ${cardSettings.qrCodeLeft}px`,
               clampedPosition: `${qrTop}px, ${qrLeft}px`,
-              cardSize: "309x475px"
+              cardSize: "309x475px",
             });
             return visitor.visitorId && cardSettings.showQRCode;
           })() && (
@@ -455,9 +497,10 @@ const VisitorCard = () => {
       {/* Print Styles to hide browser UI */}
       <style>{`
         @media print {
+          /* Dynamic page size based on mode */
           @page {
             margin: 0;
-            size: 89mm 127mm;
+            size: ${printMode === "a4" ? "A4" : "89mm 127mm"};
             orientation: portrait;
           }
           
@@ -492,17 +535,17 @@ const VisitorCard = () => {
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
+            width: ${printMode === "a4" ? "auto" : "100%"} !important;
+            height: ${printMode === "a4" ? "auto" : "100%"} !important;
             margin: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
             transform: none !important;
             background: white !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
+            display: ${printMode === "a4" ? "block" : "flex"} !important;
+            ${printMode === "card" ? "align-items: center !important;" : ""}
+            ${printMode === "card" ? "justify-content: center !important;" : ""}
           }
           
           /* Remove background from card - only white */
@@ -510,7 +553,7 @@ const VisitorCard = () => {
             width: 309px !important;
             height: 475px !important;
             transform: scale(1) !important;
-            transform-origin: center center !important;
+            transform-origin: ${printMode === "a4" ? "top left" : "center center"} !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;

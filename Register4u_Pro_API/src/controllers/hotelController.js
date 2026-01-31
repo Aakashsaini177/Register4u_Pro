@@ -23,7 +23,8 @@ const updateBookingCounts = async (
   categoryId,
   checkIn,
   checkOut,
-  change = 1
+  occupancy = 1,
+  change = 1,
 ) => {
   try {
     const startDate = new Date(checkIn);
@@ -31,19 +32,15 @@ const updateBookingCounts = async (
     const dateArray = [];
 
     // Loop dates: CheckIn (inclusive) -> CheckOut (exclusive)
-    // Standard hotel logic: If check-in 21st, check-out 23rd = 2 nights (21st, 22nd)
     let currentDate = new Date(startDate);
     while (currentDate < endDate) {
       dateArray.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    if (dateArray.length === 0) return; // Immediate checkout or invalid
+    if (dateArray.length === 0) return;
 
     for (const date of dateArray) {
-      // Format date to YYYY-MM-DD to ignore time part for matching if needed,
-      // but RoomBooking uses Date type. Let's assume midnight UTC or standardized.
-      // Best to use startOfDay.
       const d = new Date(date);
       d.setHours(0, 0, 0, 0);
 
@@ -53,12 +50,10 @@ const updateBookingCounts = async (
           hotelId: hotelId,
           categoryId: categoryId,
           date: d,
-          occupancy: 1, // Default to 1 for now, or fetch from somewhere?
-          // RoomAllotment doesn't capture occupancy count explicitly, usually 1 room = 1 unit usage.
-          // But existing schema has occupancy field. We'll default to 1.
+          occupancy: occupancy,
         },
         { $inc: { roomsBooked: change } },
-        { upsert: true }
+        { upsert: true },
       );
     }
   } catch (err) {
@@ -186,6 +181,17 @@ const createHotel = async (req, res) => {
     // Create categories and rooms
     if (categories && categories.length > 0) {
       for (const category of categories) {
+        // Validate room numbers are unique within this category
+        if (category.roomNumbers && category.roomNumbers.length > 0) {
+          const uniqueRoomNumbers = new Set(category.roomNumbers);
+          if (uniqueRoomNumbers.size !== category.roomNumbers.length) {
+            return res.status(400).json({
+              success: false,
+              message: `Duplicate room numbers found in category "${category.categoryName}". Each room number must be unique within the same category.`,
+            });
+          }
+        }
+
         const hotelCategory = await HotelCategory.create({
           hotelId: hotel._id,
           categoryName: category.categoryName,
@@ -196,11 +202,27 @@ const createHotel = async (req, res) => {
         // Create rooms for this category
         if (category.roomNumbers && category.roomNumbers.length > 0) {
           for (const roomNumber of category.roomNumbers) {
-            await HotelRoom.create({
-              hotelId: hotel._id,
-              categoryId: hotelCategory._id,
-              roomNumber,
-            });
+            try {
+              await HotelRoom.create({
+                hotelId: hotel._id,
+                categoryId: hotelCategory._id,
+                roomNumber,
+              });
+            } catch (roomError) {
+              // Handle duplicate room number error
+              if (roomError.code === 11000) {
+                // Cleanup: Delete hotel and categories created so far
+                await Hotel.findByIdAndDelete(hotel._id);
+                await HotelCategory.deleteMany({ hotelId: hotel._id });
+                await HotelRoom.deleteMany({ hotelId: hotel._id });
+
+                return res.status(400).json({
+                  success: false,
+                  message: `Room number "${roomNumber}" already exists in category "${category.categoryName}". Please use unique room numbers.`,
+                });
+              }
+              throw roomError;
+            }
           }
         }
       }
@@ -270,8 +292,20 @@ const updateHotel = async (req, res) => {
 
     // Handle categories update
     if (categories && categories.length > 0) {
+      // Validate room numbers are unique within each category
+      for (const category of categories) {
+        if (category.roomNumbers && category.roomNumbers.length > 0) {
+          const uniqueRoomNumbers = new Set(category.roomNumbers);
+          if (uniqueRoomNumbers.size !== category.roomNumbers.length) {
+            return res.status(400).json({
+              success: false,
+              message: `Duplicate room numbers found in category "${category.categoryName}". Each room number must be unique within the same category.`,
+            });
+          }
+        }
+      }
+
       // Delete existing categories and rooms
-      // First find categories to get their IDs
       const existingCategories = await HotelCategory.find({ hotelId: id });
       const categoryIds = existingCategories.map((c) => c._id);
 
@@ -292,11 +326,22 @@ const updateHotel = async (req, res) => {
         // Create rooms for this category
         if (category.roomNumbers && category.roomNumbers.length > 0) {
           for (const roomNumber of category.roomNumbers) {
-            await HotelRoom.create({
-              hotelId: id,
-              categoryId: hotelCategory._id,
-              roomNumber,
-            });
+            try {
+              await HotelRoom.create({
+                hotelId: id,
+                categoryId: hotelCategory._id,
+                roomNumber,
+              });
+            } catch (roomError) {
+              // Handle duplicate room number error
+              if (roomError.code === 11000) {
+                return res.status(400).json({
+                  success: false,
+                  message: `Room number "${roomNumber}" already exists in category "${category.categoryName}". Please use unique room numbers.`,
+                });
+              }
+              throw roomError;
+            }
           }
         }
       }
@@ -482,6 +527,7 @@ const getAvailableRooms = async (req, res) => {
 
       // Find overlapping allotments
       // Overlap Logic: (StartA < EndB) and (EndA > StartB)
+      // OPTIMIZATION: Do not populate roomId here. We just need the ID.
       const conflictingAllotments = await RoomAllotment.find({
         hotelId,
         status: { $in: ["booked", "checked-in"] }, // only active bookings block rooms
@@ -491,36 +537,32 @@ const getAvailableRooms = async (req, res) => {
             checkOutDate: { $gt: requestedCheckIn },
           },
         ],
-      }).populate("roomId");
+      });
 
       conflictingAllotments.forEach((allotment) => {
         if (allotment.roomId) {
-          const rId = allotment.roomId._id.toString();
+          const rId = allotment.roomId.toString();
           occupiedRoomIds.add(rId);
-          // Also track occupancy count if needed for shared rooms (dormitory logic),
-          // but for now assume 1 room = 1 booking key.
-          roomOccupancy.set(rId, (roomOccupancy.get(rId) || 0) + 1);
+          // Track Total Pax Occupancy (Sum of occupancy field)
+          const pax = parseInt(allotment.occupancy) || 1;
+          roomOccupancy.set(rId, (roomOccupancy.get(rId) || 0) + pax);
         }
       });
     } else {
-      // Fallback to "Current Status" if no dates provided (Old Logic)
-      // Or we could just return all rooms? Best to mimic old behavior:
-      // Get active allotments irrespective of date? No, that's misleading.
-      // Let's look for "Currently Active" (Start < Now < End)
-      // OR just rely on the static 'status' field from HotelRoom as a poor-man's fallback?
-      // Better: Fetch active allotments that are "current".
+      // Fallback: Currently Active
       const now = new Date();
       const currentAllotments = await RoomAllotment.find({
         hotelId,
         status: { $in: ["booked", "checked-in"] },
         checkInDate: { $lte: now },
         checkOutDate: { $gte: now },
-      }).populate("roomId");
+      });
       currentAllotments.forEach((allotment) => {
         if (allotment.roomId) {
-          const rId = allotment.roomId._id.toString();
+          const rId = allotment.roomId.toString();
           occupiedRoomIds.add(rId);
-          roomOccupancy.set(rId, (roomOccupancy.get(rId) || 0) + 1);
+          const pax = parseInt(allotment.occupancy) || 1;
+          roomOccupancy.set(rId, (roomOccupancy.get(rId) || 0) + pax);
         }
       });
     }
@@ -535,12 +577,9 @@ const getAvailableRooms = async (req, res) => {
             const rId = room._id.toString();
             const currentOccupancy = roomOccupancy.get(rId) || 0;
             const maxOccupancy = category.occupancy || 1;
-            // Note: Single/Double rooms usually maxOccupancy is per room (unit).
-            // If room is "occupied", it's fully occupied for that date range usually.
 
             // Logic: If usage < capacity, it's available.
-            // For standard rooms, usage is either 0 or 1 (occupied).
-
+            // Using Total Pax Occupancy vs Max Capacity
             if (currentOccupancy < maxOccupancy) {
               availableRooms.push({
                 id: room._id,
@@ -549,13 +588,11 @@ const getAvailableRooms = async (req, res) => {
                 occupancy: category.occupancy,
                 currentOccupancy: currentOccupancy,
                 availableSlots: maxOccupancy - currentOccupancy,
-                status: "available", // Dynamic Status
+                status: currentOccupancy > 0 ? "partial" : "available", // Helper status
               });
             } else {
-              // Include occupied rooms but mark them (Frontend needs full list?)
-              // Frontend RoomAllotment currently expects ONLY available rooms from this endpoint?
-              // Wait, RoomAllotment uses getHotelById for the full list.
-              // This endpoint is "getAvailableRooms". So returning only available is correct.
+              // Room is Full - DO NOT ADD to availableRooms
+              // This ensures it doesn't show up in the "Available" list (or logic in UI handles it)
             }
           });
         }
@@ -587,6 +624,7 @@ const createRoomAllotment = async (req, res) => {
       visitorNumber,
       checkInDate,
       checkOutDate,
+      occupancy,
       remarks,
     } = req.body;
 
@@ -600,29 +638,79 @@ const createRoomAllotment = async (req, res) => {
       });
     }
 
+    // Validate Capacity Check again before blocking
+    // Fetch room category capacity
+    const room = await HotelRoom.findById(roomId).populate("categoryId");
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    const maxCapacity = room.categoryId?.occupancy || 1;
+    const requestedOccupancy = parseInt(occupancy) || 1;
+
+    // Check overlaps for this room to calculate current load
+    const start = new Date(checkInDate);
+    const end = checkOutDate
+      ? new Date(checkOutDate)
+      : new Date(new Date(checkInDate).getTime() + 24 * 60 * 60 * 1000);
+
+    const conflicting = await RoomAllotment.find({
+      roomId: roomId,
+      status: { $in: ["booked", "checked-in"] },
+      $or: [
+        {
+          checkInDate: { $lt: end },
+          checkOutDate: { $gt: start },
+        },
+      ],
+    });
+
+    const currentLoad = conflicting.reduce(
+      (sum, a) => sum + (parseInt(a.occupancy) || 1),
+      0,
+    );
+
+    if (currentLoad + requestedOccupancy > maxCapacity) {
+      return res.status(400).json({
+        success: false,
+        message: `Room capacity exceeded! Current: ${currentLoad}/${maxCapacity}, Requested: ${requestedOccupancy}`,
+      });
+    }
+
+    // Create Allotment
     const allotment = await RoomAllotment.create({
       hotelId,
       roomId,
       visitorId,
       visitorName,
       visitorNumber,
-      visitorNumber,
+      occupancy: requestedOccupancy,
       checkInDate,
-      checkOutDate:
-        checkOutDate ||
-        new Date(new Date(checkInDate).getTime() + 24 * 60 * 60 * 1000), // Default to next day if missing
+      checkOutDate: end,
       remarks,
     });
 
     console.log("✅ Room Allotment Created:", allotment._id);
 
-    // Update room status to occupied
-    await HotelRoom.findByIdAndUpdate(roomId, { status: "occupied" });
+    // Update room status to occupied ONLY if full
+    // Re-calculate load including new allotment
+    const newLoad = currentLoad + requestedOccupancy;
+    if (newLoad >= maxCapacity) {
+      console.log(
+        `🔒 Room ${roomId} Full (${newLoad}/${maxCapacity}). Marking as occupied.`,
+      );
+      await HotelRoom.findByIdAndUpdate(roomId, { status: "occupied" });
+    } else {
+      console.log(
+        `🔓 Room ${roomId} Partial (${newLoad}/${maxCapacity}). Marking as available.`,
+      );
+      // Ensure it is marked available so it shows up in "Available" list for next person
+      await HotelRoom.findByIdAndUpdate(roomId, { status: "available" });
+    }
 
     // Send SMS and WhatsApp notifications
     try {
       const hotel = await Hotel.findById(hotelId);
-      const room = await HotelRoom.findById(roomId);
       const travelDetail = await TravelDetail.findOne({ visitorId });
 
       // --- SYNC WITH REPORTS ---
@@ -644,7 +732,7 @@ const createRoomAllotment = async (req, res) => {
             } else {
               console.warn(
                 "❌ Could not resolve custom eventId:",
-                visitor.eventId
+                visitor.eventId,
               );
               realEventId = null;
             }
@@ -652,14 +740,15 @@ const createRoomAllotment = async (req, res) => {
 
           if (realEventId) {
             console.log("🚀 Triggering updateBookingCounts with:", realEventId);
-            // Sync Logic
+            // Sync Logic with occupancy
             await updateBookingCounts(
               realEventId,
               hotelId,
-              room.categoryId,
+              room.categoryId._id, // Use ID from populated doc
               checkInDate,
-              checkOutDate,
-              1 // Add 1
+              checkOutDate || end,
+              requestedOccupancy,
+              1, // Add 1
             );
           }
         } catch (syncErr) {
@@ -680,7 +769,7 @@ const createRoomAllotment = async (req, res) => {
         visitorNumber,
         hotel.hotelName,
         room.roomNumber,
-        checkInDate
+        checkInDate,
       );
 
       // Send WhatsApp notification to hotel
@@ -851,7 +940,7 @@ const updateRoomAllotment = async (req, res) => {
       updateData.roomId !== allotment.roomId.toString()
     ) {
       console.log(
-        `🔄 Swapping Room: ${allotment.roomId} -> ${updateData.roomId}`
+        `🔄 Swapping Room: ${allotment.roomId} -> ${updateData.roomId}`,
       );
 
       // 1. Release the old room
@@ -947,14 +1036,22 @@ const getInventoryStatus = async (req, res) => {
     endOfDay.setHours(23, 59, 59, 999);
 
     console.log(
-      `📊 Fetching Inventory Status for: ${startOfDay.toISOString()}`
+      `📊 Fetching Inventory Status for: ${startOfDay.toISOString()}`,
     );
 
     // 1. Get all hotels with their rooms
-    const hotels = await Hotel.find({}).populate("categories").lean();
+    // We need 'rooms' populated to check individual room IDs
+    const hotels = await Hotel.find({})
+      .populate({
+        path: "categories",
+        populate: {
+          path: "rooms",
+        },
+      })
+      .lean();
 
     // 2. Get all active allotments that overlap with this day
-    // 2. Get all active allotments that overlap with this day
+    // OPTIMIZATION: Do not populate roomId, use ID directly
     const allotments = await RoomAllotment.find({
       status: { $in: ["booked", "checked-in"] },
       $or: [
@@ -976,30 +1073,53 @@ const getInventoryStatus = async (req, res) => {
       ],
     }).lean();
 
-    // 3. Map allotments to hotel IDs
-    const allotmentMap = {}; // hotelId -> count
+    // 3. Map allotments to ROOM IDs to calculate occupancy load
+    const roomOccupancyMap = {}; // roomId -> totalPax
     allotments.forEach((allot) => {
-      const hId = allot.hotelId.toString();
-      allotmentMap[hId] = (allotmentMap[hId] || 0) + 1;
+      if (allot.roomId) {
+        const rId = allot.roomId.toString();
+        const pax = parseInt(allot.occupancy) || 1;
+        roomOccupancyMap[rId] = (roomOccupancyMap[rId] || 0) + pax;
+      }
     });
 
     // 4. Construct result
     const result = hotels.map((hotel) => {
       let totalRooms = 0;
+      let availableCount = 0;
+
       hotel.categories?.forEach((cat) => {
-        totalRooms += cat.numberOfRooms || (cat.rooms ? cat.rooms.length : 0);
-        // Fallback if rooms array is not populated fully or just use schema count
+        // Use actual rooms list if available to check specific status
+        if (cat.rooms && cat.rooms.length > 0) {
+          cat.rooms.forEach((room) => {
+            totalRooms++;
+            const rId = room._id.toString();
+            const currentLoad = roomOccupancyMap[rId] || 0;
+            const capacity = cat.occupancy || 1;
+
+            if (currentLoad < capacity) {
+              availableCount++;
+            }
+          });
+        } else {
+          // Fallback if rooms not created yet but count exists (should rarely happen in active hotels)
+          totalRooms += cat.numberOfRooms || 0;
+          // In fallback, we can't check partials easily without room IDs.
+          // Assume available if we don't know? Or omit?
+          // Let's assume they are available if we have no allotments mapped (which we won't have if no IDs)
+          availableCount += cat.numberOfRooms || 0;
+        }
       });
 
-      const occupied = allotmentMap[hotel._id.toString()] || 0;
+      const fullRooms = Math.max(0, totalRooms - availableCount);
 
       return {
         hotelId: hotel._id,
         customHotelId: hotel.hotelId,
         hotelName: hotel.hotelName,
         totalRooms,
-        occupiedRooms: occupied,
-        availableRooms: Math.max(0, totalRooms - occupied),
+        occupiedRooms: fullRooms, // Represents "Full/Unavailable" rooms
+        availableRooms: availableCount, // Includes Empty + Partial
       };
     });
 
