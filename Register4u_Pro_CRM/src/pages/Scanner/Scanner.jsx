@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { visitorAPI, getImageUrl, authAPI } from "@/lib/api";
 import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -35,6 +36,8 @@ import {
 const Scanner = () => {
   const { token, employee, isEmployee } = useAuthStore();
   const [visitorId, setVisitorId] = useState("");
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showLocationInfo, setShowLocationInfo] = useState(false); // Toggle for location info
   const [loading, setLoading] = useState(false);
   const [visitor, setVisitor] = useState(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -431,7 +434,39 @@ const Scanner = () => {
             </div>
           </div>
 
+          {/* Location Info Button */}
           <div className="text-right">
+            {selectedPlace && places && places.length > 0 && (
+              <div className="mb-3">
+                <button
+                  onClick={() => setShowLocationInfo(!showLocationInfo)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
+                  title="View Scanning Location"
+                >
+                  <MapPinIcon className="h-5 w-5" />
+                  <span className="text-sm font-semibold">
+                    {showLocationInfo ? "Hide" : "Show"} Location
+                  </span>
+                </button>
+                {showLocationInfo && (
+                  <div className="mt-2 bg-white/10 backdrop-blur-sm rounded-lg p-3 text-left">
+                    <p className="text-xs text-blue-100 uppercase font-semibold mb-1">
+                      📍 Scanning At
+                    </p>
+                    <p className="text-white font-bold">
+                      {places.find((p) => p._id === selectedPlace)?.name ||
+                        "Unknown"}
+                    </p>
+                    {places.find((p) => p._id === selectedPlace)?.placeCode && (
+                      <p className="text-xs text-blue-100 mt-1">
+                        Code:{" "}
+                        {places.find((p) => p._id === selectedPlace)?.placeCode}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <p className="text-blue-100 text-sm">Scanner Status</p>
             <p className="text-lg font-semibold">
               {isCameraOpen ? "Camera Active" : "Ready"}
@@ -452,32 +487,32 @@ const Scanner = () => {
         </div>
       </div>
 
-      {/* Scanner Input */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MagnifyingGlassIcon className="h-6 w-6" />
+      {/* Scanner Input - Compact */}
+      <Card className="shadow-md">
+        <CardHeader className="pb-2 pt-3 px-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MagnifyingGlassIcon className="h-4 w-4" />
             Scanner Input
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-3">
           {/* Camera Toggle Button */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-3">
             <Button
               type="button"
               onClick={toggleCamera}
               variant={isCameraOpen ? "destructive" : "default"}
-              className="w-full sm:w-auto"
+              className="w-full h-9 text-sm"
             >
               {isCameraOpen ? (
                 <>
-                  <XMarkIcon className="h-5 w-5 mr-2" />
-                  Stop Camera
+                  <XMarkIcon className="h-4 w-4 mr-1" />
+                  Close Camera
                 </>
               ) : (
                 <>
-                  <VideoCameraIcon className="h-5 w-5 mr-2" />
-                  Start QR/Barcode Scanner
+                  <VideoCameraIcon className="h-4 w-4 mr-1" />
+                  Scan with Camera
                 </>
               )}
             </Button>
@@ -485,44 +520,41 @@ const Scanner = () => {
 
           {/* ZXing Scanner */}
           {isCameraOpen && (
-            <div className="bg-black rounded-lg overflow-hidden relative mb-6">
+            <div className="bg-black rounded-lg overflow-hidden relative mb-3">
               <video
                 ref={videoRef}
                 style={{
                   width: "100%",
-                  height: "300px",
+                  height: "220px",
                   objectFit: "cover",
                 }}
               />
               <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                QR/Barcode Scanner Active
-              </div>
-              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-green-500/80 text-white px-3 py-1 rounded text-xs font-semibold">
-                Supports QR Codes & Barcodes
+                Scanner Active
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSearch} className="space-y-4">
+          <form onSubmit={handleSearch} className="space-y-2">
             <div>
-              <Label htmlFor="visitorId">Visitor ID Input</Label>
+              <Label htmlFor="visitorId" className="text-sm">
+                Visitor ID
+              </Label>
               <div className="flex gap-2 mt-1">
                 <Input
                   id="visitorId"
                   ref={inputRef}
                   type="text"
                   placeholder={
-                    isCameraOpen
-                      ? "Camera scanner active - or type here..."
-                      : "Scan here..."
+                    isCameraOpen ? "Camera active..." : "Type or scan ID..."
                   }
                   value={visitorId}
                   onChange={(e) => setVisitorId(e.target.value.toUpperCase())}
-                  className="flex-1 text-lg font-mono placeholder:text-gray-300"
+                  className="flex-1 h-9 text-base font-mono"
                   autoFocus={!isCameraOpen}
                   autoComplete="off"
                 />
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading} className="h-9 px-3">
                   {loading ? (
                     <Loading
                       size="sm"
@@ -530,19 +562,24 @@ const Scanner = () => {
                     />
                   ) : (
                     <>
-                      <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
+                      <MagnifyingGlassIcon className="h-4 w-4 mr-1" />
                       Search
                     </>
                   )}
                 </Button>
-                <Button type="button" variant="outline" onClick={handleClear}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClear}
+                  className="h-9 px-3"
+                >
                   Reset
                 </Button>
               </div>
             </div>
 
-            {/* Place Selection */}
-            {places.length > 0 ? (
+            {/* Place Selection - Hidden, now shown in header */}
+            {/* {places.length > 0 ? (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg">
                 <Label
                   htmlFor="placeSelect"
@@ -586,40 +623,42 @@ const Scanner = () => {
                   </div>
                 </div>
               )
-            )}
+            )} */}
           </form>
         </CardContent>
       </Card>
 
-      {/* Visitor Details */}
+      {/* Visitor Details - Enhanced */}
       {visitor && (
         <div className="space-y-6 animate-fade-in-up">
-          {/* Main Info Card */}
-          <Card className="border-t-4 border-t-green-500 shadow-lg">
-            <CardHeader className="bg-green-50/50 pb-2">
+          {/* Main Info Card - Enhanced */}
+          <Card className="border-t-8 border-t-green-500 shadow-2xl bg-gradient-to-br from-white to-green-50/30 dark:from-gray-800 dark:to-green-900/10">
+            <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white pb-4 pt-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-green-800">
-                  <CheckCircleIcon className="h-6 w-6" />
-                  Visitor Found
+                <CardTitle className="flex items-center gap-3 text-white text-2xl">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <CheckCircleIcon className="h-7 w-7" />
+                  </div>
+                  ✅ Visitor Found
                 </CardTitle>
                 <Badge
                   className={
                     visitor.status === "checked-in"
-                      ? "bg-blue-500"
-                      : "bg-green-500"
+                      ? "bg-blue-600 text-white text-base px-4 py-2"
+                      : "bg-white text-green-600 text-base px-4 py-2 font-bold"
                   }
                 >
                   {visitor.status === "checked-in"
-                    ? "Checked In"
-                    : "Registered"}
+                    ? "✓ Checked In"
+                    : "📝 Registered"}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Left: Photo & Basics */}
+                {/* Left: Photo & Basics - Enhanced */}
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-48 h-48 rounded-full border-4 border-white shadow-xl overflow-hidden mb-4 bg-muted relative">
+                  <div className="w-56 h-56 rounded-full border-8 border-green-500 shadow-2xl overflow-hidden mb-6 bg-muted relative ring-4 ring-green-200 dark:ring-green-800">
                     <VisitorAvatar
                       photo={visitor.photo}
                       name={visitor.name}
@@ -631,78 +670,80 @@ const Scanner = () => {
                         ] ||
                         fileManagerPhotos[visitor.visitorId || visitor.id]
                       }
-                      className="w-full h-full"
+                      className="w-full h-full object-cover"
                     />
                   </div>
-                  <h2 className="text-2xl font-bold text-foreground">
+                  <h2 className="text-3xl font-bold text-foreground mb-2">
                     {visitor.name}
                   </h2>
                   <Badge
                     variant="outline"
-                    className="mt-2 text-lg px-4 py-1 border-green-200 bg-green-50 text-green-800"
+                    className="mt-2 text-xl px-6 py-2 border-2 border-green-500 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 font-mono font-bold"
                   >
                     {visitor.visitorId}
                   </Badge>
-                  <span className="mt-2 text-sm font-semibold text-muted-foreground uppercase tracking-widest">
+                  <span className="mt-3 text-base font-bold text-green-600 dark:text-green-400 uppercase tracking-widest">
                     {visitor.category || "General"}
                   </span>
                 </div>
 
-                {/* Middle: Detailed Info */}
+                {/* Middle: Detailed Info - Enhanced */}
                 <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <BuildingOfficeIcon className="h-5 w-5 text-muted-foreground mt-1" />
+                    <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/10 border border-blue-200 dark:border-blue-800">
+                      <BuildingOfficeIcon className="h-6 w-6 text-blue-600 dark:text-blue-400 mt-1" />
                       <div>
-                        <p className="text-xs text-muted-foreground uppercase font-semibold">
+                        <p className="text-xs text-blue-700 dark:text-blue-300 uppercase font-bold tracking-wide mb-1">
                           Company
                         </p>
-                        <p className="text-foreground font-medium">
+                        <p className="text-foreground font-bold text-base">
                           {visitor.companyName || "N/A"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <PhoneIcon className="h-5 w-5 text-muted-foreground mt-1" />
+                    {/* <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/10 border border-purple-200 dark:border-purple-800">
+                      <PhoneIcon className="h-6 w-6 text-purple-600 dark:text-purple-400 mt-1" />
                       <div>
-                        <p className="text-xs text-muted-foreground uppercase font-semibold">
+                        <p className="text-xs text-purple-700 dark:text-purple-300 uppercase font-bold tracking-wide mb-1">
                           Contact
                         </p>
-                        <p className="text-foreground">{visitor.contact}</p>
+                        <p className="text-foreground font-bold text-base">
+                          {visitor.contact}
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <MapPinIcon className="h-5 w-5 text-muted-foreground mt-1" />
+                    </div> */}
+                    <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/20 dark:to-orange-800/10 border border-orange-200 dark:border-orange-800">
+                      <MapPinIcon className="h-6 w-6 text-orange-600 dark:text-orange-400 mt-1" />
                       <div>
-                        <p className="text-xs text-muted-foreground uppercase font-semibold">
+                        <p className="text-xs text-orange-700 dark:text-orange-300 uppercase font-bold tracking-wide mb-1">
                           City
                         </p>
-                        <p className="text-foreground">
+                        <p className="text-foreground font-bold text-base">
                           {visitor.city || "N/A"}
                         </p>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <TicketIcon className="h-5 w-5 text-muted-foreground mt-1" />
+                    <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100/50 dark:from-indigo-900/20 dark:to-indigo-800/10 border border-indigo-200 dark:border-indigo-800">
+                      <TicketIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400 mt-1" />
                       <div>
-                        <p className="text-xs text-muted-foreground uppercase font-semibold">
+                        <p className="text-xs text-indigo-700 dark:text-indigo-300 uppercase font-bold tracking-wide mb-1">
                           Designation/Prof
                         </p>
-                        <p className="text-foreground">
+                        <p className="text-foreground font-bold text-base">
                           {visitor.professions || "N/A"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <EnvelopeIcon className="h-5 w-5 text-muted-foreground mt-1" />
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase font-semibold">
+                    <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-pink-50 to-pink-100/50 dark:from-pink-900/20 dark:to-pink-800/10 border border-pink-200 dark:border-pink-800">
+                      <EnvelopeIcon className="h-6 w-6 text-pink-600 dark:text-pink-400 mt-1" />
+                      <div className="flex-1">
+                        <p className="text-xs text-pink-700 dark:text-pink-300 uppercase font-bold tracking-wide mb-1">
                           Email
                         </p>
                         <p
-                          className="text-foreground text-sm truncate max-w-[150px]"
+                          className="text-foreground font-semibold text-sm break-all"
                           title={visitor.email}
                         >
                           {visitor.email || "N/A"}
@@ -710,10 +751,55 @@ const Scanner = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Scan Location Display - Shows where visitor was scanned */}
+                  {selectedPlace && places && places.length > 0 && (
+                    <div className="col-span-2">
+                      <div className="flex items-center gap-4 p-4 rounded-lg bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-2 border-green-300 dark:border-green-700">
+                        <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                          <MapPinIcon className="h-7 w-7 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          {/* <p className="text-xs text-green-700 dark:text-green-300 uppercase font-semibold mb-1">
+                            📍 Scanned At
+                          </p> */}
+                          <h3 className="text-xl font-bold text-green-900 dark:text-green-100">
+                            {places.find((p) => p._id === selectedPlace)
+                              ?.name || "Unknown Location"}
+                          </h3>
+                          {/* {places.find((p) => p._id === selectedPlace)
+                            ?.placeCode && (
+                            <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                              Code:{" "}
+                              {
+                                places.find((p) => p._id === selectedPlace)
+                                  ?.placeCode
+                              }
+                            </p>
+                          )} */}
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-green-600 text-white text-sm px-3 py-1">
+                            ✓ Verified
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* History Button */}
+          <div className="flex justify-center mt-4">
+            <Link to={`/visitors/history/${visitor._id || visitor.id}`}>
+              <Button className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 text-lg">
+                <ClockIcon className="h-5 w-5" />
+                View Activity History
+              </Button>
+            </Link>
+          </div>
 
           {/* Travel & Stay Info */}
           {visitor.travelDetails && visitor.travelDetails.length > 0 && (
