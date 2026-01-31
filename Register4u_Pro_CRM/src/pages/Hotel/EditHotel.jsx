@@ -14,6 +14,7 @@ import {
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 import { API_BASE_URL } from "../../lib/api";
+import { useConfirm } from "../../hooks/useConfirm";
 
 const EditHotel = () => {
   const { id } = useParams();
@@ -21,6 +22,7 @@ const EditHotel = () => {
   const { token } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const [formData, setFormData] = useState({
     hotelName: "",
@@ -179,8 +181,16 @@ const EditHotel = () => {
     );
   };
 
-  const clearAllRoomNumbers = (categoryIndex) => {
-    if (window.confirm("Are you sure you want to clear all room numbers?")) {
+  const clearAllRoomNumbers = async (categoryIndex) => {
+    const confirmed = await confirm({
+      title: "Clear All Room Numbers",
+      message:
+        "Are you sure you want to clear all room numbers? This action cannot be undone.",
+      confirmText: "Clear All",
+      variant: "danger",
+    });
+
+    if (confirmed) {
       setCategories((prev) =>
         prev.map((category, i) =>
           i === categoryIndex ? { ...category, roomNumbers: [] } : category
@@ -280,6 +290,7 @@ const EditHotel = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button

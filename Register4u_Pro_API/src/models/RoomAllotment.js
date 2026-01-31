@@ -21,6 +21,12 @@ const roomAllotmentSchema = new mongoose.Schema({
   visitorNumber: {
     type: String
   },
+  occupancy: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 10
+  },
   checkInDate: {
     type: Date
   },

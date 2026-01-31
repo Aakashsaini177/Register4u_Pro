@@ -20,6 +20,7 @@ import {
   ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import { FolderIcon as FolderSolid } from "@heroicons/react/24/solid";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const FileManager = () => {
   const [currentFolder, setCurrentFolder] = useState(null);
@@ -31,6 +32,7 @@ const FileManager = () => {
   const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [renamingNode, setRenamingNode] = useState(null);
   const [renameValue, setRenameValue] = useState("");
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchNodes();
@@ -179,7 +181,15 @@ const FileManager = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    const confirmed = await confirm({
+      title: "Delete File",
+      message:
+        "Are you sure you want to delete this item? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       await fileManagerAPI.delete(id);
@@ -192,8 +202,15 @@ const FileManager = () => {
 
   const handleBulkDelete = async () => {
     if (selectedNodes.length === 0) return;
-    if (!window.confirm(`Delete ${selectedNodes.length} selected items?`))
-      return;
+
+    const confirmed = await confirm({
+      title: "Delete Selected Files",
+      message: `Are you sure you want to delete ${selectedNodes.length} selected items? This action cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await fileManagerAPI.bulkDelete(selectedNodes);
@@ -207,34 +224,45 @@ const FileManager = () => {
 
   const handleBulkExport = async () => {
     if (selectedNodes.length === 0) return;
-    
-    const toastId = toast.loading(`Preparing ${selectedNodes.length} files for export...`);
-    
+
+    const toastId = toast.loading(
+      `Preparing ${selectedNodes.length} files for export...`
+    );
+
     try {
       const response = await fileManagerAPI.bulkExport(selectedNodes);
-      
+
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      
+
       // Generate filename with timestamp
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      link.setAttribute('download', `exported-files-${timestamp}.zip`);
-      
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/:/g, "-");
+      link.setAttribute("download", `exported-files-${timestamp}.zip`);
+
       // Trigger download
       document.body.appendChild(link);
       link.click();
       link.remove();
-      
+
       // Cleanup
       window.URL.revokeObjectURL(url);
-      
-      toast.success(`Successfully exported ${selectedNodes.length} files`, { id: toastId });
+
+      toast.success(`Successfully exported ${selectedNodes.length} files`, {
+        id: toastId,
+      });
       setSelectedNodes([]); // Clear selection after export
     } catch (error) {
       console.error("Export failed:", error);
-      toast.error("Failed to export files: " + (error.response?.data?.message || error.message), { id: toastId });
+      toast.error(
+        "Failed to export files: " +
+          (error.response?.data?.message || error.message),
+        { id: toastId }
+      );
     }
   };
 
@@ -305,6 +333,7 @@ const FileManager = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

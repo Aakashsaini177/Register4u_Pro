@@ -16,6 +16,7 @@ import {
 import { TableSkeleton, PageLoading } from "@/components/ui/Loading";
 import { useMinimumLoading } from "@/hooks/useMinimumLoading";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -30,6 +31,7 @@ const Event = () => {
   const [loading, withMinimumLoading] = useMinimumLoading(600);
   const [searchTerm, setSearchTerm] = useState("");
   const [initialLoad, setInitialLoad] = useState(true);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchEvents();
@@ -51,7 +53,16 @@ const Event = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure?")) return;
+    const confirmed = await confirm({
+      title: "Delete Event",
+      message:
+        "Are you sure you want to delete this event? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
+
     try {
       const response = await eventAPI.delete(id);
       if (response.data.success) {
@@ -70,6 +81,7 @@ const Event = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">

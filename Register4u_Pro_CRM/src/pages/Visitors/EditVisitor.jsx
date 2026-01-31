@@ -15,7 +15,7 @@ const EditVisitor = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [visitorData, setVisitorData] = useState(null);
   const [existingDocuments, setExistingDocuments] = useState({});
-  
+
   // Hotel/Driver Allotment Modal States
   const [showHotelModal, setShowHotelModal] = useState(false);
   const [showDriverModal, setShowDriverModal] = useState(false);
@@ -164,7 +164,7 @@ const EditVisitor = () => {
             <p className="text-gray-600 mt-1">Update visitor information</p>
           </div>
         </div>
-        
+
         {/* Hotel and Driver Allot Buttons - Only show in edit mode */}
         <div className="flex gap-3">
           <Button
@@ -193,16 +193,17 @@ const EditVisitor = () => {
           defaultValues={visitorData}
           existingDocuments={existingDocuments}
           isPublic={false}
+          isEditMode={true}
         />
       )}
-      
+
       {/* Hotel Allotment Modal */}
       <HotelAllotmentModal
         isOpen={showHotelModal}
         onClose={handleHotelModalClose}
         visitorData={visitorData}
       />
-      
+
       {/* Driver Allotment Modal */}
       <DriverAllotmentModal
         isOpen={showDriverModal}

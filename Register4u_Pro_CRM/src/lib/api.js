@@ -2,17 +2,24 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 
-// API Configuration from Environment Variables
-  // export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
-  // export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
-  // export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
-  // export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
+// API Configuration from Environment Variables local  
+// export const API_BASE_URL =  import.meta.env.VITE_API_BASE_URL || "http://localhost:4002/api/v1";
+// export const UPLOADS_BASE_URL =  import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:4002/uploads";
+// export const SERVER_BASE_URL =  import.meta.env.VITE_SERVER_BASE_URL || "http://localhost:4002";
+// export const PORTAL_API_BASE_URL =  import.meta.env.VITE_PORTAL_API_BASE_URL || "http://localhost:4002/api/v1/portal";
 
 // Production URLs (Render.com) - Commented for local development
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1";
-export const UPLOADS_BASE_URL = import.meta.env.VITE_UPLOADS_BASE_URL || "https://register4u-pro.onrender.com/uploads";
-export const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
-export const PORTAL_API_BASE_URL = import.meta.env.VITE_PORTAL_API_BASE_URL || "https://register4u-pro.onrender.com/api/v1/portal";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://register4u-pro.onrender.com/api/v1";
+export const UPLOADS_BASE_URL =
+  import.meta.env.VITE_UPLOADS_BASE_URL ||
+  "https://register4u-pro.onrender.com/uploads";
+export const SERVER_BASE_URL =
+  import.meta.env.VITE_SERVER_BASE_URL || "https://register4u-pro.onrender.com";
+export const PORTAL_API_BASE_URL =
+  import.meta.env.VITE_PORTAL_API_BASE_URL ||
+  "https://register4u-pro.onrender.com/api/v1/portal";
 
 // External Services URLs
 export const QR_CODE_API =
@@ -39,7 +46,7 @@ export const getPhotoUrl = (photoPath) => {
 // Helper function to get image URL (handles both bulk and individual uploads)
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return null;
-  
+
   // Cloudinary or other absolute URLs - return as is
   if (imagePath.startsWith("http") || imagePath.startsWith("https"))
     return imagePath;
@@ -166,8 +173,7 @@ api.interceptors.response.use(
       switch (error.response.status) {
         case 401:
           // Unauthorized - clear token and redirect to login
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          useAuthStore.getState().logout();
           window.location.href = "/login";
           toast.error(
             error.response.data?.message ||
@@ -279,7 +285,8 @@ export const visitorAPI = {
   getActivityHistory: (id) => api.get(`/visitors/${id}/activity`),
   getScanHistory: () => api.get("/visitors/scan/history"),
   logView: (id) => api.post(`/visitors/${id}/view`),
-  requestBarcodeWithLogging: (visitorId) => api.get(`/barcode-auth/${visitorId}`),
+  requestBarcodeWithLogging: (visitorId) =>
+    api.get(`/barcode-auth/${visitorId}`),
 };
 
 export const categoryAPI = {
@@ -354,8 +361,10 @@ export const hotelAPI = {
   delete: (id) => api.delete(`/hotels/${id}`),
   getInventoryStatus: (date) =>
     api.get("/hotels/inventory-status", { params: { date } }),
-  getAllotmentsByVisitorId: (visitorId) => 
-    api.get(`/hotels/allotments/visitor/${visitorId}`, { skipErrorHandling: true }),
+  getAllotmentsByVisitorId: (visitorId) =>
+    api.get(`/hotels/allotments/visitor/${visitorId}`, {
+      skipErrorHandling: true,
+    }),
 };
 
 export const reportAPI = {
@@ -387,8 +396,10 @@ export const driverAPI = {
     api.get(`/drivers/reports/daily`, { params: { date } }),
   getWorkReport: (startDate, endDate) =>
     api.get(`/drivers/reports/work`, { params: { startDate, endDate } }),
-  getAllotmentsByVisitorId: (visitorId) => 
-    api.get(`/drivers/allotments/visitor/${visitorId}`, { skipErrorHandling: true }),
+  getAllotmentsByVisitorId: (visitorId) =>
+    api.get(`/drivers/allotments/visitor/${visitorId}`, {
+      skipErrorHandling: true,
+    }),
 };
 
 export const requirementAPI = {
@@ -412,26 +423,30 @@ export const fileManagerAPI = {
       // First get root folders
       const rootResponse = await api.get("/files/list");
       const rootFolders = rootResponse.data.data || [];
-      
+
       // Find photo folder
-      const photoFolder = rootFolders.find(folder => 
-        folder.type === "folder" && folder.name.toLowerCase() === "photo"
+      const photoFolder = rootFolders.find(
+        (folder) =>
+          folder.type === "folder" && folder.name.toLowerCase() === "photo"
       );
-      
+
       if (!photoFolder) {
         return { data: { success: true, data: [] } };
       }
-      
+
       // Get files from photo folder
-      const photosResponse = await api.get("/files/list", { 
-        params: { parentId: photoFolder._id } 
+      const photosResponse = await api.get("/files/list", {
+        params: { parentId: photoFolder._id },
       });
-      
+
       // Filter only image files
-      const imageFiles = (photosResponse.data.data || []).filter(file => 
-        file.type === "file" && file.mimeType && file.mimeType.startsWith("image/")
+      const imageFiles = (photosResponse.data.data || []).filter(
+        (file) =>
+          file.type === "file" &&
+          file.mimeType &&
+          file.mimeType.startsWith("image/")
       );
-      
+
       return { data: { success: true, data: imageFiles } };
     } catch (error) {
       console.error("Error fetching photos from photo folder:", error);
@@ -446,8 +461,13 @@ export const fileManagerAPI = {
 
   // Upload a file
   upload: (file, parentId = null) => {
-    console.log("🚀 API upload called with:", { fileName: file.name, fileSize: file.size, fileType: file.type, parentId });
-    
+    console.log("🚀 API upload called with:", {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      parentId,
+    });
+
     const formData = new FormData();
     formData.append("file", file);
     if (parentId) formData.append("parentId", parentId);
@@ -461,15 +481,18 @@ export const fileManagerAPI = {
     console.log("🚀 Making API call to /files/upload");
 
     // Make the request - let axios handle Content-Type for FormData
-    return api.post('/files/upload', formData).then(response => {
-      console.log("🚀 Upload successful:", response.data);
-      return response;
-    }).catch(error => {
-      console.error("🚀 Upload failed:", error);
-      console.error("🚀 Error response:", error.response?.data);
-      console.error("🚀 Error status:", error.response?.status);
-      throw error;
-    });
+    return api
+      .post("/files/upload", formData)
+      .then((response) => {
+        console.log("🚀 Upload successful:", response.data);
+        return response;
+      })
+      .catch((error) => {
+        console.error("🚀 Upload failed:", error);
+        console.error("🚀 Error response:", error.response?.data);
+        console.error("🚀 Error status:", error.response?.status);
+        throw error;
+      });
   },
 
   // Delete a node (file or folder)
@@ -482,7 +505,8 @@ export const fileManagerAPI = {
   bulkDelete: (ids) => api.post("/files/bulk-delete", { ids }),
 
   // Bulk export selected files
-  bulkExport: (ids) => api.post("/files/bulk-export", { ids }, { responseType: 'blob' }),
+  bulkExport: (ids) =>
+    api.post("/files/bulk-export", { ids }, { responseType: "blob" }),
 
   // Seed defaults (auto-run if needed)
   seed: () => api.post("/files/seed"),

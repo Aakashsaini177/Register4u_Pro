@@ -14,7 +14,7 @@ const roomBookingSchema = new mongoose.Schema(
     },
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "RoomCategory",
+      ref: "HotelCategory",
       required: true,
     },
     occupancy: {

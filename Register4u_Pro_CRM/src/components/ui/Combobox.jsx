@@ -34,7 +34,7 @@ const Combobox = ({
   const normalizedOptions = options.map((opt) =>
     typeof opt === "object"
       ? opt
-      : { label: opt?.toString(), value: opt?.toString() }
+      : { label: opt?.toString(), value: opt?.toString() },
   );
 
   // Sync internal query with external value if it matches an option or if freeSolo
@@ -79,7 +79,7 @@ const Combobox = ({
     query === ""
       ? normalizedOptions
       : normalizedOptions.filter((opt) =>
-          opt.label.toLowerCase().includes(query.toLowerCase())
+          opt.label.toLowerCase().includes(query.toLowerCase()),
         );
 
   const handleSelect = (optionValue) => {
@@ -114,7 +114,7 @@ const Combobox = ({
         ref={triggerRef}
         className={`flex items-center w-full rounded-md border ${
           error ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-        } bg-white dark:bg-gray-800 focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500`}
+        } ${disabled ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-70" : "bg-white dark:bg-gray-800"} focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500`}
       >
         <input
           ref={inputRef}

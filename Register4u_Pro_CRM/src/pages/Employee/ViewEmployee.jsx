@@ -8,6 +8,7 @@ import { PageLoading } from "@/components/ui/Loading";
 import { Label } from "@/components/ui/Label";
 import { Input } from "@/components/ui/Input";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -16,6 +17,7 @@ import {
 import { formatDateTime } from "@/lib/utils";
 
 const ViewEmployee = () => {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const { id } = useParams();
@@ -69,9 +71,13 @@ const ViewEmployee = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this employee?")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete Employee",
+      message: "Are you sure you want to delete this employee? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
 
     try {
       const response = await employeeAPI.delete(id);

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { PageLoading } from "@/components/ui/Loading";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -21,6 +22,7 @@ const ViewCompany = () => {
   const [loading, setLoading] = useState(true);
   const { id } = useParams();
   const navigate = useNavigate();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchCompany();
@@ -45,9 +47,15 @@ const ViewCompany = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this company?")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete Company",
+      message:
+        "Are you sure you want to delete this company? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await companyAPI.delete(id);
@@ -68,6 +76,7 @@ const ViewCompany = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

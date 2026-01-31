@@ -24,6 +24,7 @@ import { Badge } from "../../components/ui/Badge";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 import { SERVER_BASE_URL } from "@/lib/api";
+import { useConfirm } from "../../hooks/useConfirm";
 
 const ViewTravel = () => {
   const { id } = useParams();
@@ -31,6 +32,7 @@ const ViewTravel = () => {
   const { token } = useAuthStore();
   const [travel, setTravel] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     if (id) {
@@ -40,15 +42,12 @@ const ViewTravel = () => {
 
   const fetchTravelDetails = async () => {
     try {
-      const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/travel/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -67,20 +66,24 @@ const ViewTravel = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this travel detail?"))
-      return;
+    const confirmed = await confirm({
+      title: "Delete Travel Detail",
+      message:
+        "Are you sure you want to delete this travel detail? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
-      const response = await fetch(
-        `${SERVER_BASE_URL}/api/v1/travel/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${SERVER_BASE_URL}/api/v1/travel/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         toast.success("Travel detail deleted successfully");
@@ -130,6 +133,7 @@ const ViewTravel = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button

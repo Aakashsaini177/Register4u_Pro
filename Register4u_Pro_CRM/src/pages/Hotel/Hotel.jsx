@@ -24,6 +24,7 @@ import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../store/authStore";
 import { SERVER_BASE_URL } from "@/lib/api";
 import { hotelAPI } from "../../lib/api";
+import { useConfirm } from "../../hooks/useConfirm";
 
 const Hotel = () => {
   const [hotels, setHotels] = useState([]);
@@ -32,6 +33,7 @@ const Hotel = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const navigate = useNavigate();
   const { token } = useAuthStore();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchHotels();
@@ -54,7 +56,15 @@ const Hotel = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this hotel?")) return;
+    const confirmed = await confirm({
+      title: "Delete Hotel",
+      message: "Are you sure you want to delete this hotel? This action cannot be undone and will remove all associated rooms and bookings.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`${SERVER_BASE_URL}/api/v1/hotels/${id}`, {
@@ -95,7 +105,9 @@ const Hotel = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <ConfirmDialog />
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -269,6 +281,7 @@ const Hotel = () => {
         </Card>
       )}
     </div>
+    </>
   );
 };
 

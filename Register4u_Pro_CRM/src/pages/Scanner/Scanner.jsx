@@ -94,11 +94,11 @@ const Scanner = () => {
   const fetchMyPlaces = async () => {
     try {
       setLoadingPlaces(true);
-      const response = await api.get('/places/my-places');
+      const response = await api.get("/places/my-places");
       if (response.data.success) {
         const placesData = response.data.data || [];
         setPlaces(placesData);
-        
+
         // Auto-select place logic - ALWAYS auto-select if employee has places
         if (placesData.length === 1) {
           // Auto-select if only one place
@@ -107,11 +107,13 @@ const Scanner = () => {
         } else if (placesData.length > 1) {
           // Auto-select first place if multiple (employee can change if needed)
           setSelectedPlace(placesData[0]._id);
-          console.log(`Auto-selected first place: ${placesData[0].name} (employee can change if needed)`);
+          console.log(
+            `Auto-selected first place: ${placesData[0].name} (employee can change if needed)`,
+          );
         }
       }
     } catch (error) {
-      console.error('Error fetching places:', error);
+      console.error("Error fetching places:", error);
       // Don't show error toast as this might not be available for all employees
     } finally {
       setLoadingPlaces(false);
@@ -174,21 +176,21 @@ const Scanner = () => {
       if (selectedPlace) {
         scanData.placeId = selectedPlace;
       }
-      
+
       const response = await api.post("/visitors/scan", scanData);
 
       if (response.data.success) {
         const foundVisitor = response.data.data;
         setVisitor(foundVisitor);
-        
-        const selectedPlaceName = places.find(p => p._id === selectedPlace);
-        const successMessage = selectedPlaceName 
+
+        const selectedPlaceName = places.find((p) => p._id === selectedPlace);
+        const successMessage = selectedPlaceName
           ? `Visitor found: ${foundVisitor.name} at ${selectedPlaceName.name}`
           : `Visitor found: ${foundVisitor.name}`;
-        
+
         toast.success(successMessage);
         setVisitorId("");
-        
+
         // Update scan history
         fetchScanHistory();
       } else {
@@ -239,16 +241,20 @@ const Scanner = () => {
           photoMap[photo.name] = photo.url;
           photoMap[nameWithoutExt] = photo.url;
 
-          console.log(`📸 [Scanner] Mapped photo: ${photo.name} -> ${photo.url}`);
+          console.log(
+            `📸 [Scanner] Mapped photo: ${photo.name} -> ${photo.url}`,
+          );
         });
 
         setFileManagerPhotos(photoMap);
         console.log(
           `📸 [Scanner] Total photos mapped: ${Object.keys(photoMap).length / 2}`,
-          photoMap
+          photoMap,
         );
       } else {
-        console.log("📸 [Scanner] No photos found in file manager photo folder");
+        console.log(
+          "📸 [Scanner] No photos found in file manager photo folder",
+        );
       }
     } catch (error) {
       console.error("❌ [Scanner] Failed to fetch file manager photos:", error);
@@ -290,7 +296,7 @@ const Scanner = () => {
       // Get video input devices using navigator.mediaDevices
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(
-        (device) => device.kind === "videoinput"
+        (device) => device.kind === "videoinput",
       );
       const selectedDeviceId = videoDevices[0]?.deviceId;
 
@@ -332,7 +338,7 @@ const Scanner = () => {
             if (err && !(err.name === "NotFoundException")) {
               console.error("Scanner Error:", err);
             }
-          }
+          },
         );
       } else {
         // Fallback: use default camera
@@ -360,7 +366,7 @@ const Scanner = () => {
             if (err && !(err.name === "NotFoundException")) {
               console.error("Scanner Error:", err);
             }
-          }
+          },
         );
       }
     } catch (error) {
@@ -405,15 +411,13 @@ const Scanner = () => {
             <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
               <MagnifyingGlassIcon className="h-8 w-8 text-white" />
             </div>
-            
+
             <div>
-              <h1 className="text-3xl font-bold">
-                Visitor Scanner
-              </h1>
+              <h1 className="text-3xl font-bold">Visitor Scanner</h1>
               <p className="text-blue-100 mt-1">
                 Find visitor details by scanning or typing ID
               </p>
-              
+
               {/* Employee Info */}
               {isEmployee() && employee && (
                 <div className="flex items-center gap-2 mt-2 text-sm text-blue-100">
@@ -426,18 +430,22 @@ const Scanner = () => {
               )}
             </div>
           </div>
-          
+
           <div className="text-right">
             <p className="text-blue-100 text-sm">Scanner Status</p>
             <p className="text-lg font-semibold">
               {isCameraOpen ? "Camera Active" : "Ready"}
             </p>
             <div className="mt-2">
-              <div className={`inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs ${
-                token ? 'text-green-200' : 'text-red-200'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${token ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                {token ? 'Authenticated' : 'Guest Mode'}
+              <div
+                className={`inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs ${
+                  token ? "text-green-200" : "text-red-200"
+                }`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${token ? "bg-green-400" : "bg-red-400"}`}
+                ></div>
+                {token ? "Authenticated" : "Guest Mode"}
               </div>
             </div>
           </div>
@@ -536,7 +544,10 @@ const Scanner = () => {
             {/* Place Selection */}
             {places.length > 0 ? (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded-lg">
-                <Label htmlFor="placeSelect" className="text-green-700 dark:text-green-300 font-medium">
+                <Label
+                  htmlFor="placeSelect"
+                  className="text-green-700 dark:text-green-300 font-medium"
+                >
                   📍 Scanning Location (Auto-Selected)
                 </Label>
                 <div className="flex items-center gap-2 mt-1">
@@ -557,37 +568,25 @@ const Scanner = () => {
                   </select>
                 </div>
                 <p className="text-sm text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
-                  ✅ All scans will be automatically logged for: {places.find(p => p._id === selectedPlace)?.name}
+                  ✅ All scans will be automatically logged for:{" "}
+                  {places.find((p) => p._id === selectedPlace)?.name}
                   {places.length > 1 && (
-                    <span className="text-green-500 dark:text-green-400 ml-2">(You can change if needed)</span>
+                    <span className="text-green-500 dark:text-green-400 ml-2">
+                      (You can change if needed)
+                    </span>
                   )}
                 </p>
               </div>
-            ) : !loadingPlaces && (
-              <div className="border-2 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
-                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
-                  <MapPinIcon className="h-5 w-5" />
-                  <span className="font-medium">No Places Assigned</span>
+            ) : (
+              !loadingPlaces && (
+                <div className="border-2 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+                    <MapPinIcon className="h-5 w-5" />
+                    <span className="font-medium">No Places Assigned</span>
+                  </div>
                 </div>
-                <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
-                  You are not assigned to any places. Scans will be logged without location tracking. Contact admin to assign you to a place.
-                </p>
-              </div>
+              )
             )}
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-800 dark:text-blue-200">
-              <strong>Instructions:</strong>
-              <ul className="list-disc pl-5 mt-1 space-y-1">
-                <li>
-                  Use <strong>Camera Scanner</strong> for QR codes & Barcodes
-                </li>
-                <li>
-                  Use handheld <strong>Barcode Scanner</strong> (cursor
-                  auto-focuses)
-                </li>
-                <li>Visitor found → View full details below</li>
-              </ul>
-            </div>
           </form>
         </CardContent>
       </Card>
@@ -630,9 +629,7 @@ const Scanner = () => {
                         fileManagerPhotos[
                           visitor.photo?.replace(/\.[^/.]+$/, "")
                         ] ||
-                        fileManagerPhotos[
-                          visitor.visitorId || visitor.id
-                        ]
+                        fileManagerPhotos[visitor.visitorId || visitor.id]
                       }
                       className="w-full h-full"
                     />
@@ -680,7 +677,9 @@ const Scanner = () => {
                         <p className="text-xs text-muted-foreground uppercase font-semibold">
                           City
                         </p>
-                        <p className="text-foreground">{visitor.city || "N/A"}</p>
+                        <p className="text-foreground">
+                          {visitor.city || "N/A"}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -728,8 +727,8 @@ const Scanner = () => {
                       {travel.type === "arrival"
                         ? "Arrival"
                         : travel.type === "departure"
-                        ? "Departure"
-                        : "Itinerary"}
+                          ? "Departure"
+                          : "Itinerary"}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 space-y-4">
@@ -743,7 +742,7 @@ const Scanner = () => {
                             ? formatDate(travel.arrivalDate, travel.arrivalTime)
                             : formatDate(
                                 travel.departureDate,
-                                travel.departureTime
+                                travel.departureTime,
                               )}
                         </p>
                       </div>
@@ -831,10 +830,11 @@ const Scanner = () => {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-foreground">
-                      {scan.visitor?.name || 'Unknown Visitor'}
+                      {scan.visitor?.name || "Unknown Visitor"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      ID: {scan.visitor?.visitorId} • {scan.visitor?.companyName || 'No Company'}
+                      ID: {scan.visitor?.visitorId} •{" "}
+                      {scan.visitor?.companyName || "No Company"}
                     </p>
                   </div>
                   <div className="text-right">

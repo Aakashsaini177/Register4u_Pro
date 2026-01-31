@@ -209,14 +209,6 @@ const PrintScanner = () => {
                    "Use QR scanner, barcode gun, or type visitor ID"}
                 </p>
 
-                <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
-                  <strong>Instructions:</strong>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    <li>Use <strong>QR Scanner</strong> for phone QR codes</li>
-                    <li>Use handheld <strong>Barcode Scanner</strong> (cursor auto-focuses)</li>
-                    <li>Visitor found → <strong>Print ID Card</strong> option appears</li>
-                  </ul>
-                </div>
               </form>
         </CardContent>
       </Card>

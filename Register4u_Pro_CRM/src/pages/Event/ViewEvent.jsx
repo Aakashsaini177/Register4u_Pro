@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { PageLoading } from "@/components/ui/Loading";
 import toast from "react-hot-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   ArrowLeftIcon,
   PencilIcon,
@@ -22,6 +23,7 @@ const ViewEvent = () => {
   const [loading, setLoading] = useState(true);
   const { id } = useParams();
   const navigate = useNavigate();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchEvent();
@@ -46,9 +48,15 @@ const ViewEvent = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this event?")) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: "Delete Event",
+      message:
+        "Are you sure you want to delete this event? This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+
+    if (!confirmed) return;
 
     try {
       const response = await eventAPI.delete(id);
@@ -84,6 +92,7 @@ const ViewEvent = () => {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog />
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

@@ -23,16 +23,18 @@ const placeSchema = new mongoose.Schema(
       default: "active",
     },
     // Assigned employees
-    assignedEmployees: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Employee",
-    }],
+    assignedEmployees: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Employee",
+      },
+    ],
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 // Virtual for assigned employees count
@@ -64,7 +66,6 @@ placeSchema.pre("save", async function (next) {
 
 // Indexes for better performance
 placeSchema.index({ name: 1 });
-placeSchema.index({ placeCode: 1 });
 placeSchema.index({ status: 1 });
 placeSchema.index({ assignedEmployees: 1 });
 

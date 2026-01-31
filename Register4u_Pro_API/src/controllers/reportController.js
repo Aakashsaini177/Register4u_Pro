@@ -54,43 +54,64 @@ exports.getRoomCategorySummary = async (req, res) => {
     let bookings = [];
 
     if (isGeneral) {
-      // Aggregate from Allotments
-      const allotments = await RoomAllotment.aggregate([
-        {
-          $match: {
-            status: { $in: ["booked", "checked-in", "checked-out"] }, // Count all valid allotments
-            // Note: checked-out rooms are technically 'used' in the past?
-            // Usually 'Used' implies 'Occupied' or 'Reserved for future'.
-            // If report is "Current Status", checked-out should be free?
-            // User asked for "Used Rooms" count. Usually 'booked' + 'checked-in'.
-          },
-        },
-        // We need category ID. Allotment has roomId via Link, or we can assume linked.
-        // Let's Lookup Room to get Category
-        {
-          $lookup: {
-            from: "hotelrooms", // collection name
-            localField: "roomId",
-            foreignField: "_id",
-            as: "room",
-          },
-        },
-        { $unwind: "$room" },
-        {
-          $group: {
-            _id: { hotelId: "$hotelId", categoryId: "$room.categoryId" },
-            used: { $sum: 1 }, // One allotment = 1 room used
-          },
-        },
-      ]);
+      // Logic: 'Used' means Room is FULL (based on capacity)
+      // 1. Fetch active Allotments
+      const allotments = await RoomAllotment.find({
+        status: { $in: ["booked", "checked-in"] },
+        hotelId: { $in: hotelIds },
+      }).select("roomId hotelId occupancy");
 
-      // Populate Category Names
-      bookings = await RoomCategory.populate(allotments, {
-        path: "_id.categoryId",
-        select: "name",
+      // 2. Fetch Hotels with Rooms & Categories (Capacity)
+      const hotelsWithRooms = await Hotel.find({
+        _id: { $in: hotelIds },
+      })
+        .populate({
+          path: "categories",
+          populate: { path: "rooms" },
+        })
+        .lean();
+
+      // 3. Calculate Room Occupancy Sum
+      const roomOccupancyMap = {};
+      allotments.forEach((a) => {
+        if (a.roomId) {
+          const rId = a.roomId.toString();
+          const pax = parseInt(a.occupancy) || 1;
+          roomOccupancyMap[rId] = (roomOccupancyMap[rId] || 0) + pax;
+        }
       });
+
+      // 4. Calculate Full Rooms per Hotel-Category
+      // We need an array structure like the aggregation result: { _id: { hotelId, categoryId }, used: amount }
+      const categoryStats = [];
+
+      hotelsWithRooms.forEach((hotel) => {
+        hotel.categories?.forEach((cat) => {
+          let fullCount = 0;
+          if (cat.rooms) {
+            cat.rooms.forEach((room) => {
+              const rId = room._id.toString();
+              const currentLoad = roomOccupancyMap[rId] || 0;
+              const max = cat.occupancy || 1;
+              if (currentLoad >= max) {
+                fullCount++;
+              }
+            });
+          }
+
+          if (fullCount > 0) {
+            categoryStats.push({
+              _id: { hotelId: hotel._id, categoryId: cat._id },
+              categoryName: cat.categoryName, // Pass name directly
+              used: fullCount,
+            });
+          }
+        });
+      });
+
+      bookings = categoryStats;
     } else {
-      // Event Specific Logic (Existing)
+      // Event Specific Logic - Use RoomBooking with HotelCategory
       const rawBookings = await RoomBooking.aggregate([
         { $match: { eventId: new mongoose.Types.ObjectId(eventId) } },
         {
@@ -101,10 +122,10 @@ exports.getRoomCategorySummary = async (req, res) => {
         },
       ]);
 
-      // Populate Category Names for mapping
-      bookings = await RoomCategory.populate(rawBookings, {
+      // Populate HotelCategory Names
+      bookings = await HotelCategory.populate(rawBookings, {
         path: "_id.categoryId",
-        select: "name",
+        select: "categoryName",
       });
     }
 
@@ -145,23 +166,19 @@ exports.getRoomCategorySummary = async (req, res) => {
     // Fill Used Rooms (Bookings)
     for (const booking of bookings) {
       const hId = booking._id.hotelId.toString();
-      // booking._id.categoryId is the populated object now
-      const catName = booking._id.categoryId
-        ? booking._id.categoryId.name.trim()
-        : null;
+      // booking._id.categoryId is the populated HotelCategory object
+      // booking._id.categoryId is the populated HotelCategory object
+      const catName = booking.categoryName
+        ? booking.categoryName.trim()
+        : booking._id.categoryId && booking._id.categoryId.categoryName
+          ? booking._id.categoryId.categoryName.trim()
+          : null;
 
       if (hotelMap[hId] && catName) {
-        // Find matching column by name (loose match)
-        // Ensure the column exists (it might be a Master Category not in HotelCategory?)
-        // If it exists in our columns list:
+        // Match by category name
         if (hotelMap[hId].categories[catName]) {
           hotelMap[hId].categories[catName].used += booking.used;
           hotelMap[hId].usedRooms += booking.used;
-        } else {
-          // New column needed? For now, ignore or log mismatch
-          // const newKey = `${catName} (Ext)`;
-          // hotelMap[hId].categories[newKey] = { total: 0, used: booking.used };
-          // hotelMap[hId].usedRooms += booking.used;
         }
       }
     }
@@ -186,7 +203,23 @@ exports.getPaxSummary = async (req, res) => {
     let paxStats = [];
     const isGeneral = eventId === "general";
 
-    if (!isGeneral) {
+    if (isGeneral) {
+      // General Summary: Aggregate from RoomAllotment
+      paxStats = await RoomAllotment.aggregate([
+        {
+          $match: {
+            status: { $in: ["booked", "checked-in"] },
+          },
+        },
+        {
+          $group: {
+            _id: { hotelId: "$hotelId", occupancy: "$occupancy" },
+            used: { $sum: 1 },
+          },
+        },
+      ]);
+    } else {
+      // Event Specific: Use RoomBooking
       paxStats = await RoomBooking.aggregate([
         { $match: { eventId: new mongoose.Types.ObjectId(eventId) } },
         {
@@ -205,6 +238,7 @@ exports.getPaxSummary = async (req, res) => {
     } else {
       eventHotels = await EventHotel.find({ eventId }).populate("hotelId");
     }
+
     const reportData = eventHotels.map((eh) => ({
       hotelId: eh.hotelId._id,
       hotelName: eh.hotelId.hotelName,
@@ -251,18 +285,64 @@ exports.getHotelWiseSummary = async (req, res) => {
       { $group: { _id: "$hotelId", total: { $sum: "$numberOfRooms" } } },
     ]);
 
-    let bookingSum = [];
+    let bookingSum = []; // Will store { _id: hotelId, used: count }
     if (isGeneral) {
-      // Master Summary: Aggregate from RoomAllotment
-      bookingSum = await RoomAllotment.aggregate([
-        {
-          $match: {
-            status: { $in: ["booked", "checked-in"] },
-            hotelId: { $in: hotelIds },
-          },
-        },
-        { $group: { _id: "$hotelId", used: { $sum: 1 } } },
-      ]);
+      // Master Summary: Calculate Full Rooms based on Capacity
+
+      // 1. Fetch all active allotments for these hotels
+      const allotments = await RoomAllotment.find({
+        status: { $in: ["booked", "checked-in"] },
+        hotelId: { $in: hotelIds },
+      }).select("roomId hotelId occupancy");
+
+      // 2. Fetch all rooms with category capacity
+      // We need to know capacity of each room to determine if it is Full
+      const hotelsWithRooms = await Hotel.find({
+        _id: { $in: hotelIds },
+      })
+        .populate({
+          path: "categories",
+          populate: { path: "rooms" }, // Need individual rooms to map IDs
+        })
+        .lean();
+
+      // 3. Calculate Occupancy Per Room
+      const roomOccupancyMap = {}; // roomId -> totalPax
+      allotments.forEach((a) => {
+        if (a.roomId) {
+          const rId = a.roomId.toString(); // assuming just ID string or OID
+          const pax = parseInt(a.occupancy) || 1;
+          roomOccupancyMap[rId] = (roomOccupancyMap[rId] || 0) + pax;
+        }
+      });
+
+      // 4. Count Full Rooms per Hotel
+      const hotelFullCount = {}; // hotelId -> count
+
+      hotelsWithRooms.forEach((hotel) => {
+        const hId = hotel._id.toString();
+        let fullCount = 0;
+
+        hotel.categories?.forEach((cat) => {
+          if (cat.rooms) {
+            cat.rooms.forEach((room) => {
+              const rId = room._id.toString();
+              const currentLoad = roomOccupancyMap[rId] || 0;
+              const max = cat.occupancy || 1;
+              if (currentLoad >= max) {
+                fullCount++;
+              }
+            });
+          }
+        });
+        hotelFullCount[hId] = fullCount;
+      });
+
+      // Transform to match structure expected by map below
+      bookingSum = Object.keys(hotelFullCount).map((hId) => ({
+        _id: hId, // String ID
+        used: hotelFullCount[hId],
+      }));
     } else {
       bookingSum = await RoomBooking.aggregate([
         { $match: { eventId: new mongoose.Types.ObjectId(eventId) } },
@@ -272,10 +352,11 @@ exports.getHotelWiseSummary = async (req, res) => {
 
     const reportData = targetHotels.map((hotel) => {
       const inv = inventorySum.find(
-        (i) => i._id.toString() === hotel._id.toString()
+        (i) => i._id.toString() === hotel._id.toString(),
       );
+      // Helper check for string vs ObjectId match
       const bk = bookingSum.find(
-        (b) => b._id.toString() === hotel._id.toString()
+        (b) => b._id.toString() === hotel._id.toString(),
       );
       const total = inv ? inv.total : 0;
       const used = bk ? bk.used : 0;
@@ -283,8 +364,8 @@ exports.getHotelWiseSummary = async (req, res) => {
       return {
         hotelName: hotel.hotelName,
         totalRooms: total,
-        usedRooms: used,
-        inHand: total - used,
+        usedRooms: used, // Now represents FULL rooms
+        inHand: total - used, // Available (Empty + Partial)
       };
     });
 
@@ -299,49 +380,128 @@ exports.getHotelWiseSummary = async (req, res) => {
 exports.getDateWiseSummary = async (req, res) => {
   try {
     const { eventId } = req.params;
-    // Group by Date + Category (across all hotels or specific?)
-    // Requirement: Category | 21-Mar | 22-Mar | Total
-
     const isGeneral = eventId === "general";
     let bookings = [];
 
-    if (!isGeneral) {
+    if (isGeneral) {
+      // General Summary: Aggregate from RoomAllotment
+      const allotments = await RoomAllotment.aggregate([
+        {
+          $match: {
+            status: { $in: ["booked", "checked-in"] },
+            checkInDate: { $exists: true },
+            checkOutDate: { $exists: true },
+          },
+        },
+        // Lookup Room to get Category
+        {
+          $lookup: {
+            from: "hotelrooms",
+            localField: "roomId",
+            foreignField: "_id",
+            as: "room",
+          },
+        },
+        { $unwind: "$room" },
+        // Lookup HotelCategory
+        {
+          $lookup: {
+            from: "hotelcategories",
+            localField: "room.categoryId",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: "$category" },
+        // Generate date range for each allotment
+        {
+          $project: {
+            categoryId: "$room.categoryId",
+            categoryName: "$category.categoryName",
+            checkInDate: 1,
+            checkOutDate: 1,
+          },
+        },
+      ]);
+
+      // Expand date ranges
+      const dateMap = {};
+      for (const allot of allotments) {
+        const start = new Date(allot.checkInDate);
+        const end = new Date(allot.checkOutDate);
+        let current = new Date(start);
+
+        while (current < end) {
+          const dateStr = current.toISOString().split("T")[0];
+          const key = `${dateStr}_${allot.categoryId}`;
+
+          if (!dateMap[key]) {
+            dateMap[key] = {
+              date: dateStr,
+              categoryId: allot.categoryId,
+              categoryName: allot.categoryName,
+              used: 0,
+            };
+          }
+          dateMap[key].used += 1;
+          current.setDate(current.getDate() + 1);
+        }
+      }
+
+      bookings = Object.values(dateMap).map((item) => ({
+        _id: { date: item.date, categoryId: item.categoryId },
+        categoryName: item.categoryName,
+        used: item.used,
+      }));
+    } else {
+      // Event Specific: Use RoomBooking
       bookings = await RoomBooking.aggregate([
         { $match: { eventId: new mongoose.Types.ObjectId(eventId) } },
+        {
+          $lookup: {
+            from: "hotelcategories",
+            localField: "categoryId",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: "$category" },
         {
           $group: {
             _id: {
               date: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
               categoryId: "$categoryId",
             },
+            categoryName: { $first: "$category.categoryName" },
             used: { $sum: "$roomsBooked" },
           },
         },
       ]);
     }
 
-    const categories = await RoomCategory.find().lean();
-    const reportData = categories.map((cat) => ({
-      categoryId: cat._id,
-      categoryName: cat.name,
-      dates: {},
-      totalUsed: 0,
-    }));
-
+    // Get unique categories
+    const categoryMap = {};
     const allDates = new Set();
 
     for (const b of bookings) {
-      const row = reportData.find(
-        (r) => r.categoryId.toString() === b._id.categoryId.toString()
-      );
-      if (row) {
-        row.dates[b._id.date] = b.used;
-        row.totalUsed += b.used;
-        allDates.add(b._id.date);
+      const catId = b._id.categoryId.toString();
+      const catName = b.categoryName || "Unknown";
+
+      if (!categoryMap[catId]) {
+        categoryMap[catId] = {
+          categoryId: catId,
+          categoryName: catName,
+          dates: {},
+          totalUsed: 0,
+        };
       }
+
+      categoryMap[catId].dates[b._id.date] = b.used;
+      categoryMap[catId].totalUsed += b.used;
+      allDates.add(b._id.date);
     }
 
-    // Sort dates
+    const reportData = Object.values(categoryMap);
     const sortedDates = Array.from(allDates).sort();
 
     res.json({ success: true, dates: sortedDates, data: reportData });

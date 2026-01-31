@@ -46,7 +46,8 @@ const RoomAllotment = () => {
     visitorId: "",
     visitorName: "",
     visitorNumber: "",
-    checkInDate: "",
+    occupancy: "1",
+    checkInDate: new Date().toISOString().split("T")[0],
     checkOutDate: "",
     remarks: "",
   });
@@ -87,35 +88,62 @@ const RoomAllotment = () => {
         `${SERVER_BASE_URL}/api/v1/hotels/${hotelId}/rooms/available?${query}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (response.ok) {
         const resData = await response.json();
-        const availableList = resData.data; // List of available room objects
+        const availableList = resData.data;
 
-        // Map availability status to existing rooms
-        // We need to merge this with the full list of rooms (structure) to keep styling
-        // But we don't have the full list in 'availableList', only available ones.
-        // So we need to access the 'base' view.
-        // Problem: 'rooms' state is currently holding the "view".
-        // Let's rely on 'hotel' state to rebuild 'rooms'.
-
-        if (hotel && hotel.categories) {
-          const updatedRooms = [];
-          const availableIds = new Set(
-            availableList.map((r) => r.id.toString())
+        // Ensure we have base hotel details
+        let baseHotel = hotel;
+        if (!baseHotel) {
+          const hotelRes = await fetch(
+            `${SERVER_BASE_URL}/api/v1/hotels/${hotelId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
           );
+          if (hotelRes.ok) {
+            const hData = await hotelRes.json();
+            baseHotel = hData.data;
+            setHotel(baseHotel);
+          }
+        }
 
-          hotel.categories.forEach((category) => {
+        if (baseHotel && baseHotel.categories) {
+          const updatedRooms = [];
+          const availabilityMap = new Map();
+          availableList.forEach((r) => {
+            availabilityMap.set(r.id.toString(), r);
+          });
+
+          baseHotel.categories.forEach((category) => {
             category.rooms?.forEach((room) => {
-              const isAvailable = availableIds.has(room._id.toString());
+              const rId = room._id.toString();
+              const availableData = availabilityMap.get(rId);
+
+              const isAvailable = !!availableData;
+
+              const currentOcc = availableData
+                ? availableData.currentOccupancy
+                : isAvailable
+                  ? 0
+                  : category.occupancy;
+
               updatedRooms.push({
                 ...room,
-                id: room._id, // Ensure ID consistency
+                id: room._id,
                 categoryName: category.categoryName,
                 occupancy: category.occupancy,
                 status: isAvailable ? "available" : "occupied",
+                currentOccupancy: currentOcc,
+                maxOccupancy: category.occupancy,
+                detailStatus: isAvailable
+                  ? currentOcc > 0
+                    ? "partial"
+                    : "empty"
+                  : "full",
               });
             });
           });
@@ -138,7 +166,7 @@ const RoomAllotment = () => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.ok) {
@@ -237,12 +265,12 @@ const RoomAllotment = () => {
             ...formData,
             hotelId: hotelId, // Send as string, backend expects ObjectId
           }),
-        }
+        },
       );
 
       if (response.ok) {
         toast.success(
-          "Room allotted successfully! SMS notification sent to visitor."
+          "Room allotted successfully! SMS notification sent to visitor.",
         );
         navigate("/hotel");
       } else {
@@ -258,6 +286,27 @@ const RoomAllotment = () => {
   };
 
   const selectedRoom = rooms.find((room) => room.id === formData.roomId); // Compare strings
+
+  // Auto-correct occupancy if it exceeds limit for selected room
+  useEffect(() => {
+    if (selectedRoom) {
+      const current = selectedRoom.currentOccupancy || 0;
+      const capacity = selectedRoom.maxOccupancy || selectedRoom.occupancy || 1;
+      const remaining = capacity - current;
+
+      if (parseInt(formData.occupancy) > remaining) {
+        // Reset to max possible or 1
+        const newMax = remaining > 0 ? remaining : 1;
+        setFormData((prev) => ({ ...prev, occupancy: newMax.toString() }));
+
+        if (remaining > 0 && parseInt(formData.occupancy) !== newMax) {
+          toast.error(
+            `Occupancy adjusted to ${newMax} based on room availability.`,
+          );
+        }
+      }
+    }
+  }, [selectedRoom, formData.occupancy]);
 
   if (loading && !hotel) {
     return (
@@ -312,7 +361,7 @@ const RoomAllotment = () => {
                       acc[room.categoryName].available++;
                     }
                     return acc;
-                  }, {})
+                  }, {}),
                 ).map(([category, stats]) => (
                   <div
                     key={category}
@@ -349,59 +398,149 @@ const RoomAllotment = () => {
                     setFormData((prev) => ({ ...prev, roomId: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger
+                    displayValue={
+                      selectedRoom
+                        ? `${selectedRoom.roomNumber} (${selectedRoom.categoryName})`
+                        : undefined
+                    }
+                  >
                     <SelectValue placeholder="Choose a room" />
                   </SelectTrigger>
                   <SelectContent>
                     {/* Group rooms by Category - Flattened for Select component compatibility */}
-                    {Object.entries(
-                      rooms.reduce((acc, room) => {
+                    {(() => {
+                      const grouped = rooms.reduce((acc, room) => {
                         if (!acc[room.categoryName])
                           acc[room.categoryName] = [];
                         acc[room.categoryName].push(room);
                         return acc;
-                      }, {})
-                    ).map(([category, categoryRooms]) => [
-                      <div
-                        key={`cat-${category}`}
-                        className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase bg-gray-50 dark:bg-gray-800"
-                      >
-                        {category}
-                      </div>,
-                      ...categoryRooms.map((room) => (
-                        <SelectItem
-                          key={room.id}
-                          value={room.id.toString()}
-                          disabled={room.status !== "available"}
-                          className={
-                            room.status !== "available" ? "opacity-50" : ""
-                          }
-                        >
-                          <span className="flex items-center justify-between w-full min-w-[200px]">
-                            <span>
-                              {room.roomNumber} (Occ: {room.occupancy})
-                            </span>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded uppercase ml-2 ${
-                                room.status === "available"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-red-100 text-red-700"
-                              }`}
+                      }, {});
+
+                      const options = [];
+                      Object.entries(grouped).forEach(
+                        ([category, categoryRooms]) => {
+                          // Add Category Header
+                          options.push(
+                            <div
+                              key={`cat-${category}`}
+                              className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase bg-gray-50 dark:bg-gray-700"
                             >
-                              {room.status === "occupied"
-                                ? "Occupied"
-                                : "Available"}
-                            </span>
-                          </span>
-                        </SelectItem>
-                      )),
-                    ])}
+                              {category}
+                            </div>,
+                          );
+                          // Add Rooms
+                          categoryRooms.forEach((room) => {
+                            options.push(
+                              <SelectItem
+                                key={room.id}
+                                value={room.id.toString()}
+                                disabled={room.status !== "available"}
+                                className={
+                                  room.status !== "available"
+                                    ? "opacity-50"
+                                    : ""
+                                }
+                              >
+                                <span className="flex items-center justify-between w-full min-w-[200px]">
+                                  <span>
+                                    {room.roomNumber} (
+                                    {room.currentOccupancy || 0}/
+                                    {room.maxOccupancy || room.occupancy})
+                                  </span>
+                                  <span
+                                    className={`text-[10px] px-1.5 py-0.5 rounded uppercase ml-2 ${
+                                      room.detailStatus === "empty"
+                                        ? "bg-green-100 text-green-700"
+                                        : room.detailStatus === "partial"
+                                          ? "bg-yellow-100 text-yellow-700"
+                                          : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {room.detailStatus === "full"
+                                      ? "Full"
+                                      : room.detailStatus === "partial"
+                                        ? "Partial"
+                                        : "Available"}
+                                  </span>
+                                </span>
+                              </SelectItem>,
+                            );
+                          });
+                        },
+                      );
+                      return options;
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Room Usage Type - Moved here */}
+              {selectedRoom &&
+                (selectedRoom.maxOccupancy > 1 ||
+                  selectedRoom.occupancy > 1) && (
+                  <div className="mt-4 mb-4">
+                    <Label className="mb-2 block text-sm font-medium">
+                      Room Usage Type
+                    </Label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="usageType"
+                          checked={formData.usageType !== "private"}
+                          onChange={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              usageType: "shared",
+                              occupancy: "1",
+                            }));
+                          }}
+                          className="w-4 h-4 text-primary"
+                        />
+                        <span className="text-sm font-medium">
+                          Shared (Allocate per Bed)
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="usageType"
+                          checked={formData.usageType === "private"}
+                          onChange={() => {
+                            const cap =
+                              selectedRoom.maxOccupancy ||
+                              selectedRoom.occupancy ||
+                              1;
+                            const current = selectedRoom.currentOccupancy || 0;
+                            const remaining = cap - current;
+                            setFormData((prev) => ({
+                              ...prev,
+                              usageType: "private",
+                              occupancy: remaining.toString(),
+                            }));
+                          }}
+                          disabled={
+                            selectedRoom.status !== "available" &&
+                            selectedRoom.detailStatus !== "empty"
+                          }
+                          className="w-4 h-4 text-primary"
+                        />
+                        <span className="text-sm font-medium">
+                          Private (Book Full Room)
+                        </span>
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.usageType === "private"
+                        ? "Booking entire room. No other guests allowed."
+                        : "Other guests may be allotted to remaining beds."}
+                    </p>
+                  </div>
+                )}
+
               {selectedRoom && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700">
                   <h4 className="font-medium mb-2 text-primary">
                     Selected Room Details
                   </h4>
@@ -502,6 +641,73 @@ const RoomAllotment = () => {
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="occupancy">Number of Guests (Pax) *</Label>
+                <Select
+                  value={formData.occupancy}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, occupancy: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select occupancy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      // Logic to limit guests based on remaining capacity
+                      let maxGuests = 10;
+                      if (selectedRoom) {
+                        const current = selectedRoom.currentOccupancy || 0;
+                        const capacity =
+                          selectedRoom.maxOccupancy ||
+                          selectedRoom.occupancy ||
+                          2; // Default to 2 if unknown
+                        const remaining = capacity - current;
+                        maxGuests = remaining > 0 ? remaining : 0;
+                      }
+
+                      // Generate options
+                      if (maxGuests <= 0) {
+                        // Should be disabled ideally, but show 0 or "Full"
+                        return (
+                          <SelectItem value="0" disabled>
+                            No slots available
+                          </SelectItem>
+                        );
+                      }
+
+                      return Array.from(
+                        { length: maxGuests },
+                        (_, i) => i + 1,
+                      ).map((num) => (
+                        <SelectItem key={num} value={num.toString()}>
+                          {num} {num === 1 ? "Person" : "Persons"}
+                        </SelectItem>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedRoom ? (
+                    <span
+                      className={
+                        (selectedRoom.maxOccupancy || selectedRoom.occupancy) -
+                          (selectedRoom.currentOccupancy || 0) ===
+                        1
+                          ? "text-orange-600 font-medium"
+                          : ""
+                      }
+                    >
+                      Max allowed:{" "}
+                      {(selectedRoom.maxOccupancy || selectedRoom.occupancy) -
+                        (selectedRoom.currentOccupancy || 0)}{" "}
+                      guests
+                    </span>
+                  ) : (
+                    "How many guests will stay in this room?"
+                  )}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -535,6 +741,7 @@ const RoomAllotment = () => {
                 />
               </div>
             </div>
+
             <div>
               <Label htmlFor="remarks">Remarks</Label>
               <Textarea

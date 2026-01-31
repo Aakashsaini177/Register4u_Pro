@@ -17,31 +17,43 @@ exports.getAllVisitors = asyncHandler(async (req, res) => {
 
     // Enhanced Search with Company Name, City, Category Name & Travel Details
     if (search) {
-      const searchRegex = new RegExp(search, "i");
+      const searchTerm = search.trim();
+      const searchRegex = new RegExp(searchTerm, "i");
 
       // 1. Find Categories matching search term
       const { TravelDetail, Category } = require("../models");
       const matchingCategories = await Category.find({
-        name: searchRegex
-      }).select("_id").lean();
-      
-      const categoryIds = matchingCategories.map(cat => cat._id.toString());
+        name: searchRegex,
+      })
+        .select("_id")
+        .lean();
+
+      const categoryIds = matchingCategories.map((cat) => cat._id.toString());
 
       // 2. Build comprehensive search query
+      const orConditions = [
+        // Direct field searches
+        { visitorId: searchRegex },
+        { name: searchRegex },
+        { email: searchRegex },
+        { contact: searchRegex },
+        { city: searchRegex },
+        { companyName: searchRegex },
+
+        // Category searches (both name and ID)
+        { category: searchRegex }, // Direct category name
+        { category: { $in: categoryIds } }, // Category by ID reference
+      ];
+
+      // Check if search term is a valid ObjectId (24 char hex)
+      if (searchTerm.match(/^[0-9a-fA-F]{24}$/)) {
+        orConditions.push({ _id: searchTerm });
+        // Also add to category ID if it might be a category ID
+        categoryIds.push(searchTerm);
+      }
+
       const searchQuery = {
-        $or: [
-          // Direct field searches
-          { visitorId: searchRegex },
-          { name: searchRegex },
-          { email: searchRegex },
-          { contact: searchRegex },
-          { city: searchRegex },
-          { companyName: searchRegex },
-          
-          // Category searches (both name and ID)
-          { category: searchRegex }, // Direct category name
-          { category: { $in: categoryIds } }, // Category by ID reference
-        ],
+        $or: orConditions,
       };
 
       // 3. Find Visitors matching enhanced search
@@ -58,7 +70,7 @@ exports.getAllVisitors = asyncHandler(async (req, res) => {
             const cat = await Category.findById(v.category).select("name");
             if (cat) categoryName = cat.name;
           }
-          
+
           // If categoryName is still undefined/null, keep original category or set to empty string
           if (!categoryName) {
             categoryName = v.category || "";
@@ -87,10 +99,12 @@ exports.getAllVisitors = asyncHandler(async (req, res) => {
             category: categoryName, // Override with name
             travelDetails: travelInfo, // Add travel info
           };
-        })
+        }),
       );
 
-      console.log(`✅ Enhanced Search: Found ${enrichedVisitors.length} visitors for "${search}"`);
+      console.log(
+        `✅ Enhanced Search: Found ${enrichedVisitors.length} visitors for "${search}"`,
+      );
 
       return res.status(200).json({
         message: "Get All Visitors",
@@ -235,7 +249,7 @@ exports.createVisitor = async (req, res) => {
     // Handle file uploads
     console.log(
       "📁 File upload check:",
-      req.files ? Object.keys(req.files) : "No files"
+      req.files ? Object.keys(req.files) : "No files",
     );
 
     if (req.files) {
@@ -244,7 +258,11 @@ exports.createVisitor = async (req, res) => {
       const fs = require("fs");
 
       // Helper to sync files to File Manager with proper naming
-      const syncToFileManager = async (originalFile, newFileName, folderName) => {
+      const syncToFileManager = async (
+        originalFile,
+        newFileName,
+        folderName,
+      ) => {
         try {
           if (!originalFile || !newFileName) return null;
 
@@ -268,11 +286,11 @@ exports.createVisitor = async (req, res) => {
           // Get file extension from original file
           const ext = path.extname(originalFile.originalname);
           const finalFileName = `${newFileName}${ext}`;
-          
+
           // Create new file path
           const uploadsDir = path.join(__dirname, "../../uploads");
           const newFilePath = path.join(uploadsDir, finalFileName);
-          
+
           // Copy/rename the uploaded file
           if (fs.existsSync(originalFile.path)) {
             fs.copyFileSync(originalFile.path, newFilePath);
@@ -295,7 +313,9 @@ exports.createVisitor = async (req, res) => {
               size: originalFile.size || 0,
               mimeType: originalFile.mimetype || "image/jpeg",
             });
-            console.log(`📁 Added to file manager: ${finalFileName} in ${folderName}`);
+            console.log(
+              `📁 Added to file manager: ${finalFileName} in ${folderName}`,
+            );
           }
 
           return finalFileName;
@@ -309,13 +329,19 @@ exports.createVisitor = async (req, res) => {
       if (req.files.photo) {
         const photoFile = req.files.photo[0];
         console.log(`📸 Photo Uploaded: ${photoFile.path}`);
-        console.log(`🔧 DEBUG: Using UPDATED photo upload logic - Cloudinary only!`);
-        
+        console.log(
+          `🔧 DEBUG: Using UPDATED photo upload logic - Cloudinary only!`,
+        );
+
         // Always use Cloudinary URL if available, and store it properly in file manager
-        if (photoFile.path && (photoFile.path.includes('cloudinary') || photoFile.path.startsWith('http'))) {
+        if (
+          photoFile.path &&
+          (photoFile.path.includes("cloudinary") ||
+            photoFile.path.startsWith("http"))
+        ) {
           visitorData.photo = photoFile.path; // Keep Cloudinary URL in visitor record
           console.log(`✅ Cloudinary URL detected: ${photoFile.path}`);
-          
+
           // Add to file manager with Cloudinary URL (not local path)
           try {
             const { FileNode } = require("../models");
@@ -333,7 +359,7 @@ exports.createVisitor = async (req, res) => {
               });
             }
 
-            const ext = path.extname(photoFile.originalname) || '.jpg';
+            const ext = path.extname(photoFile.originalname) || ".jpg";
             const finalFileName = `${newVisitorId}${ext}`;
 
             const existingNode = await FileNode.findOne({
@@ -350,32 +376,47 @@ exports.createVisitor = async (req, res) => {
                 size: photoFile.size || 0,
                 mimeType: photoFile.mimetype || "image/jpeg",
               });
-              console.log(`📁 ✅ CLOUDINARY: Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+              console.log(
+                `📁 ✅ CLOUDINARY: Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`,
+              );
             } else {
-              console.log(`📁 Photo already exists in file manager: ${finalFileName}`);
+              console.log(
+                `📁 Photo already exists in file manager: ${finalFileName}`,
+              );
             }
           } catch (error) {
             console.error("Error adding photo to file manager:", error);
           }
         } else {
           // Local file handling (fallback) - only if not Cloudinary
-          console.log(`⚠️  WARNING: Photo is not Cloudinary URL, using local fallback: ${photoFile.path}`);
-          const photoFileName = await syncToFileManager(photoFile, newVisitorId, "photo");
-          visitorData.photo = photoFileName ? `/uploads/${photoFileName}` : photoFile.path;
+          console.log(
+            `⚠️  WARNING: Photo is not Cloudinary URL, using local fallback: ${photoFile.path}`,
+          );
+          const photoFileName = await syncToFileManager(
+            photoFile,
+            newVisitorId,
+            "photo",
+          );
+          visitorData.photo = photoFileName
+            ? `/uploads/${photoFileName}`
+            : photoFile.path;
         }
       }
 
       // Handle ID proof documents
       visitorData.documents = {};
-      
+
       // Helper function to handle document with Cloudinary support
       const handleDocument = async (fileArray, fileName, folderName) => {
         if (!fileArray || !fileArray[0]) return null;
-        
+
         const file = fileArray[0];
-        
+
         // If file is on Cloudinary, use that URL and add to file manager
-        if (file.path && (file.path.includes('cloudinary') || file.path.startsWith('http'))) {
+        if (
+          file.path &&
+          (file.path.includes("cloudinary") || file.path.startsWith("http"))
+        ) {
           try {
             const { FileNode } = require("../models");
             let folder = await FileNode.findOne({
@@ -392,7 +433,7 @@ exports.createVisitor = async (req, res) => {
               });
             }
 
-            const ext = path.extname(file.originalname) || '.jpg';
+            const ext = path.extname(file.originalname) || ".jpg";
             const finalFileName = `${fileName}${ext}`;
 
             const existingNode = await FileNode.findOne({
@@ -409,40 +450,61 @@ exports.createVisitor = async (req, res) => {
                 size: file.size || 0,
                 mimeType: file.mimetype || "image/jpeg",
               });
-              console.log(`📁 Added ${fileName} to file manager with Cloudinary URL`);
+              console.log(
+                `📁 Added ${fileName} to file manager with Cloudinary URL`,
+              );
             }
           } catch (error) {
             console.error(`Error adding ${fileName} to file manager:`, error);
           }
-          
+
           return file.path; // Return Cloudinary URL
         } else {
           // Local file handling
-          const localFileName = await syncToFileManager(file, fileName, folderName);
+          const localFileName = await syncToFileManager(
+            file,
+            fileName,
+            folderName,
+          );
           return localFileName ? `/uploads/${localFileName}` : file.path;
         }
       };
 
       // Aadhar Front
       if (req.files.aadharFront) {
-        visitorData.documents.aadharFront = await handleDocument(req.files.aadharFront, `aadhrFR_${newVisitorId}`, "idproof");
+        visitorData.documents.aadharFront = await handleDocument(
+          req.files.aadharFront,
+          `aadhrFR_${newVisitorId}`,
+          "idproof",
+        );
       }
 
       // Aadhar Back
       if (req.files.aadharBack) {
-        visitorData.documents.aadharBack = await handleDocument(req.files.aadharBack, `aadhrBK_${newVisitorId}`, "idproof");
+        visitorData.documents.aadharBack = await handleDocument(
+          req.files.aadharBack,
+          `aadhrBK_${newVisitorId}`,
+          "idproof",
+        );
       }
 
       // PAN Card
       if (req.files.panFront) {
-        visitorData.documents.panFront = await handleDocument(req.files.panFront, `PAN_${newVisitorId}`, "idproof");
+        visitorData.documents.panFront = await handleDocument(
+          req.files.panFront,
+          `PAN_${newVisitorId}`,
+          "idproof",
+        );
       }
 
       // PAN Back (if needed)
       if (req.files.panBack) {
-        visitorData.documents.panBack = await handleDocument(req.files.panBack, `PANBACK_${newVisitorId}`, "idproof");
+        visitorData.documents.panBack = await handleDocument(
+          req.files.panBack,
+          `PANBACK_${newVisitorId}`,
+          "idproof",
+        );
       }
-
     } else if (req.body.photo) {
       // Handle photo URL from file manager
       console.log("📸 Photo URL from file manager:", req.body.photo);
@@ -461,7 +523,7 @@ exports.createVisitor = async (req, res) => {
       const userName = req.user ? req.user.name || req.user.fullName : "System";
       await ActivityLog.create({
         user: req.user ? req.user.id : null,
-        userModel: req.user ? 'Employee' : 'Admin', // Specify user type
+        userModel: req.user ? "Employee" : "Admin", // Specify user type
         action: "CREATE_VISITOR",
         module: "VISITOR",
         details: `Created visitor ${visitor.name} (${visitor.visitorId}) by ${userName}`,
@@ -555,7 +617,11 @@ exports.createPublicVisitor = async (req, res) => {
       const fs = require("fs");
 
       // Helper to sync files to File Manager with proper naming
-      const syncToFileManager = async (originalFile, newFileName, folderName) => {
+      const syncToFileManager = async (
+        originalFile,
+        newFileName,
+        folderName,
+      ) => {
         try {
           if (!originalFile || !newFileName) return null;
 
@@ -579,11 +645,11 @@ exports.createPublicVisitor = async (req, res) => {
           // Get file extension from original file
           const ext = path.extname(originalFile.originalname);
           const finalFileName = `${newFileName}${ext}`;
-          
+
           // Create new file path
           const uploadsDir = path.join(__dirname, "../../uploads");
           const newFilePath = path.join(uploadsDir, finalFileName);
-          
+
           // Copy/rename the uploaded file
           if (fs.existsSync(originalFile.path)) {
             fs.copyFileSync(originalFile.path, newFilePath);
@@ -606,7 +672,9 @@ exports.createPublicVisitor = async (req, res) => {
               size: originalFile.size || 0,
               mimeType: originalFile.mimetype || "image/jpeg",
             });
-            console.log(`📁 Added to file manager: ${finalFileName} in ${folderName}`);
+            console.log(
+              `📁 Added to file manager: ${finalFileName} in ${folderName}`,
+            );
           }
 
           return finalFileName;
@@ -619,11 +687,15 @@ exports.createPublicVisitor = async (req, res) => {
       // Handle visitor photo
       if (req.files.photo) {
         const photoFile = req.files.photo[0];
-        
+
         // Always use Cloudinary URL if available, and store it properly in file manager
-        if (photoFile.path && (photoFile.path.includes('cloudinary') || photoFile.path.startsWith('http'))) {
+        if (
+          photoFile.path &&
+          (photoFile.path.includes("cloudinary") ||
+            photoFile.path.startsWith("http"))
+        ) {
           visitorData.photo = photoFile.path; // Keep Cloudinary URL in visitor record
-          
+
           // Add to file manager with Cloudinary URL (not local path)
           try {
             const { FileNode } = require("../models");
@@ -641,7 +713,7 @@ exports.createPublicVisitor = async (req, res) => {
               });
             }
 
-            const ext = path.extname(photoFile.originalname) || '.jpg';
+            const ext = path.extname(photoFile.originalname) || ".jpg";
             const finalFileName = `${newVisitorId}${ext}`;
 
             const existingNode = await FileNode.findOne({
@@ -658,31 +730,44 @@ exports.createPublicVisitor = async (req, res) => {
                 size: photoFile.size || 0,
                 mimeType: photoFile.mimetype || "image/jpeg",
               });
-              console.log(`📁 Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+              console.log(
+                `📁 Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`,
+              );
             } else {
-              console.log(`📁 Photo already exists in file manager: ${finalFileName}`);
+              console.log(
+                `📁 Photo already exists in file manager: ${finalFileName}`,
+              );
             }
           } catch (error) {
             console.error("Error adding photo to file manager:", error);
           }
         } else {
           // Local file handling (fallback) - only if not Cloudinary
-          const photoFileName = await syncToFileManager(photoFile, newVisitorId, "photo");
-          visitorData.photo = photoFileName ? `/uploads/${photoFileName}` : photoFile.path;
+          const photoFileName = await syncToFileManager(
+            photoFile,
+            newVisitorId,
+            "photo",
+          );
+          visitorData.photo = photoFileName
+            ? `/uploads/${photoFileName}`
+            : photoFile.path;
         }
       }
 
       // Handle ID proof documents with Cloudinary support
       visitorData.documents = {};
-      
+
       // Helper function to handle document with Cloudinary support
       const handleDocument = async (fileArray, fileName, folderName) => {
         if (!fileArray || !fileArray[0]) return null;
-        
+
         const file = fileArray[0];
-        
+
         // If file is on Cloudinary, use that URL and add to file manager
-        if (file.path && (file.path.includes('cloudinary') || file.path.startsWith('http'))) {
+        if (
+          file.path &&
+          (file.path.includes("cloudinary") || file.path.startsWith("http"))
+        ) {
           try {
             const { FileNode } = require("../models");
             let folder = await FileNode.findOne({
@@ -699,7 +784,7 @@ exports.createPublicVisitor = async (req, res) => {
               });
             }
 
-            const ext = path.extname(file.originalname) || '.jpg';
+            const ext = path.extname(file.originalname) || ".jpg";
             const finalFileName = `${fileName}${ext}`;
 
             const existingNode = await FileNode.findOne({
@@ -716,38 +801,60 @@ exports.createPublicVisitor = async (req, res) => {
                 size: file.size || 0,
                 mimeType: file.mimetype || "image/jpeg",
               });
-              console.log(`📁 Added ${fileName} to file manager with Cloudinary URL`);
+              console.log(
+                `📁 Added ${fileName} to file manager with Cloudinary URL`,
+              );
             }
           } catch (error) {
             console.error(`Error adding ${fileName} to file manager:`, error);
           }
-          
+
           return file.path; // Return Cloudinary URL
         } else {
           // Local file handling
-          const localFileName = await syncToFileManager(file, fileName, folderName);
+          const localFileName = await syncToFileManager(
+            file,
+            fileName,
+            folderName,
+          );
           return localFileName ? `/uploads/${localFileName}` : file.path;
         }
       };
 
       // Aadhar Front
       if (req.files.aadharFront) {
-        visitorData.documents.aadharFront = await handleDocument(req.files.aadharFront, `aadhrFR_${newVisitorId}`, "idproof");
+        visitorData.documents.aadharFront = await handleDocument(
+          req.files.aadharFront,
+          `aadhrFR_${newVisitorId}`,
+          "idproof",
+        );
       }
 
       // Aadhar Back
       if (req.files.aadharBack) {
-        visitorData.documents.aadharBack = await handleDocument(req.files.aadharBack, `aadhrBK_${newVisitorId}`, "idproof");
+        visitorData.documents.aadharBack = await handleDocument(
+          req.files.aadharBack,
+          `aadhrBK_${newVisitorId}`,
+          "idproof",
+        );
       }
 
       // PAN Card
       if (req.files.panFront) {
-        visitorData.documents.panFront = await handleDocument(req.files.panFront, `PAN_${newVisitorId}`, "idproof");
+        visitorData.documents.panFront = await handleDocument(
+          req.files.panFront,
+          `PAN_${newVisitorId}`,
+          "idproof",
+        );
       }
 
       // PAN Back (if needed)
       if (req.files.panBack) {
-        visitorData.documents.panBack = await handleDocument(req.files.panBack, `PANBACK_${newVisitorId}`, "idproof");
+        visitorData.documents.panBack = await handleDocument(
+          req.files.panBack,
+          `PANBACK_${newVisitorId}`,
+          "idproof",
+        );
       }
     }
 
@@ -782,7 +889,7 @@ exports.createPublicVisitor = async (req, res) => {
           ],
         },
         { $inc: { usedCount: 1 } },
-        { new: true }
+        { new: true },
       );
 
       if (!invite) {
@@ -807,7 +914,7 @@ exports.createPublicVisitor = async (req, res) => {
       visitorData.inviteCode = invite.code;
       visitorData.inviteId = invite._id;
       console.log(
-        `🎟️ Invite ${invite.code} used. New count: ${invite.usedCount}`
+        `🎟️ Invite ${invite.code} used. New count: ${invite.usedCount}`,
       );
     }
 
@@ -871,13 +978,17 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
     // Handle file uploads with File Manager Sync
     if (req.files) {
       console.log("📁 Files uploaded:", Object.keys(req.files));
-      
+
       const { FileNode } = require("../models");
       const path = require("path");
       const fs = require("fs");
 
       // Helper to sync files to File Manager with proper naming
-      const syncToFileManager = async (originalFile, newFileName, folderName) => {
+      const syncToFileManager = async (
+        originalFile,
+        newFileName,
+        folderName,
+      ) => {
         try {
           if (!originalFile || !newFileName) return null;
 
@@ -901,11 +1012,11 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
           // Get file extension from original file
           const ext = path.extname(originalFile.originalname);
           const finalFileName = `${newFileName}${ext}`;
-          
+
           // Create new file path
           const uploadsDir = path.join(__dirname, "../../uploads");
           const newFilePath = path.join(uploadsDir, finalFileName);
-          
+
           // Copy/rename the uploaded file
           if (fs.existsSync(originalFile.path)) {
             fs.copyFileSync(originalFile.path, newFilePath);
@@ -928,7 +1039,9 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
               size: originalFile.size || 0,
               mimeType: originalFile.mimetype || "image/jpeg",
             });
-            console.log(`📁 Added to file manager: ${finalFileName} in ${folderName}`);
+            console.log(
+              `📁 Added to file manager: ${finalFileName} in ${folderName}`,
+            );
           }
 
           return finalFileName;
@@ -942,11 +1055,15 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       if (req.files.photo) {
         console.log("📸 NEW PHOTO UPLOADED:", req.files.photo[0].path);
         const photoFile = req.files.photo[0];
-        
+
         // Always use Cloudinary URL if available, and store it properly in file manager
-        if (photoFile.path && (photoFile.path.includes('cloudinary') || photoFile.path.startsWith('http'))) {
+        if (
+          photoFile.path &&
+          (photoFile.path.includes("cloudinary") ||
+            photoFile.path.startsWith("http"))
+        ) {
           updateData.photo = photoFile.path; // Keep Cloudinary URL in visitor record
-          
+
           // Add to file manager with Cloudinary URL (not local path)
           try {
             const { FileNode } = require("../models");
@@ -964,7 +1081,7 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
               });
             }
 
-            const ext = path.extname(photoFile.originalname) || '.jpg';
+            const ext = path.extname(photoFile.originalname) || ".jpg";
             const finalFileName = `${visitor.visitorId}${ext}`;
 
             // Update existing or create new
@@ -980,7 +1097,9 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
                 size: photoFile.size || 0,
                 mimeType: photoFile.mimetype || "image/jpeg",
               });
-              console.log(`📁 Updated photo in file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+              console.log(
+                `📁 Updated photo in file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`,
+              );
             } else {
               // Create new node
               await FileNode.create({
@@ -991,15 +1110,23 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
                 size: photoFile.size || 0,
                 mimeType: photoFile.mimetype || "image/jpeg",
               });
-              console.log(`📁 Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`);
+              console.log(
+                `📁 Added photo to file manager with Cloudinary URL: ${finalFileName} -> ${photoFile.path}`,
+              );
             }
           } catch (error) {
             console.error("Error adding photo to file manager:", error);
           }
         } else {
           // Local file handling (fallback)
-          const photoFileName = await syncToFileManager(photoFile, visitor.visitorId, "photo");
-          updateData.photo = photoFileName ? `/uploads/${photoFileName}` : photoFile.path;
+          const photoFileName = await syncToFileManager(
+            photoFile,
+            visitor.visitorId,
+            "photo",
+          );
+          updateData.photo = photoFileName
+            ? `/uploads/${photoFileName}`
+            : photoFile.path;
         }
       }
 
@@ -1010,11 +1137,14 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       // Helper function to handle document with Cloudinary support
       const handleDocumentUpdate = async (fileArray, fileName, folderName) => {
         if (!fileArray || !fileArray[0]) return null;
-        
+
         const file = fileArray[0];
-        
+
         // If file is on Cloudinary, use that URL and add to file manager
-        if (file.path && (file.path.includes('cloudinary') || file.path.startsWith('http'))) {
+        if (
+          file.path &&
+          (file.path.includes("cloudinary") || file.path.startsWith("http"))
+        ) {
           try {
             const { FileNode } = require("../models");
             let folder = await FileNode.findOne({
@@ -1031,7 +1161,7 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
               });
             }
 
-            const ext = path.extname(file.originalname) || '.jpg';
+            const ext = path.extname(file.originalname) || ".jpg";
             const finalFileName = `${fileName}${ext}`;
 
             // Update existing or create new
@@ -1047,7 +1177,9 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
                 size: file.size || 0,
                 mimeType: file.mimetype || "image/jpeg",
               });
-              console.log(`📁 Updated ${fileName} in file manager with Cloudinary URL`);
+              console.log(
+                `📁 Updated ${fileName} in file manager with Cloudinary URL`,
+              );
             } else {
               // Create new node
               await FileNode.create({
@@ -1058,38 +1190,60 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
                 size: file.size || 0,
                 mimeType: file.mimetype || "image/jpeg",
               });
-              console.log(`📁 Added ${fileName} to file manager with Cloudinary URL`);
+              console.log(
+                `📁 Added ${fileName} to file manager with Cloudinary URL`,
+              );
             }
           } catch (error) {
             console.error(`Error adding ${fileName} to file manager:`, error);
           }
-          
+
           return file.path; // Return Cloudinary URL
         } else {
           // Local file handling
-          const localFileName = await syncToFileManager(file, fileName, folderName);
+          const localFileName = await syncToFileManager(
+            file,
+            fileName,
+            folderName,
+          );
           return localFileName ? `/uploads/${localFileName}` : file.path;
         }
       };
 
       // Aadhar Front
       if (req.files.aadharFront) {
-        newDocs.aadharFront = await handleDocumentUpdate(req.files.aadharFront, `aadhrFR_${visitor.visitorId}`, "idproof");
+        newDocs.aadharFront = await handleDocumentUpdate(
+          req.files.aadharFront,
+          `aadhrFR_${visitor.visitorId}`,
+          "idproof",
+        );
       }
 
       // Aadhar Back
       if (req.files.aadharBack) {
-        newDocs.aadharBack = await handleDocumentUpdate(req.files.aadharBack, `aadhrBK_${visitor.visitorId}`, "idproof");
+        newDocs.aadharBack = await handleDocumentUpdate(
+          req.files.aadharBack,
+          `aadhrBK_${visitor.visitorId}`,
+          "idproof",
+        );
       }
 
       // PAN Front
       if (req.files.panFront) {
-        newDocs.panFront = await handleDocumentUpdate(req.files.panFront, `PAN_${visitor.visitorId}`, "idproof");
+        newDocs.panFront = await handleDocumentUpdate(
+          req.files.panFront,
+          `PAN_${visitor.visitorId}`,
+          "idproof",
+        );
       }
 
       // PAN Back
       if (req.files.panBack) {
-        newDocs.panBack = await handleDocumentUpdate(req.files.panBack, `PANBACK_${visitor.visitorId}`, "idproof");
+        newDocs.panBack = await handleDocumentUpdate(
+          req.files.panBack,
+          `PANBACK_${visitor.visitorId}`,
+          "idproof",
+        );
       }
 
       updateData.documents = newDocs;
@@ -1126,7 +1280,7 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       {
         new: true,
         runValidators: true,
-      }
+      },
     );
 
     // Log print action if card printed flag was set in this update
@@ -1135,7 +1289,7 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       if (printedNow) {
         await ActivityLog.create({
           user: req.user ? req.user.id : null,
-          userModel: req.user ? 'Employee' : 'Admin', // Dynamic based on user type
+          userModel: req.user ? "Employee" : "Admin", // Dynamic based on user type
           action: "PRINT_VISITOR_CARD",
           module: "VISITOR",
           details: `Printed card for ${updatedVisitor.name} (${updatedVisitor.visitorId})`,
@@ -1151,7 +1305,7 @@ exports.updateVisitor = asyncHandler(async (req, res) => {
       if (req.user) {
         await ActivityLog.create({
           user: req.user.id,
-          userModel: 'Employee', // Specify that this is an Employee
+          userModel: "Employee", // Specify that this is an Employee
           action: "UPDATE_VISITOR",
           module: "VISITOR",
           details: `Updated visitor ${updatedVisitor.name} (${updatedVisitor.visitorId})`,
@@ -1201,7 +1355,7 @@ exports.deleteVisitor = asyncHandler(async (req, res) => {
     // Clean up file manager entries for this visitor
     try {
       const { FileNode } = require("../models");
-      
+
       // Helper function to delete file from file manager by name pattern
       const deleteFileFromManager = async (fileName, folderName) => {
         try {
@@ -1214,13 +1368,17 @@ exports.deleteVisitor = asyncHandler(async (req, res) => {
 
           if (folder) {
             console.log(`📁 Found ${folderName} folder: ${folder._id}`);
-            
+
             // Try multiple search patterns for better matching
             const searchPatterns = [
               { name: fileName }, // Exact match
-              { name: { $regex: new RegExp(`^${fileName}`, 'i') } }, // Starts with (case insensitive)
-              { name: { $regex: new RegExp(fileName, 'i') } }, // Contains (case insensitive)
-              { name: { $regex: new RegExp(`${fileName}\\.(jpg|jpeg|png|pdf)$`, 'i') } } // With common extensions
+              { name: { $regex: new RegExp(`^${fileName}`, "i") } }, // Starts with (case insensitive)
+              { name: { $regex: new RegExp(fileName, "i") } }, // Contains (case insensitive)
+              {
+                name: {
+                  $regex: new RegExp(`${fileName}\\.(jpg|jpeg|png|pdf)$`, "i"),
+                },
+              }, // With common extensions
             ];
 
             let fileNode = null;
@@ -1228,27 +1386,36 @@ exports.deleteVisitor = asyncHandler(async (req, res) => {
               fileNode = await FileNode.findOne({
                 ...pattern,
                 parentId: folder._id,
-                type: "file"
+                type: "file",
               });
               if (fileNode) {
-                console.log(`🔍 Found file with pattern: ${JSON.stringify(pattern)}`);
+                console.log(
+                  `🔍 Found file with pattern: ${JSON.stringify(pattern)}`,
+                );
                 break;
               }
             }
 
             if (fileNode) {
               await FileNode.findByIdAndDelete(fileNode._id);
-              console.log(`🗑️ Deleted from file manager: ${fileNode.name} from ${folderName}`);
+              console.log(
+                `🗑️ Deleted from file manager: ${fileNode.name} from ${folderName}`,
+              );
               return true;
             } else {
-              console.log(`ℹ️ File not found in ${folderName} folder with any pattern: ${fileName}`);
-              
+              console.log(
+                `ℹ️ File not found in ${folderName} folder with any pattern: ${fileName}`,
+              );
+
               // Debug: List all files in the folder
               const allFiles = await FileNode.find({
                 parentId: folder._id,
-                type: "file"
-              }).select('name');
-              console.log(`📋 All files in ${folderName}:`, allFiles.map(f => f.name));
+                type: "file",
+              }).select("name");
+              console.log(
+                `📋 All files in ${folderName}:`,
+                allFiles.map((f) => f.name),
+              );
             }
           } else {
             console.log(`⚠️ Folder not found: ${folderName}`);
@@ -1267,14 +1434,18 @@ exports.deleteVisitor = asyncHandler(async (req, res) => {
 
       // Delete visitor documents from file manager
       if (visitor.visitorId) {
-        console.log(`🔍 Looking for ID proof documents for visitor: ${visitor.visitorId}`);
+        console.log(
+          `🔍 Looking for ID proof documents for visitor: ${visitor.visitorId}`,
+        );
         await deleteFileFromManager(`aadhrFR_${visitor.visitorId}`, "idproof");
         await deleteFileFromManager(`aadhrBK_${visitor.visitorId}`, "idproof");
         await deleteFileFromManager(`PAN_${visitor.visitorId}`, "idproof");
         await deleteFileFromManager(`PANBACK_${visitor.visitorId}`, "idproof");
       }
 
-      console.log(`🧹 File manager cleanup completed for visitor: ${visitor.visitorId}`);
+      console.log(
+        `🧹 File manager cleanup completed for visitor: ${visitor.visitorId}`,
+      );
     } catch (error) {
       console.error("Error during file manager cleanup:", error);
       // Continue with visitor deletion even if file cleanup fails
@@ -1303,15 +1474,15 @@ exports.deleteMultipleVisitors = asyncHandler(async (req, res) => {
 
     // Get visitor details before deletion for file cleanup
     const visitors = await Visitor.find({
-      _id: { $in: ids }
-    }).select('visitorId name');
+      _id: { $in: ids },
+    }).select("visitorId name");
 
     console.log(`📋 Found ${visitors.length} visitors to delete`);
 
     // Clean up file manager entries for all visitors
     try {
       const { FileNode } = require("../models");
-      
+
       // Helper function to delete file from file manager by name pattern
       const deleteFileFromManager = async (fileName, folderName) => {
         try {
@@ -1326,9 +1497,13 @@ exports.deleteMultipleVisitors = asyncHandler(async (req, res) => {
             // Try multiple search patterns for better matching
             const searchPatterns = [
               { name: fileName }, // Exact match
-              { name: { $regex: new RegExp(`^${fileName}`, 'i') } }, // Starts with (case insensitive)
-              { name: { $regex: new RegExp(fileName, 'i') } }, // Contains (case insensitive)
-              { name: { $regex: new RegExp(`${fileName}\\.(jpg|jpeg|png|pdf)$`, 'i') } } // With common extensions
+              { name: { $regex: new RegExp(`^${fileName}`, "i") } }, // Starts with (case insensitive)
+              { name: { $regex: new RegExp(fileName, "i") } }, // Contains (case insensitive)
+              {
+                name: {
+                  $regex: new RegExp(`${fileName}\\.(jpg|jpeg|png|pdf)$`, "i"),
+                },
+              }, // With common extensions
             ];
 
             let fileNode = null;
@@ -1336,14 +1511,16 @@ exports.deleteMultipleVisitors = asyncHandler(async (req, res) => {
               fileNode = await FileNode.findOne({
                 ...pattern,
                 parentId: folder._id,
-                type: "file"
+                type: "file",
               });
               if (fileNode) break;
             }
 
             if (fileNode) {
               await FileNode.findByIdAndDelete(fileNode._id);
-              console.log(`🗑️ Bulk deleted from file manager: ${fileNode.name} from ${folderName}`);
+              console.log(
+                `🗑️ Bulk deleted from file manager: ${fileNode.name} from ${folderName}`,
+              );
               return true;
             }
           }
@@ -1359,16 +1536,27 @@ exports.deleteMultipleVisitors = asyncHandler(async (req, res) => {
         if (visitor.visitorId) {
           // Delete visitor photo
           await deleteFileFromManager(visitor.visitorId, "photo");
-          
+
           // Delete visitor documents
-          await deleteFileFromManager(`aadhrFR_${visitor.visitorId}`, "idproof");
-          await deleteFileFromManager(`aadhrBK_${visitor.visitorId}`, "idproof");
+          await deleteFileFromManager(
+            `aadhrFR_${visitor.visitorId}`,
+            "idproof",
+          );
+          await deleteFileFromManager(
+            `aadhrBK_${visitor.visitorId}`,
+            "idproof",
+          );
           await deleteFileFromManager(`PAN_${visitor.visitorId}`, "idproof");
-          await deleteFileFromManager(`PANBACK_${visitor.visitorId}`, "idproof");
+          await deleteFileFromManager(
+            `PANBACK_${visitor.visitorId}`,
+            "idproof",
+          );
         }
       }
 
-      console.log(`🧹 Bulk file manager cleanup completed for ${visitors.length} visitors`);
+      console.log(
+        `🧹 Bulk file manager cleanup completed for ${visitors.length} visitors`,
+      );
     } catch (error) {
       console.error("Error during bulk file manager cleanup:", error);
       // Continue with visitor deletion even if file cleanup fails
@@ -1433,7 +1621,7 @@ exports.exportVisitors = asyncHandler(async (req, res) => {
     // Send
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader("Content-Disposition", "attachment; filename=visitors.xlsx");
     res.send(buffer);
@@ -1490,10 +1678,12 @@ exports.markCheckIn = asyncHandler(async (req, res) => {
 exports.scanVisitor = asyncHandler(async (req, res) => {
   try {
     const { visitorId, placeId } = req.body;
-    
+
     // SAFEGUARDS
     const userName = req.user ? req.user.name : "Unknown User";
-    console.log(`📷 Scan request by ${userName} for: ${visitorId} at place: ${placeId || 'No place specified'}`);
+    console.log(
+      `📷 Scan request by ${userName} for: ${visitorId} at place: ${placeId || "No place specified"}`,
+    );
 
     if (!visitorId) {
       return res.status(400).json({
@@ -1515,6 +1705,13 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
         success: false,
         message: "Visitor not found",
       });
+    }
+
+    // Resolve Category Name if category is an ID
+    let categoryName = visitor.category || "General";
+    if (visitor.category && visitor.category.match(/^[0-9a-fA-F]{24}$/)) {
+      const cat = await Category.findById(visitor.category);
+      if (cat) categoryName = cat.name;
     }
 
     // Validate place if provided
@@ -1540,30 +1737,30 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
 
     // Log Scan Activity
     if (req.user) {
-        try {
-            const activityData = {
-              user: req.user.id,
-              userModel: 'Employee', // Specify that this is an Employee
-              action: "SCAN_VISITOR",
-              module: "SCANNER",
-              details: `Scanned visitor ${visitor.name} (${visitor.visitorId})${place ? ` at ${place.name}` : ''}`,
-              ipAddress: req.ip,
-              metadata: {
-                visitorId: visitor.visitorId,
-                scannedBy: userName,
-                ...(place && {
-                  placeId: place._id,
-                  placeName: place.name,
-                  placeCode: place.placeCode,
-                }),
-              },
-            };
+      try {
+        const activityData = {
+          user: req.user.id,
+          userModel: "Employee", // Specify that this is an Employee
+          action: "SCAN_VISITOR",
+          module: "SCANNER",
+          details: `Scanned visitor ${visitor.name} (${visitor.visitorId})${place ? ` at ${place.name}` : ""}`,
+          ipAddress: req.ip,
+          metadata: {
+            visitorId: visitor.visitorId,
+            scannedBy: userName,
+            ...(place && {
+              placeId: place._id,
+              placeName: place.name,
+              placeCode: place.placeCode,
+            }),
+          },
+        };
 
-            await ActivityLog.create(activityData);
-        } catch (logLimitError) {
-            console.error("Failed to log scan activity:", logLimitError.message);
-            // Non-blocking error
-        }
+        await ActivityLog.create(activityData);
+      } catch (logLimitError) {
+        console.error("Failed to log scan activity:", logLimitError.message);
+        // Non-blocking error
+      }
     }
 
     res.status(200).json({
@@ -1571,11 +1768,14 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
       message: "Visitor scanned successfully",
       data: {
         ...visitor.toObject(),
-        scannedAt: place ? {
-          id: place._id,
-          name: place.name,
-          code: place.placeCode,
-        } : null,
+        category: categoryName, // Override with resolved category name
+        scannedAt: place
+          ? {
+              id: place._id,
+              name: place.name,
+              code: place.placeCode,
+            }
+          : null,
       },
     });
   } catch (error) {
@@ -1602,7 +1802,9 @@ exports.getVisitorHistory = asyncHandler(async (req, res) => {
     const visitor = await Visitor.findOne(query).lean();
 
     if (!visitor) {
-      return res.status(404).json({ success: false, message: "Visitor not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Visitor not found" });
     }
 
     // Search ActivityLog for entries that reference this visitor.
@@ -1629,19 +1831,26 @@ exports.getVisitorHistory = asyncHandler(async (req, res) => {
       employeeType: log.user?.emp_type || null,
       placeName: log.metadata?.placeName || null,
       placeCode: log.metadata?.placeCode || null,
-      actionType: log.action === "SCAN_VISITOR" ? "scan" : 
-                  log.action === "UPDATE_VISITOR" ? "update" :
-                  log.action === "PRINT_VISITOR_CARD" ? "print" : "other",
+      actionType:
+        log.action === "SCAN_VISITOR"
+          ? "scan"
+          : log.action === "UPDATE_VISITOR"
+            ? "update"
+            : log.action === "PRINT_VISITOR_CARD"
+              ? "print"
+              : "other",
     }));
 
-    return res.status(200).json({ 
-      success: true, 
-      message: "Visitor history fetched", 
-      data: formattedLogs 
+    return res.status(200).json({
+      success: true,
+      message: "Visitor history fetched",
+      data: formattedLogs,
     });
   } catch (error) {
     console.error("❌ Get Visitor History Error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 });
 
@@ -1650,14 +1859,16 @@ exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
     const userName = req.user.name || req.user.fullName || "Unknown";
-    
+
     // Get today's date in local timezone (India)
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    console.log(`📊 Dashboard Stats Request for Employee: ${userName} (${userId})`);
+
+    console.log(
+      `📊 Dashboard Stats Request for Employee: ${userName} (${userId})`,
+    );
     console.log(`📅 Today's date range: ${today} to ${tomorrow}`);
 
     // 1. Count Total Visitors
@@ -1667,46 +1878,46 @@ exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
     const todayScans = await ActivityLog.countDocuments({
       user: userId,
       $or: [
-        { userModel: 'Employee' }, // New logs with userModel
-        { userModel: { $exists: false } } // Old logs without userModel (fallback)
+        { userModel: "Employee" }, // New logs with userModel
+        { userModel: { $exists: false } }, // Old logs without userModel (fallback)
       ],
       action: "SCAN_VISITOR",
-      timestamp: { 
+      timestamp: {
         $gte: today,
-        $lt: tomorrow
+        $lt: tomorrow,
       },
     });
-    
+
     console.log(`🔍 Today's scans for ${userName}: ${todayScans}`);
-    
+
     // Debug: Get all scan activities for this user today
     const debugScans = await ActivityLog.find({
       user: userId,
-      $or: [
-        { userModel: 'Employee' },
-        { userModel: { $exists: false } }
-      ],
+      $or: [{ userModel: "Employee" }, { userModel: { $exists: false } }],
       action: "SCAN_VISITOR",
-      timestamp: { 
+      timestamp: {
         $gte: today,
-        $lt: tomorrow
+        $lt: tomorrow,
       },
-    }).select('timestamp details action userModel');
-    
-    console.log(`🔍 Debug - All scans today:`, debugScans.map(s => ({
-      time: s.timestamp,
-      details: s.details,
-      action: s.action,
-      userModel: s.userModel || 'legacy'
-    })));
+    }).select("timestamp details action userModel");
+
+    console.log(
+      `🔍 Debug - All scans today:`,
+      debugScans.map((s) => ({
+        time: s.timestamp,
+        details: s.details,
+        action: s.action,
+        userModel: s.userModel || "legacy",
+      })),
+    );
 
     // 3. Get Recent Activities (with fallback for old logs)
-    const recentActivities = await ActivityLog.find({ 
+    const recentActivities = await ActivityLog.find({
       user: userId,
       $or: [
-        { userModel: 'Employee' }, // New logs with userModel
-        { userModel: { $exists: false } } // Old logs without userModel (fallback)
-      ]
+        { userModel: "Employee" }, // New logs with userModel
+        { userModel: { $exists: false } }, // Old logs without userModel (fallback)
+      ],
     })
       .sort({ timestamp: -1 }) // Use timestamp for sorting
       .limit(10)
@@ -1720,11 +1931,18 @@ exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      type: log.action === "SCAN_VISITOR" ? "scan" : 
-            log.action === "UPDATE_VISITOR" ? "update" :
-            log.action === "PRINT_VISITOR_CARD" ? "print" :
-            log.action === "VIEW_VISITOR" ? "view" :
-            log.action === "CREATE_VISITOR" ? "register" : "other",
+      type:
+        log.action === "SCAN_VISITOR"
+          ? "scan"
+          : log.action === "UPDATE_VISITOR"
+            ? "update"
+            : log.action === "PRINT_VISITOR_CARD"
+              ? "print"
+              : log.action === "VIEW_VISITOR"
+                ? "view"
+                : log.action === "CREATE_VISITOR"
+                  ? "register"
+                  : "other",
       date: new Date(log.timestamp).toLocaleDateString(),
       details: log.details || `${log.action} performed`,
     }));
@@ -1750,13 +1968,13 @@ exports.getEmployeeDashboardStats = asyncHandler(async (req, res) => {
 exports.getVisitorActivityHistory = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Find visitor first to get visitorId
     let query = { _id: id };
     if (id.match(/^[A-Z0-9]+$/)) {
       query = { visitorId: id };
     }
-    
+
     const visitor = await Visitor.findOne(query);
     if (!visitor) {
       return res.status(404).json({
@@ -1769,18 +1987,22 @@ exports.getVisitorActivityHistory = asyncHandler(async (req, res) => {
     const activities = await ActivityLog.find({
       $or: [
         { "metadata.visitorId": visitor.visitorId },
-        { details: { $regex: visitor.visitorId, $options: "i" } }
-      ]
+        { details: { $regex: visitor.visitorId, $options: "i" } },
+      ],
     })
-    .populate("user", "fullName emp_code")
-    .sort({ createdAt: -1 })
-    .limit(20);
+      .populate("user", "fullName emp_code")
+      .sort({ createdAt: -1 })
+      .limit(20);
 
     const formattedActivities = activities.map((log) => ({
       id: log._id,
       action: log.details,
-      type: log.action === "SCAN_VISITOR" ? "scan" : 
-            log.action === "UPDATE_VISITOR" ? "update" : "view",
+      type:
+        log.action === "SCAN_VISITOR"
+          ? "scan"
+          : log.action === "UPDATE_VISITOR"
+            ? "update"
+            : "view",
       employeeName: log.user?.fullName || "System",
       employeeCode: log.user?.emp_code,
       timestamp: log.createdAt,
@@ -1805,37 +2027,37 @@ exports.getVisitorActivityHistory = asyncHandler(async (req, res) => {
 exports.getEmployeeScanHistory = asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Get recent scans by this employee
     const scanLogs = await ActivityLog.find({
       user: userId,
-      action: "SCAN_VISITOR"
+      action: "SCAN_VISITOR",
     })
-    .sort({ createdAt: -1 })
-    .limit(10);
+      .sort({ createdAt: -1 })
+      .limit(10);
 
     const scanHistory = await Promise.all(
       scanLogs.map(async (log) => {
         const visitorId = log.metadata?.visitorId;
         if (!visitorId) return null;
-        
+
         const visitor = await Visitor.findOne({ visitorId }).select(
-          "name visitorId companyName photo"
+          "name visitorId companyName photo",
         );
-        
+
         return {
           scannedAt: log.createdAt,
-          visitor: visitor || { 
-            name: "Unknown Visitor", 
+          visitor: visitor || {
+            name: "Unknown Visitor",
             visitorId: visitorId,
-            companyName: "Unknown Company"
-          }
+            companyName: "Unknown Company",
+          },
         };
-      })
+      }),
     );
 
     // Filter out null entries
-    const validHistory = scanHistory.filter(item => item !== null);
+    const validHistory = scanHistory.filter((item) => item !== null);
 
     res.status(200).json({
       success: true,
@@ -1854,13 +2076,13 @@ exports.getEmployeeScanHistory = asyncHandler(async (req, res) => {
 exports.logVisitorView = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Find visitor first
     let query = { _id: id };
     if (id.match(/^[A-Z0-9]+$/)) {
       query = { visitorId: id };
     }
-    
+
     const visitor = await Visitor.findOne(query);
     if (!visitor) {
       return res.status(404).json({
@@ -1874,7 +2096,7 @@ exports.logVisitorView = asyncHandler(async (req, res) => {
       try {
         await ActivityLog.create({
           user: req.user.id,
-          userModel: 'Employee', // Specify that this is an Employee
+          userModel: "Employee", // Specify that this is an Employee
           action: "VIEW_VISITOR",
           module: "VISITOR",
           details: `Viewed visitor ${visitor.name} (${visitor.visitorId})`,
