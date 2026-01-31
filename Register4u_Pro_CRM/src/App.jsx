@@ -84,9 +84,6 @@ import ContactSummary from "./pages/Event/Reports/ContactSummary";
 import PublicVisitorRegistration from "./pages/Public/PublicVisitorRegistration";
 import PublicVisitorSuccess from "./pages/Public/PublicVisitorSuccess";
 
-// Place Management
-import PlaceManagement from "./pages/Place/PlaceManagement";
-
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -262,16 +259,6 @@ function App() {
           element={
             <ProtectedRoute>
               <ViewCompany />
-            </ProtectedRoute>
-          }
-        />
-        
-        {/* Place Management Routes */}
-        <Route
-          path="/places"
-          element={
-            <ProtectedRoute>
-              <PlaceManagement />
             </ProtectedRoute>
           }
         />

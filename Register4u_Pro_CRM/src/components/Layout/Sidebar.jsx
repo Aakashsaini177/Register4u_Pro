@@ -21,7 +21,6 @@ import {
   TicketIcon,
   PrinterIcon,
   UserCircleIcon,
-  BuildingStorefrontIcon,
 } from "@heroicons/react/24/outline";
 
 const navigation = [
@@ -36,12 +35,6 @@ const navigation = [
     name: "Companies",
     href: "/company",
     icon: BuildingOfficeIcon,
-    roles: ["admin"],
-  },
-  {
-    name: "Places",
-    href: "/places",
-    icon: BuildingStorefrontIcon,
     roles: ["admin"],
   },
   { name: "Events", href: "/event", icon: CalendarIcon, roles: ["admin"] },

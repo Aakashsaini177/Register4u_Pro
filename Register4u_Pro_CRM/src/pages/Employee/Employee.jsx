@@ -226,7 +226,7 @@ const Employee = () => {
                     <TableHead className="text-center">Email</TableHead>
                     <TableHead className="text-center">Phone</TableHead>
                     <TableHead className="text-center">Password</TableHead>
-                    <TableHead className="text-center">Work Location</TableHead>
+                    <TableHead className="text-center">Assigned Place</TableHead>
                     <TableHead className="text-center">Status</TableHead>
                     <TableHead className="text-center whitespace-nowrap">
                       Created Date
@@ -294,14 +294,25 @@ const Employee = () => {
                           </button>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[250px] text-center">
+                      <TableCell className="text-center">
                         <div className="text-sm">
-                          <p className="text-gray-900 dark:text-gray-100">
-                            {highlightText(
-                              employee.workLocation || employee.desk || employee.counter || employee.location || "N/A",
-                              searchTerm
-                            )}
-                          </p>
+                          {employee.place_id ? (
+                            <div>
+                              <p className="text-gray-900 dark:text-gray-100 font-medium">
+                                {highlightText(
+                                  employee.place_id.name || "N/A",
+                                  searchTerm
+                                )}
+                              </p>
+                              {employee.place_id.placeCode && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {employee.place_id.placeCode}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">Not Assigned</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">

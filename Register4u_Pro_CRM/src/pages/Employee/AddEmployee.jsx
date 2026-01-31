@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { employeeAPI } from "@/lib/api";
+import { employeeAPI, placeAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,7 +10,8 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Loading } from "@/components/ui/Loading";
 import toast from "react-hot-toast";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, PlusIcon } from "@heroicons/react/24/outline";
+import CreatePlaceModal from "@/pages/Place/CreatePlaceModal";
 
 import useFormPersistence from "@/hooks/useFormPersistence";
 
@@ -18,6 +19,8 @@ const AddEmployee = () => {
   const [loading, setLoading] = useState(false);
   const [empType, setEmpType] = useState("");
   const [managers, setManagers] = useState([]);
+  const [places, setPlaces] = useState([]);
+  const [showCreatePlaceModal, setShowCreatePlaceModal] = useState(false);
   const navigate = useNavigate();
 
   const {
@@ -32,24 +35,45 @@ const AddEmployee = () => {
 
   const selectedEmpType = watch("emp_type");
 
-  // Fetch reporting managers (only employees, not volunteers/exhibitors)
+  // Fetch reporting managers and places
   useEffect(() => {
-    const fetchManagers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await employeeAPI.getAll();
-        if (response.data.success) {
+        // Fetch managers
+        const managersResponse = await employeeAPI.getAll();
+        if (managersResponse.data.success) {
           // Filter to show only employees as potential managers (not volunteers, exhibitors, etc.)
-          const employeeManagers = (response.data.data || []).filter(
+          const employeeManagers = (managersResponse.data.data || []).filter(
             emp => emp.emp_type === "employee"
           );
           setManagers(employeeManagers);
         }
+
+        // Fetch places
+        await fetchPlaces();
       } catch (error) {
-        console.error("Failed to fetch managers:", error);
+        console.error("Failed to fetch data:", error);
       }
     };
-    fetchManagers();
+    fetchData();
   }, []);
+
+  const fetchPlaces = async () => {
+    try {
+      const placesResponse = await placeAPI.getAll();
+      if (placesResponse.data.success) {
+        setPlaces(placesResponse.data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch places:", error);
+    }
+  };
+
+  const handlePlaceCreated = () => {
+    setShowCreatePlaceModal(false);
+    fetchPlaces(); // Refresh places list
+    toast.success("Place created! You can now select it.");
+  };
 
   // Update Reporting Manager based on Employee Type
   useEffect(() => {
@@ -77,6 +101,9 @@ const AddEmployee = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
+      console.log("📝 Creating employee with data:", data);
+      console.log("📍 Place ID:", data.place_id);
+
       // Map frontend fields to backend schema
       const payload = {
         ...data,
@@ -91,9 +118,12 @@ const AddEmployee = () => {
       delete payload.EndTime;
       delete payload.Reporting_Manager;
 
+      console.log("📤 Final payload:", payload);
+
       const response = await employeeAPI.create(payload);
 
       if (response.data.success) {
+        console.log("✅ Employee created:", response.data);
         toast.success("Employee added successfully!");
         navigate("/employee");
       } else {
@@ -477,6 +507,32 @@ const AddEmployee = () => {
                     {...register("location")}
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="place_id">Assigned Place</Label>
+                  <div className="flex gap-2 mt-1">
+                    <select
+                      id="place_id"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      {...register("place_id")}
+                    >
+                      <option value="">Select Place</option>
+                      {places.map((place) => (
+                        <option key={place.id} value={place.id}>
+                          {place.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePlaceModal(true)}
+                      className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors flex items-center gap-1"
+                      title="Add New Place"
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -552,6 +608,14 @@ const AddEmployee = () => {
           </CardContent>
         </Card>
       </form>
+
+      {/* Create Place Modal */}
+      {showCreatePlaceModal && (
+        <CreatePlaceModal
+          onClose={() => setShowCreatePlaceModal(false)}
+          onSuccess={handlePlaceCreated}
+        />
+      )}
     </div>
   );
 };

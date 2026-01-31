@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { employeeAPI } from "@/lib/api";
+import { employeeAPI, placeAPI } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -9,12 +9,15 @@ import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select"; // Kept import, but used native select in AddEmployee structure
 import { Loading, PageLoading } from "@/components/ui/Loading";
 import toast from "react-hot-toast";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, PlusIcon } from "@heroicons/react/24/outline";
+import CreatePlaceModal from "@/pages/Place/CreatePlaceModal";
 
 const EditEmployee = () => {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [managers, setManagers] = useState([]);
+  const [places, setPlaces] = useState([]);
+  const [showCreatePlaceModal, setShowCreatePlaceModal] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -29,21 +32,42 @@ const EditEmployee = () => {
 
   const selectedEmpType = watch("emp_type");
 
-  // Fetch managers
+  // Fetch managers and places
   useEffect(() => {
-    const fetchManagers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await employeeAPI.getAll();
-        if (response.data.success) {
+        // Fetch managers
+        const managersResponse = await employeeAPI.getAll();
+        if (managersResponse.data.success) {
           // Show all employees as potential managers
-          setManagers(response.data.data || []);
+          setManagers(managersResponse.data.data || []);
         }
+
+        // Fetch places
+        await fetchPlaces();
       } catch (error) {
-        console.error("Failed to fetch managers:", error);
+        console.error("Failed to fetch data:", error);
       }
     };
-    fetchManagers();
+    fetchData();
   }, []);
+
+  const fetchPlaces = async () => {
+    try {
+      const placesResponse = await placeAPI.getAll();
+      if (placesResponse.data.success) {
+        setPlaces(placesResponse.data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch places:", error);
+    }
+  };
+
+  const handlePlaceCreated = () => {
+    setShowCreatePlaceModal(false);
+    fetchPlaces(); // Refresh places list
+    toast.success("Place created! You can now select it.");
+  };
 
   // Fetch employee details
   useEffect(() => {
@@ -52,6 +76,23 @@ const EditEmployee = () => {
         const response = await employeeAPI.getById(id);
         if (response.data.success) {
           const emp = response.data.data;
+
+          console.log("📋 Loaded employee data:", emp);
+          console.log("📍 Place ID:", emp.place_id);
+          console.log("📍 Place ID type:", typeof emp.place_id);
+          console.log("📍 Place ID._id:", emp.place_id?._id);
+
+          // Extract place_id value
+          let placeIdValue = "";
+          if (emp.place_id) {
+            if (typeof emp.place_id === 'object' && emp.place_id._id) {
+              placeIdValue = emp.place_id._id;
+            } else if (typeof emp.place_id === 'string') {
+              placeIdValue = emp.place_id;
+            }
+          }
+
+          console.log("📍 Extracted place_id value:", placeIdValue);
 
           // Map backend fields to form fields
           reset({
@@ -66,7 +107,18 @@ const EditEmployee = () => {
             // ID fields for select mapping
             emp_type: emp.emp_type,
             status: emp.status || "active",
+            place_id: placeIdValue,
           });
+
+          console.log("✅ Form reset with place_id:", placeIdValue);
+          
+          // Double-check by explicitly setting the value
+          if (placeIdValue) {
+            setTimeout(() => {
+              setValue('place_id', placeIdValue);
+              console.log("✅ Explicitly set place_id to:", placeIdValue);
+            }, 100);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch employee:", error);
@@ -112,6 +164,9 @@ const EditEmployee = () => {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
+      console.log("📝 Submitting employee update:", data);
+      console.log("📍 Place ID being sent:", data.place_id);
+
       // payload preparation
       const payload = {
         ...data,
@@ -131,15 +186,19 @@ const EditEmployee = () => {
         delete payload.password;
       }
 
+      console.log("📤 Final payload:", payload);
+
       const response = await employeeAPI.update(id, payload);
 
       if (response.data.success) {
+        console.log("✅ Update response:", response.data);
         toast.success("Employee updated successfully!");
         navigate("/employee");
       } else {
         toast.error(response.data.message || "Failed to update employee");
       }
     } catch (error) {
+      console.error("❌ Update error:", error);
       toast.error("Failed to update employee");
     } finally {
       setLoading(false);
@@ -503,6 +562,32 @@ const EditEmployee = () => {
                     {...register("location")}
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="place_id">Assigned Place</Label>
+                  <div className="flex gap-2 mt-1">
+                    <select
+                      id="place_id"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      {...register("place_id")}
+                    >
+                      <option value="">Select Place</option>
+                      {places.map((place) => (
+                        <option key={place.id} value={place.id}>
+                          {place.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePlaceModal(true)}
+                      className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors flex items-center gap-1"
+                      title="Add New Place"
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -578,6 +663,14 @@ const EditEmployee = () => {
           </CardContent>
         </Card>
       </form>
+
+      {/* Create Place Modal */}
+      {showCreatePlaceModal && (
+        <CreatePlaceModal
+          onClose={() => setShowCreatePlaceModal(false)}
+          onSuccess={handlePlaceCreated}
+        />
+      )}
     </div>
   );
 };

@@ -4,9 +4,31 @@ import { toast } from 'react-hot-toast';
 import api from '../../lib/api';
 
 const PlaceDetailsModal = ({ place, onClose }) => {
+  const [placeDetails, setPlaceDetails] = useState(place);
   const [visitorHistory, setVisitorHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+
+  // Fetch fresh place details with assigned employees
+  useEffect(() => {
+    fetchPlaceDetails();
+  }, [place._id]);
+
+  const fetchPlaceDetails = async () => {
+    try {
+      setLoadingDetails(true);
+      const response = await api.get(`/places/${place._id}`);
+      if (response.data.success) {
+        setPlaceDetails(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching place details:', error);
+      toast.error('Failed to fetch place details');
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -85,7 +107,14 @@ const PlaceDetailsModal = ({ place, onClose }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-          {activeTab === 'details' && (
+          {loadingDetails ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Loading details...</p>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'details' ? (
             <div className="space-y-6">
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -98,29 +127,29 @@ const PlaceDetailsModal = ({ place, onClose }) => {
                   <div className="space-y-3">
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Name</label>
-                      <p className="text-foreground">{place.name}</p>
+                      <p className="text-foreground">{placeDetails.name}</p>
                     </div>
                     
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Place Code</label>
-                      <p className="text-foreground font-mono">{place.placeCode}</p>
+                      <p className="text-foreground font-mono">{placeDetails.placeCode}</p>
                     </div>
                     
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">Status</label>
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                        place.status === 'active' 
+                        placeDetails.status === 'active' 
                           ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
                           : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                       }`}>
-                        {place.status}
+                        {placeDetails.status}
                       </span>
                     </div>
                     
-                    {place.capacity > 0 && (
+                    {placeDetails.capacity > 0 && (
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Capacity</label>
-                        <p className="text-foreground">{place.capacity} visitors</p>
+                        <p className="text-foreground">{placeDetails.capacity} visitors</p>
                       </div>
                     )}
                   </div>
@@ -133,24 +162,24 @@ const PlaceDetailsModal = ({ place, onClose }) => {
                   </h3>
                   
                   <div className="space-y-3">
-                    {place.location && (
+                    {placeDetails.location && (
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Location</label>
-                        <p className="text-foreground">{place.location}</p>
+                        <p className="text-foreground">{placeDetails.location}</p>
                       </div>
                     )}
                     
-                    {place.address && (
+                    {placeDetails.address && (
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Address</label>
-                        <p className="text-foreground">{place.address}</p>
+                        <p className="text-foreground">{placeDetails.address}</p>
                       </div>
                     )}
                     
-                    {place.description && (
+                    {placeDetails.description && (
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Description</label>
-                        <p className="text-foreground">{place.description}</p>
+                        <p className="text-foreground">{placeDetails.description}</p>
                       </div>
                     )}
                   </div>
@@ -161,29 +190,36 @@ const PlaceDetailsModal = ({ place, onClose }) => {
               <div className="space-y-4">
                 <h3 className="font-medium text-foreground flex items-center gap-2">
                   <Users size={18} />
-                  Assigned Employees ({place.assignedEmployees?.length || 0})
+                  Assigned Employees ({placeDetails.employeeCount || 0})
                 </h3>
                 
-                {place.assignedEmployees && place.assignedEmployees.length > 0 ? (
+                {placeDetails.assignedEmployees && placeDetails.assignedEmployees.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {place.assignedEmployees.map((employee) => (
-                      <div key={employee._id} className="bg-muted/50 rounded-lg p-3">
+                    {placeDetails.assignedEmployees.map((employee) => (
+                      <div key={employee._id} className="bg-muted/50 rounded-lg p-3 border border-border hover:border-primary transition-colors">
                         <div className="font-medium text-foreground">{employee.fullName}</div>
                         <div className="text-sm text-muted-foreground">{employee.emp_code}</div>
-                        <div className="text-xs text-muted-foreground capitalize">{employee.emp_type}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{employee.emp_type?.replace('_', ' ')}</div>
+                        {employee.email && (
+                          <div className="text-xs text-muted-foreground mt-1">{employee.email}</div>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground italic">No employees assigned</p>
+                  <div className="text-center py-8 bg-muted/30 rounded-lg border border-dashed border-border">
+                    <Users size={48} className="mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No employees assigned to this place</p>
+                    <p className="text-sm text-muted-foreground mt-1">Assign employees from Employee management</p>
+                  </div>
                 )}
 
-                {place.manager && (
+                {placeDetails.manager && (
                   <div className="mt-4">
                     <label className="text-sm font-medium text-muted-foreground">Place Manager</label>
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mt-1">
-                      <div className="font-medium text-blue-900 dark:text-blue-200">{place.manager.fullName}</div>
-                      <div className="text-sm text-blue-600 dark:text-blue-300">{place.manager.emp_code}</div>
+                      <div className="font-medium text-blue-900 dark:text-blue-200">{placeDetails.manager.fullName}</div>
+                      <div className="text-sm text-blue-600 dark:text-blue-300">{placeDetails.manager.emp_code}</div>
                     </div>
                   </div>
                 )}
@@ -200,26 +236,26 @@ const PlaceDetailsModal = ({ place, onClose }) => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${
-                        place.settings?.allowVisitorRegistration ? 'bg-green-500' : 'bg-red-500'
+                        placeDetails.settings?.allowVisitorRegistration ? 'bg-green-500' : 'bg-red-500'
                       }`}></div>
                       <span className="text-sm text-foreground">Visitor Registration</span>
                     </div>
                     
                     <div className="flex items-center gap-2">
                       <div className={`w-3 h-3 rounded-full ${
-                        place.settings?.requireApproval ? 'bg-yellow-500' : 'bg-green-500'
+                        placeDetails.settings?.requireApproval ? 'bg-yellow-500' : 'bg-green-500'
                       }`}></div>
                       <span className="text-sm text-foreground">
-                        {place.settings?.requireApproval ? 'Requires Approval' : 'Auto Approval'}
+                        {placeDetails.settings?.requireApproval ? 'Requires Approval' : 'Auto Approval'}
                       </span>
                     </div>
                   </div>
                   
                   <div>
-                    {place.settings?.maxVisitorsPerDay > 0 && (
+                    {placeDetails.settings?.maxVisitorsPerDay > 0 && (
                       <div>
                         <label className="text-sm font-medium text-muted-foreground">Daily Visitor Limit</label>
-                        <p className="text-foreground">{place.settings.maxVisitorsPerDay} visitors</p>
+                        <p className="text-foreground">{placeDetails.settings.maxVisitorsPerDay} visitors</p>
                       </div>
                     )}
                   </div>
@@ -230,17 +266,15 @@ const PlaceDetailsModal = ({ place, onClose }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created</label>
-                  <p className="text-foreground">{formatDate(place.createdAt)}</p>
+                  <p className="text-foreground">{formatDate(placeDetails.createdAt)}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{formatDate(place.updatedAt)}</p>
+                  <p className="text-foreground">{formatDate(placeDetails.updatedAt)}</p>
                 </div>
               </div>
             </div>
-          )}
-
-          {activeTab === 'history' && (
+          ) : activeTab === 'history' ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-foreground flex items-center gap-2">
@@ -314,6 +348,8 @@ const PlaceDetailsModal = ({ place, onClose }) => {
                 </div>
               )}
             </div>
+          ) : null}
+            </>
           )}
         </div>
 

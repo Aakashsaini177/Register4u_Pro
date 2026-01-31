@@ -37,7 +37,9 @@ exports.getAllEmployees = async (req, res) => {
       ];
     }
 
-    const employees = await Employee.find(query).sort({ createdAt: -1 });
+    const employees = await Employee.find(query)
+      .populate('place_id', 'name placeCode location')
+      .sort({ createdAt: -1 });
 
     console.log(`✅ Found ${employees.length} employees`);
 
@@ -83,7 +85,8 @@ exports.getEmployeeById = async (req, res) => {
     const id = req.params.id;
     console.log("📋 Fetching employee:", id);
 
-    const employee = await Employee.findById(id);
+    const employee = await Employee.findById(id)
+      .populate('place_id', 'name placeCode location');
 
     if (!employee) {
       return res.status(404).json({
@@ -119,6 +122,11 @@ exports.createEmployee = async (req, res) => {
       delete employeeData.reporting_manager;
     }
 
+    // Sanitize Place ID
+    if (employeeData.place_id === "" || employeeData.place_id === "null") {
+      delete employeeData.place_id;
+    }
+
     // Sanitize Dates
     if (employeeData.joining_date === "") delete employeeData.joining_date;
     if (employeeData.ending_date === "") delete employeeData.ending_date;
@@ -146,14 +154,20 @@ exports.createEmployee = async (req, res) => {
       employeeData.contact = employeeData.phone;
     }
 
+    console.log("📝 Creating employee with place_id:", employeeData.place_id);
+
     const employee = await Employee.create(employeeData);
 
-    console.log("✅ Employee created:", employee._id);
+    console.log("✅ Employee created:", employee._id, "with place:", employee.place_id);
+
+    // Populate place_id for response
+    const populatedEmployee = await Employee.findById(employee._id)
+      .populate('place_id', 'name placeCode location');
 
     res.status(201).json({
       message: "Employee created successfully",
       success: true,
-      data: { ...employee.toObject(), id: employee._id },
+      data: { ...populatedEmployee.toObject(), id: populatedEmployee._id },
     });
   } catch (error) {
     console.error("❌ Create Employee Error:", error);
@@ -229,6 +243,11 @@ exports.updateEmployee = async (req, res) => {
       }
     }
 
+    // Sanitize Place ID
+    if (updateData.place_id === "" || updateData.place_id === "null") {
+      updateData.place_id = null;
+    }
+
     // Sanitize Dates
     if (updateData.joining_date === "") updateData.joining_date = null;
     if (updateData.ending_date === "") updateData.ending_date = null;
@@ -240,9 +259,11 @@ exports.updateEmployee = async (req, res) => {
       updateData.photo = req.file.path;
     }
 
+    console.log("📝 Updating employee with data:", updateData);
+
     const employee = await Employee.findByIdAndUpdate(id, updateData, {
       new: true,
-    });
+    }).populate('place_id', 'name placeCode location');
 
     if (!employee) {
       return res.status(404).json({
@@ -250,6 +271,8 @@ exports.updateEmployee = async (req, res) => {
         success: false,
       });
     }
+
+    console.log("✅ Employee updated successfully with place:", employee.place_id);
 
     res.status(200).json({
       message: "Employee updated successfully",

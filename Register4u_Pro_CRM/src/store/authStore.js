@@ -67,8 +67,10 @@ export const useAuthStore = create(
       },
 
       updateEmployee: (employeeData) => {
+        console.log("📝 Updating employee in store:", employeeData);
         set({ employee: employeeData });
-        localStorage.setItem("userData", JSON.stringify({ employee: employeeData }));
+        const userData = { user: employeeData };
+        localStorage.setItem("userData", JSON.stringify(userData));
       },
 
       // Helper methods

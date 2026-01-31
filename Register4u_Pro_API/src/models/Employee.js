@@ -114,6 +114,10 @@ const employeeSchema = new mongoose.Schema(
     location: {
       type: String, // Work location
     },
+    place_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Place",
+    },
     // Documents
     pan_card: {
       type: String,

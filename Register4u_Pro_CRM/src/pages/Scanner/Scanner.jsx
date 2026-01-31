@@ -51,6 +51,32 @@ const Scanner = () => {
   const videoRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Refresh employee profile on mount to get latest place_id
+  useEffect(() => {
+    const refreshEmployeeProfile = async () => {
+      if (isEmployee() && token) {
+        try {
+          console.log("🔄 Refreshing employee profile...");
+          const profileResponse = await authAPI.getProfile();
+          if (profileResponse.data.success) {
+            // Response structure: { success: true, data: { employee: {...} } }
+            const freshProfile = profileResponse.data.data.employee;
+            console.log("✅ Fresh profile loaded:", freshProfile);
+            console.log("📍 Place ID:", freshProfile.place_id);
+            
+            // Update employee in store
+            const { updateEmployee } = useAuthStore.getState();
+            updateEmployee(freshProfile);
+          }
+        } catch (error) {
+          console.error("Failed to refresh profile:", error);
+        }
+      }
+    };
+
+    refreshEmployeeProfile();
+  }, [token, isEmployee]);
+
   // Initialize ZXing code reader
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
@@ -140,8 +166,9 @@ const Scanner = () => {
         setScanHistory(response.data.data || []);
       }
     } catch (error) {
-      console.error("Error fetching scan history:", error);
+      console.warn("Scan history not available:", error.message);
       // Don't show error toast as this is optional data
+      setScanHistory([]); // Set empty array to prevent repeated attempts
     }
   };
 
@@ -176,8 +203,13 @@ const Scanner = () => {
     try {
       // Use the new Scan API which logs the activity
       const scanData = { visitorId: id };
+      
+      // Send place ID - either selected place or employee's assigned place
       if (selectedPlace) {
         scanData.placeId = selectedPlace;
+      } else if (employee?.place_id?._id) {
+        // Use employee's assigned place if no place is manually selected
+        scanData.placeId = employee.place_id._id;
       }
 
       const response = await api.post("/visitors/scan", scanData);
@@ -405,82 +437,61 @@ const Scanner = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Enhanced Header with Employee Info */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+    <div className="space-y-4">
+      {/* Simplified Compact Header */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Scanner Icon */}
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-              <MagnifyingGlassIcon className="h-8 w-8 text-white" />
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <MagnifyingGlassIcon className="h-5 w-5 text-white" />
             </div>
 
             <div>
-              <h1 className="text-3xl font-bold">Visitor Scanner</h1>
-              <p className="text-blue-100 mt-1">
+              <h1 className="text-xl font-bold">Visitor Scanner</h1>
+              <p className="text-blue-100 text-sm">
                 Find visitor details by scanning or typing ID
               </p>
-
-              {/* Employee Info */}
-              {isEmployee() && employee && (
-                <div className="flex items-center gap-2 mt-2 text-sm text-blue-100">
-                  <ShieldCheckIcon className="h-3 w-3" />
-                  <span>Operator: {employee.name}</span>
-                  {employee.emp_code && (
-                    <span className="ml-2">({employee.emp_code})</span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Location Info Button */}
-          <div className="text-right">
-            {selectedPlace && places && places.length > 0 && (
-              <div className="mb-3">
-                <button
-                  onClick={() => setShowLocationInfo(!showLocationInfo)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all"
-                  title="View Scanning Location"
-                >
-                  <MapPinIcon className="h-5 w-5" />
-                  <span className="text-sm font-semibold">
-                    {showLocationInfo ? "Hide" : "Show"} Location
-                  </span>
-                </button>
-                {showLocationInfo && (
-                  <div className="mt-2 bg-white/10 backdrop-blur-sm rounded-lg p-3 text-left">
-                    <p className="text-xs text-blue-100 uppercase font-semibold mb-1">
-                      📍 Scanning At
-                    </p>
-                    <p className="text-white font-bold">
-                      {places.find((p) => p._id === selectedPlace)?.name ||
-                        "Unknown"}
-                    </p>
-                    {places.find((p) => p._id === selectedPlace)?.placeCode && (
-                      <p className="text-xs text-blue-100 mt-1">
-                        Code:{" "}
-                        {places.find((p) => p._id === selectedPlace)?.placeCode}
-                      </p>
+          {/* Right Side - Employee & Place Info */}
+          <div className="flex items-center gap-3">
+            {/* Employee Info */}
+            {isEmployee() && employee && (
+              <div className="text-right text-sm">
+                <div className="flex items-center gap-2 text-blue-100">
+                  <ShieldCheckIcon className="h-4 w-4" />
+                  <span>
+                    {employee.name}
+                    {employee.emp_code && (
+                      <span className="ml-1">({employee.emp_code})</span>
                     )}
+                  </span>
+                </div>
+                {employee.place_id && (
+                  <div className="mt-1 px-2 py-1 bg-white/20 rounded text-xs">
+                    📍 {employee.place_id.name}
                   </div>
                 )}
               </div>
             )}
-            <p className="text-blue-100 text-sm">Scanner Status</p>
-            <p className="text-lg font-semibold">
-              {isCameraOpen ? "Camera Active" : "Ready"}
-            </p>
-            <div className="mt-2">
+
+            {/* Scanner Status */}
+            <div className="text-right">
+              <p className="text-blue-100 text-xs">Scanner Status</p>
+              <p className="text-sm font-semibold">
+                {isCameraOpen ? "Camera Active" : "Ready"}
+              </p>
               <div
-                className={`inline-flex items-center gap-1 px-2 py-1 bg-white/20 rounded-full text-xs ${
+                className={`inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 rounded-full text-xs mt-1 ${
                   token ? "text-green-200" : "text-red-200"
                 }`}
               >
                 <div
-                  className={`w-2 h-2 rounded-full ${token ? "bg-green-400" : "bg-red-400"}`}
+                  className={`w-1.5 h-1.5 rounded-full ${token ? "bg-green-400" : "bg-red-400"}`}
                 ></div>
-                {token ? "Authenticated" : "Guest Mode"}
+                {token ? "Authenticated" : "Guest"}
               </div>
             </div>
           </div>
@@ -490,19 +501,19 @@ const Scanner = () => {
       {/* Scanner Input - Compact */}
       <Card className="shadow-md">
         <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2 text-sm">
             <MagnifyingGlassIcon className="h-4 w-4" />
             Scanner Input
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-3">
           {/* Camera Toggle Button */}
-          <div className="flex justify-center mb-3">
+          <div className="flex justify-center mb-2">
             <Button
               type="button"
               onClick={toggleCamera}
               variant={isCameraOpen ? "destructive" : "default"}
-              className="w-full h-9 text-sm"
+              className="w-full h-8 text-sm"
             >
               {isCameraOpen ? (
                 <>
@@ -520,12 +531,12 @@ const Scanner = () => {
 
           {/* ZXing Scanner */}
           {isCameraOpen && (
-            <div className="bg-black rounded-lg overflow-hidden relative mb-3">
+            <div className="bg-black rounded-lg overflow-hidden relative mb-2">
               <video
                 ref={videoRef}
                 style={{
                   width: "100%",
-                  height: "220px",
+                  height: "200px",
                   objectFit: "cover",
                 }}
               />
@@ -537,7 +548,7 @@ const Scanner = () => {
 
           <form onSubmit={handleSearch} className="space-y-2">
             <div>
-              <Label htmlFor="visitorId" className="text-sm">
+              <Label htmlFor="visitorId" className="text-xs">
                 Visitor ID
               </Label>
               <div className="flex gap-2 mt-1">
@@ -550,11 +561,11 @@ const Scanner = () => {
                   }
                   value={visitorId}
                   onChange={(e) => setVisitorId(e.target.value.toUpperCase())}
-                  className="flex-1 h-9 text-base font-mono"
+                  className="flex-1 h-8 text-sm font-mono"
                   autoFocus={!isCameraOpen}
                   autoComplete="off"
                 />
-                <Button type="submit" disabled={loading} className="h-9 px-3">
+                <Button type="submit" disabled={loading} className="h-8 px-3 text-sm">
                   {loading ? (
                     <Loading
                       size="sm"
@@ -571,7 +582,7 @@ const Scanner = () => {
                   type="button"
                   variant="outline"
                   onClick={handleClear}
-                  className="h-9 px-3"
+                  className="h-8 px-3 text-sm"
                 >
                   Reset
                 </Button>
@@ -753,30 +764,31 @@ const Scanner = () => {
                   </div>
 
                   {/* Scan Location Display - Shows where visitor was scanned */}
-                  {selectedPlace && places && places.length > 0 && (
+                  {(employee?.place_id || (selectedPlace && places && places.length > 0)) && (
                     <div className="col-span-2">
                       <div className="flex items-center gap-4 p-4 rounded-lg bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-2 border-green-300 dark:border-green-700">
                         <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shrink-0">
                           <MapPinIcon className="h-7 w-7 text-white" />
                         </div>
                         <div className="flex-1">
-                          {/* <p className="text-xs text-green-700 dark:text-green-300 uppercase font-semibold mb-1">
+                          <p className="text-xs text-green-700 dark:text-green-300 uppercase font-semibold mb-1">
                             📍 Scanned At
-                          </p> */}
+                          </p>
                           <h3 className="text-xl font-bold text-green-900 dark:text-green-100">
-                            {places.find((p) => p._id === selectedPlace)
-                              ?.name || "Unknown Location"}
+                            {employee?.place_id?.name || 
+                             places.find((p) => p._id === selectedPlace)?.name || 
+                             "Unknown Location"}
                           </h3>
-                          {/* {places.find((p) => p._id === selectedPlace)
-                            ?.placeCode && (
+                          {(employee?.place_id?.placeCode || places.find((p) => p._id === selectedPlace)?.placeCode) && (
                             <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                              Code:{" "}
-                              {
-                                places.find((p) => p._id === selectedPlace)
-                                  ?.placeCode
-                              }
+                              Code: {employee?.place_id?.placeCode || places.find((p) => p._id === selectedPlace)?.placeCode}
                             </p>
-                          )} */}
+                          )}
+                          {(employee?.place_id?.location || places.find((p) => p._id === selectedPlace)?.location) && (
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                              {employee?.place_id?.location || places.find((p) => p._id === selectedPlace)?.location}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
                           <Badge className="bg-green-600 text-white text-sm px-3 py-1">

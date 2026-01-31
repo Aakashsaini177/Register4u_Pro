@@ -1727,7 +1727,14 @@ exports.scanVisitor = asyncHandler(async (req, res) => {
       }
 
       // Check if employee is assigned to this place
-      if (!place.assignedEmployees.includes(req.user.id)) {
+      // Now checking via Employee.place_id instead of Place.assignedEmployees
+      const { Employee } = require("../models");
+      const employeeWithPlace = await Employee.findOne({
+        _id: req.user.id,
+        place_id: placeId,
+      });
+
+      if (!employeeWithPlace) {
         return res.status(403).json({
           success: false,
           message: "You are not assigned to scan at this place",

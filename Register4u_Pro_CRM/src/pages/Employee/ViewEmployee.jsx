@@ -302,6 +302,15 @@ const ViewEmployee = () => {
               />
             </div>
 
+            <div>
+              <Label className="text-xs text-gray-500">Assigned Place</Label>
+              <Input
+                value={employee.place_id ? `${employee.place_id.name}${employee.place_id.placeCode ? ` (${employee.place_id.placeCode})` : ''}` : "Not Assigned"}
+                readOnly
+                className="mt-0.5 h-7 text-xs bg-gray-50"
+              />
+            </div>
+
             {/* Section: Employment */}
             <div className="lg:col-span-4 border-b pb-1 mt-1 mb-1">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">

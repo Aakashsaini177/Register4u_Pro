@@ -8,9 +8,24 @@ exports.getAllPlaces = asyncHandler(async (req, res) => {
       .populate("assignedEmployees", "fullName emp_code emp_type")
       .sort({ createdAt: -1 });
 
+    // Calculate employee count for each place by checking Employee collection
+    const placesWithCount = await Promise.all(
+      places.map(async (place) => {
+        // Count employees where place_id matches this place
+        const employeeCount = await Employee.countDocuments({
+          place_id: place._id
+        });
+
+        return {
+          ...place.toObject(),
+          employeeCount,
+        };
+      })
+    );
+
     res.status(200).json({
       success: true,
-      data: places,
+      data: placesWithCount,
     });
   } catch (error) {
     console.error("Get Places Error:", error);
@@ -37,9 +52,23 @@ exports.getPlaceById = asyncHandler(async (req, res) => {
       });
     }
 
+    // Count employees where place_id matches this place
+    const employeeCount = await Employee.countDocuments({
+      place_id: id
+    });
+
+    // Get list of employees assigned to this place
+    const assignedEmployees = await Employee.find({
+      place_id: id
+    }).select("fullName emp_code emp_type email contact");
+
     res.status(200).json({
       success: true,
-      data: place,
+      data: {
+        ...place.toObject(),
+        employeeCount,
+        assignedEmployees,
+      },
     });
   } catch (error) {
     console.error("Get Place Error:", error);

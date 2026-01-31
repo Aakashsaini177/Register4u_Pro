@@ -90,6 +90,25 @@ const Login = () => {
             if (role === "employee" || role === "permanent_employee" || role === "volunteer") {
               login(userData, response.data.token, "employee");
 
+              // Fetch fresh profile data with place_id populated
+              try {
+                const profileResponse = await authAPI.getProfile();
+                if (profileResponse.data.success) {
+                  // Response structure: { success: true, data: { employee: {...} } }
+                  const freshProfile = profileResponse.data.data.employee;
+                  console.log("✅ Profile fetched with place:", freshProfile.place_id);
+                  // Update employee data in store with fresh profile
+                  const updatedUserData = {
+                    ...userData,
+                    user: freshProfile
+                  };
+                  login(updatedUserData, response.data.token, "employee");
+                }
+              } catch (profileError) {
+                console.error("Failed to fetch profile:", profileError);
+                // Continue with login even if profile fetch fails
+              }
+
               if (userData.user?.firstLogin) {
                 navigate("/employee/change-password");
               } else {

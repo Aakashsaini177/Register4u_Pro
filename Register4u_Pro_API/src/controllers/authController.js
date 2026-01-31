@@ -405,13 +405,14 @@ class AuthController {
         state: 1,
         pincode: 1,
         location: 1,
+        place_id: 1,
         pan_card: 1,
         adhar_card: 1,
         joining_date: 1,
         ending_date: 1,
         createdAt: 1,
         updatedAt: 1,
-      });
+      }).populate('place_id', 'name placeCode location');
 
       if (!employee) {
         return res.status(404).json({
@@ -446,6 +447,7 @@ class AuthController {
             state: employee.state,
             pincode: employee.pincode,
             location: employee.location,
+            place_id: employee.place_id, // Add place_id
             pan_card: employee.pan_card,
             adhar_card: employee.adhar_card,
             joining_date: employee.joining_date,
